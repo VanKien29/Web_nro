@@ -65,4 +65,20 @@ class HomeController extends Controller
             'settings' => $settings,
         ]);
     }
+
+    public function postDetail(string $slug)
+    {
+        $post = Post::published()
+            ->with('category:id,name')
+            ->where('slug', $slug)
+            ->first();
+
+        if (!$post) {
+            return response()->json(['ok' => false, 'message' => 'Bài viết không tồn tại'], 404);
+        }
+
+        $post->increment('views');
+
+        return response()->json(['ok' => true, 'data' => $post]);
+    }
 }

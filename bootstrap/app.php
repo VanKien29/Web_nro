@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'game.auth' => \App\Http\Middleware\GameTokenAuth::class,
             'topup.secret' => \App\Http\Middleware\TopupSecret::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

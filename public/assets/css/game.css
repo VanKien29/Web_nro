@@ -1,0 +1,450 @@
+/* ============================================
+   game.css — Body, fonts, footer, sidebar, popup
+   Extracted from original home.php + footer.php
+   ============================================ */
+
+/* === BODY === */
+body {
+    margin: 0;
+    font-family: "Bangers", cursive;
+    font-size: 16px;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+    color: #222;
+    background-color: #0b1a3b;
+    min-height: 100vh;
+    overflow-x: hidden !important;
+    background: url(/assets/frontend/home/v1/images/smBg.jpg) #0b1a3b;
+    background-repeat: no-repeat;
+    background-position: center top;
+    background-size: contain;
+}
+
+@media only screen and (min-width: 1024px) {
+    body {
+        background: url(/assets/frontend/home/v1/images/fullBg.jpg?v=1) #0b1a3b;
+        background-repeat: no-repeat;
+        background-position: center top;
+        background-size: auto;
+    }
+}
+
+/* === FONT FACES === */
+@font-face {
+    font-family: "Bangers";
+    src: url("/assets/frontend/home/v1/fonts/Bangers-Regular.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "RussoOne";
+    src: url("/assets/frontend/home/v1/fonts/RussoOne-Regular.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "Righteous";
+    src: url("/assets/frontend/home/v1/fonts/Righteous-Regular.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url("/assets/frontend/home/v1/fonts/Roboto-Regular.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "tahoma";
+    src: url("/assets/frontend/home/v1/fonts/tahoma.woff") format("woff");
+}
+
+@font-face {
+    font-family: "tahomabold";
+    src: url("/assets/frontend/home/v1/fonts/tahomabold.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "utm_facebook";
+    src: url("/assets/frontend/home/v1/fonts/utm_facebook.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "utm_facebook_kt";
+    src: url("/assets/frontend/home/v1/fonts/utm_facebook_kt.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "LG_OnePieceUI2";
+    src: url("/assets/frontend/home/v1/fonts/LG_OnePieceUI2.ttf")
+        format("truetype");
+}
+
+@font-face {
+    font-family: "sVN-Avengeance";
+    src: url("/assets/frontend/home/v1/fonts/sVN-Avengeance.otf")
+        format("opentype");
+}
+
+/* === MENU === */
+#menu li a {
+    font-family: "Bangers", cursive !important;
+    font-size: 20px;
+    letter-spacing: 0.8px;
+}
+
+.menu-dropdown {
+    position: relative;
+    cursor: pointer;
+}
+
+/* === FOOTER === */
+.footer-ace {
+    width: 100%;
+    padding: 40px 0 30px;
+    text-align: center;
+    color: #fff;
+    background: #181818;
+    font-family: "Bangers", cursive;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.footer-link-privacy {
+    margin-bottom: 10px;
+}
+
+.footer-link-privacy a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.footer-link-privacy a:hover {
+    color: #ffa000;
+}
+
+.footer-ace p {
+    margin-bottom: 6px;
+}
+
+.footer-ace-inner {
+    width: 100%;
+    max-width: 1000px;
+    color: #fff;
+    font-size: 13px;
+    text-align: center;
+    position: relative;
+    margin: 0 auto;
+}
+
+.faq-tink {
+    position: absolute;
+    display: block;
+    text-indent: -999em;
+    background: url(/assets/frontend/home/v1/images/logo_footer.png) 0 0
+        no-repeat;
+    background-size: contain;
+    width: 140px;
+    height: 55px;
+    left: 0;
+    top: -10px;
+    margin-top: 30px;
+}
+
+.footer-ace-18 {
+    position: absolute;
+    right: 0;
+    top: 0;
+    max-width: 160px;
+    object-fit: contain;
+    object-position: top center;
+}
+
+@media (max-width: 768px) {
+    .faq-tink {
+        position: inherit;
+        top: 0;
+        margin: 0 auto 10px;
+    }
+
+    .footer-ace-18 {
+        display: block;
+        position: relative;
+        left: 50%;
+        margin-top: 10px;
+        transform: translateX(-50%);
+        margin-left: 0;
+    }
+}
+
+/* === SIDEBAR RIGHT === */
+.sidebar_right {
+    transition: right 0.5s ease;
+    right: -206px !important;
+    z-index: 999 !important;
+}
+
+.sidebar_right .sidebar_right-content {
+    opacity: 0;
+    transition: opacity 0.3s ease 0.2s;
+}
+
+.sidebar_right.mo {
+    right: 6px !important;
+    z-index: 9999 !important;
+}
+
+.sidebar_right.mo .sidebar_right-content {
+    opacity: 1;
+}
+
+.ctFixRight {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ctFixRight .imgCtr {
+    transition: transform 0.3s ease;
+    transform: rotateZ(-180deg);
+}
+
+.ctFixRight.ctFixRight-mo .imgCtr {
+    transform: rotateZ(0deg);
+}
+
+/* === WELCOME POPUP === */
+.welcome-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.welcome-popup-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.welcome-popup-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 3px solid #ffb800;
+    border-radius: 20px;
+    padding: 40px 30px;
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    box-shadow:
+        0 20px 60px rgba(255, 184, 0, 0.4),
+        0 0 40px rgba(255, 140, 0, 0.3),
+        inset 0 0 30px rgba(255, 184, 0, 0.1);
+    transform: scale(0.8) translateY(-50px);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: popupFloat 3s ease-in-out infinite;
+}
+
+.welcome-popup-overlay.show .welcome-popup-content {
+    transform: scale(1) translateY(0);
+}
+
+@keyframes popupFloat {
+    0%,
+    100% {
+        transform: scale(1) translateY(0);
+    }
+    50% {
+        transform: scale(1) translateY(-10px);
+    }
+}
+
+.popup-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: linear-gradient(135deg, #ff6b6b, #ff4757);
+    color: white;
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+}
+
+.popup-close-btn:hover {
+    transform: rotate(90deg) scale(1.1);
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+    box-shadow: 0 6px 20px rgba(255, 71, 87, 0.6);
+}
+
+.popup-title {
+    font-family: "Bangers", cursive;
+    font-size: 24px;
+    color: #ffb800;
+    text-align: center;
+    margin: 0 0 10px 0;
+    letter-spacing: 2px;
+    text-shadow:
+        0 0 10px rgba(255, 184, 0, 0.5),
+        0 0 20px rgba(255, 184, 0, 0.3);
+}
+
+.popup-game-title {
+    font-family: "Bangers", cursive;
+    font-size: 36px;
+    background: linear-gradient(135deg, #ffd700, #ff8c00, #ff6347);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    margin: 0 0 30px 0;
+    letter-spacing: 3px;
+    animation: titleGlow 2s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+    0%,
+    100% {
+        filter: brightness(1) drop-shadow(0 0 10px rgba(255, 140, 0, 0.6));
+    }
+    50% {
+        filter: brightness(1.2) drop-shadow(0 0 20px rgba(255, 140, 0, 0.9));
+    }
+}
+
+.popup-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.popup-btn {
+    background: linear-gradient(135deg, #ff8c00, #ff6347);
+    border: 2px solid #ffb800;
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(255, 140, 0, 0.4);
+}
+
+.popup-btn::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transition: left 0.5s ease;
+}
+
+.popup-btn:hover::before {
+    left: 100%;
+}
+
+.popup-btn:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 140, 0, 0.6);
+    border-color: #ffd700;
+}
+
+.popup-btn:active {
+    transform: translateY(-2px) scale(1.02);
+}
+
+.btn-text {
+    font-family: "Bangers", cursive;
+    font-size: 16px;
+    color: white;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.btn-ios {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: #a8b3ff;
+}
+.btn-ios:hover {
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+    border-color: #c5ceff;
+}
+
+.btn-android {
+    background: linear-gradient(135deg, #56ab2f, #a8e063);
+    border-color: #b8e878;
+}
+.btn-android:hover {
+    box-shadow: 0 8px 25px rgba(86, 171, 47, 0.6);
+    border-color: #d4f19b;
+}
+
+.btn-topup {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    border-color: #ffa8d0;
+}
+.btn-topup:hover {
+    box-shadow: 0 8px 25px rgba(245, 87, 108, 0.6);
+    border-color: #ffc4e0;
+}
+
+.btn-fanpage {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    border-color: #7ec3ff;
+}
+.btn-fanpage:hover {
+    box-shadow: 0 8px 25px rgba(79, 172, 254, 0.6);
+    border-color: #a8d8ff;
+}
+
+@media (max-width: 480px) {
+    .welcome-popup-content {
+        padding: 30px 20px;
+    }
+    .popup-title {
+        font-size: 20px;
+    }
+    .popup-game-title {
+        font-size: 28px;
+    }
+    .popup-buttons {
+        gap: 12px;
+    }
+    .popup-btn {
+        padding: 12px 8px;
+    }
+    .btn-text {
+        font-size: 14px;
+    }
+}

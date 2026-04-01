@@ -2,9 +2,68 @@
 
 use Illuminate\Support\Facades\Route;
 
-// API routes
+// ========== API ROUTES ==========
 Route::prefix('api')->group(function () {
+
+    // Public APIs (no auth)
     Route::get('/home', [\App\Http\Controllers\Api\HomeController::class, 'index']);
+    Route::get('/bxh', [\App\Http\Controllers\Api\BxhController::class, 'index']);
+    Route::get('/giftcodes', [\App\Http\Controllers\Api\GiftcodeController::class, 'index']);
+    Route::get('/posts/{slug}', [\App\Http\Controllers\Api\HomeController::class, 'postDetail']);
+
+    // Auth (public)
+    Route::post('/auth/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    Route::post('/auth/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
+
+    // Auth required (game.auth middleware)
+    Route::middleware('game.auth')->group(function () {
+        Route::post('/auth/change-password', [\App\Http\Controllers\Api\AuthController::class, 'changePassword']);
+        Route::post('/auth/activate', [\App\Http\Controllers\Api\AuthController::class, 'activate']);
+        Route::get('/profile', [\App\Http\Controllers\Api\ProfileController::class, 'profile']);
+        Route::get('/topup/history', [\App\Http\Controllers\Api\TopupController::class, 'history']);
+    });
+
+    // SePay webhook (API key auth in controller)
+    Route::post('/sepay/webhook', [\App\Http\Controllers\Api\SePayController::class, 'webhook']);
+    Route::get('/sepay/cron', [\App\Http\Controllers\Api\SePayController::class, 'cron']);
+
+    // Topup — protected by topup.secret middleware
+    Route::middleware('topup.secret')->group(function () {
+        Route::post('/topup/credit', [\App\Http\Controllers\Api\TopupController::class, 'credit']);
+
+        // Card topup
+        Route::post('/topup/log', [\App\Http\Controllers\Api\TopupCardController::class, 'create']);
+        Route::get('/topup/log', [\App\Http\Controllers\Api\TopupCardController::class, 'get']);
+        Route::put('/topup/log/{transId}', [\App\Http\Controllers\Api\TopupCardController::class, 'update']);
+        Route::get('/topup/log/history/{username}', [\App\Http\Controllers\Api\TopupCardController::class, 'history']);
+    });
+
+    // Admin — protected by topup.secret middleware
+    Route::middleware('topup.secret')->prefix('admin')->group(function () {
+        Route::get('/stats', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
+        Route::get('/history', [\App\Http\Controllers\Api\AdminController::class, 'history']);
+        Route::get('/revenue', [\App\Http\Controllers\Api\AdminController::class, 'revenue']);
+        Route::get('/topUsers', [\App\Http\Controllers\Api\AdminController::class, 'topUsers']);
+        Route::get('/monthlyRevenue', [\App\Http\Controllers\Api\AdminController::class, 'monthlyRevenue']);
+
+        // Accounts CRUD
+        Route::get('/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
+        Route::get('/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsGet']);
+        Route::post('/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
+        Route::put('/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);
+        Route::delete('/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsDelete']);
+
+        // Giftcodes CRUD
+        Route::get('/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesList']);
+        Route::get('/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesGet']);
+        Route::post('/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesCreate']);
+        Route::put('/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesUpdate']);
+        Route::delete('/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesDelete']);
+
+        // Items
+        Route::get('/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
+        Route::get('/items/{id}/options', [\App\Http\Controllers\Api\AdminController::class, 'itemsOptions']);
+    });
 });
 
 // SPA catch-all: mọi route khác đều trả về Vue app
