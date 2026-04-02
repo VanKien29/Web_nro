@@ -2,7 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Game\ApiToken;
+use App\Models\Game\Account;
+use App\Services\JwtService;
 use Closure;
 use Illuminate\Http\Request;
 
@@ -16,13 +17,14 @@ class GameTokenAuth
             return response()->json(['ok' => false, 'error' => 'unauthorized'], 401);
         }
 
-        $apiToken = ApiToken::where('token', $token)->first();
+        $jwt = new JwtService();
+        $payload = $jwt->decode($token);
 
-        if (!$apiToken) {
+        if (!$payload || !isset($payload->sub)) {
             return response()->json(['ok' => false, 'error' => 'invalid_token'], 401);
         }
 
-        $account = $apiToken->account;
+        $account = Account::find($payload->sub);
 
         if (!$account) {
             return response()->json(['ok' => false, 'error' => 'invalid_token'], 401);

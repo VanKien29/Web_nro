@@ -108,7 +108,13 @@ body * {
 }
 
 .game-nav__link,
-.game-nav__btn {
+.game-nav__link:link,
+.game-nav__link:visited,
+.game-nav__link:active,
+.game-nav__btn,
+.game-nav__btn:link,
+.game-nav__btn:visited,
+.game-nav__btn:active {
     font-family: var(--font-heading);
     font-size: 16px;
     font-weight: 400;
@@ -170,7 +176,10 @@ body * {
     display: none;
 }
 
-.game-nav__link--logout {
+.game-nav__link--logout,
+.game-nav__link--logout:link,
+.game-nav__link--logout:visited,
+.game-nav__link--logout:active {
     color: #111;
 }
 

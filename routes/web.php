@@ -38,7 +38,7 @@ Route::prefix('api')->group(function () {
         Route::get('/topup/log/history/{username}', [\App\Http\Controllers\Api\TopupCardController::class, 'history']);
     });
 
-    // Admin — protected by topup.secret middleware
+    // Admin API — protected by topup.secret middleware
     Route::middleware('topup.secret')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
         Route::get('/history', [\App\Http\Controllers\Api\AdminController::class, 'history']);
@@ -63,6 +63,40 @@ Route::prefix('api')->group(function () {
         // Items
         Route::get('/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
         Route::get('/items/{id}/options', [\App\Http\Controllers\Api\AdminController::class, 'itemsOptions']);
+    });
+});
+
+// ========== ADMIN WEB ROUTES ==========
+Route::prefix('admin')->group(function () {
+    // Login
+    Route::middleware('throttle:admin-login')->group(function () {
+        Route::get('/login', [\App\Http\Controllers\Admin\AuthController::class, 'create'])->name('admin.login');
+        Route::post('/login', [\App\Http\Controllers\Admin\AuthController::class, 'store'])->name('admin.login.store');
+    });
+
+    // Protected admin pages
+    Route::middleware('admin.auth')->group(function () {
+        Route::post('/logout', [\App\Http\Controllers\Admin\AuthController::class, 'destroy'])->name('admin.logout');
+        Route::get('/', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('admin.dashboard');
+
+        // Accounts
+        Route::get('/accounts', [\App\Http\Controllers\Admin\AccountController::class, 'index'])->name('admin.accounts.index');
+        Route::get('/accounts/create', [\App\Http\Controllers\Admin\AccountController::class, 'create'])->name('admin.accounts.create');
+        Route::post('/accounts', [\App\Http\Controllers\Admin\AccountController::class, 'store'])->name('admin.accounts.store');
+        Route::get('/accounts/{account}/edit', [\App\Http\Controllers\Admin\AccountController::class, 'edit'])->name('admin.accounts.edit');
+        Route::put('/accounts/{account}', [\App\Http\Controllers\Admin\AccountController::class, 'update'])->name('admin.accounts.update');
+        Route::delete('/accounts/{account}', [\App\Http\Controllers\Admin\AccountController::class, 'destroy'])->name('admin.accounts.destroy');
+
+        // Giftcodes
+        Route::get('/giftcodes', [\App\Http\Controllers\Admin\GiftcodeController::class, 'index'])->name('admin.giftcodes.index');
+        Route::get('/giftcodes/create', [\App\Http\Controllers\Admin\GiftcodeController::class, 'create'])->name('admin.giftcodes.create');
+        Route::post('/giftcodes', [\App\Http\Controllers\Admin\GiftcodeController::class, 'store'])->name('admin.giftcodes.store');
+        Route::get('/giftcodes/{id}/edit', [\App\Http\Controllers\Admin\GiftcodeController::class, 'edit'])->name('admin.giftcodes.edit');
+        Route::put('/giftcodes/{id}', [\App\Http\Controllers\Admin\GiftcodeController::class, 'update'])->name('admin.giftcodes.update');
+        Route::delete('/giftcodes/{id}', [\App\Http\Controllers\Admin\GiftcodeController::class, 'destroy'])->name('admin.giftcodes.destroy');
+
+        // Items
+        Route::get('/items', [\App\Http\Controllers\Admin\ItemController::class, 'index'])->name('admin.items.index');
     });
 });
 
