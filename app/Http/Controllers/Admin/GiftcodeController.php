@@ -53,7 +53,7 @@ class GiftcodeController extends Controller
         // Collect all item IDs from detail JSON to resolve icon_ids
         $allItemIds = [];
         foreach ($giftcodes as $gc) {
-            $detail = json_decode($gc->detail ?? '[]', true) ?: [];
+            $detail = json_decode($this->fixJson($gc->detail ?? '[]'), true) ?: [];
             foreach ($detail as $item) {
                 if (isset($item['temp_id'])) {
                     $allItemIds[] = (int) $item['temp_id'];
@@ -132,7 +132,7 @@ class GiftcodeController extends Controller
             ->get();
 
         // Resolve item names/icons for detail items
-        $detail = json_decode($giftcode->detail ?? '[]', true) ?: [];
+        $detail = json_decode($this->fixJson($giftcode->detail ?? '[]'), true) ?: [];
         $itemIds = array_column($detail, 'temp_id');
         $itemMap = [];
         if (!empty($itemIds)) {
@@ -179,5 +179,15 @@ class GiftcodeController extends Controller
         DB::connection('game')->table('giftcode')->where('id', $id)->delete();
 
         return redirect()->route('admin.giftcodes.index')->with('status', 'Đã xoá giftcode.');
+    }
+
+    private function fixJson(?string $str): string
+    {
+        if (!$str) return '[]';
+        $s = trim($str);
+        $s = preg_replace('/,\s*([\]\}])/', '$1', $s);
+        $s = preg_replace('/([\[\{])\s*,/', '$1', $s);
+        $s = preg_replace('/,\s*,/', ',', $s);
+        return $s;
     }
 }

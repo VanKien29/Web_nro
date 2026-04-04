@@ -37,20 +37,57 @@
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>NPC</th>
                             <th>Tên Shop</th>
-                            <th>NPC ID</th>
                             <th>Type</th>
                             <th>Tabs</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template v-for="shop in shops" :key="shop.id">
-                            <tr class="shop-row">
+                            <tr
+                                class="shop-row"
+                                @click="toggleShop(shop.id)"
+                                style="cursor: pointer"
+                            >
                                 <td>{{ shop.id }}</td>
                                 <td>
-                                    <strong>{{ shop.tag_name }}</strong>
+                                    <div class="npc-cell">
+                                        <img
+                                            v-if="shop.npc_avatar"
+                                            class="npc-avatar"
+                                            :src="
+                                                iconBase +
+                                                shop.npc_avatar +
+                                                '.png'
+                                            "
+                                            @error="
+                                                $event.target.style.display =
+                                                    'none'
+                                            "
+                                        />
+                                        <span class="npc-id">{{
+                                            shop.npc_id
+                                        }}</span>
+                                    </div>
                                 </td>
-                                <td>{{ shop.npc_id }}</td>
+                                <td>
+                                    <div class="shop-name-cell">
+                                        <span
+                                            class="mi expand-icon"
+                                            :class="{
+                                                rotated: expandedShops[shop.id],
+                                            }"
+                                            >expand_more</span
+                                        >
+                                        <strong>{{ shop.tag_name }}</strong>
+                                        <span
+                                            v-if="shop.npc_name"
+                                            class="npc-name-label"
+                                            >{{ shop.npc_name }}</span
+                                        >
+                                    </div>
+                                </td>
                                 <td>
                                     <span
                                         class="badge"
@@ -69,7 +106,16 @@
                                 v-for="tab in shop.tabs"
                                 :key="'tab-' + tab.id"
                                 class="tab-row"
+                                v-show="expandedShops[shop.id]"
+                                @click="
+                                    $router.push({
+                                        name: 'admin.shops.tab.edit',
+                                        params: { tabId: tab.id },
+                                    })
+                                "
+                                style="cursor: pointer"
                             >
+                                <td></td>
                                 <td></td>
                                 <td colspan="2">
                                     <div class="tab-info">
@@ -80,26 +126,19 @@
                                         <span class="tab-index"
                                             >#{{ tab.tab_index }}</span
                                         >
+                                        <span
+                                            class="badge badge-warning tab-item-badge"
+                                            >{{ tab.item_count }} items</span
+                                        >
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="badge badge-warning"
-                                        >{{ tab.item_count }} items</span
-                                    >
-                                </td>
                                 <td style="text-align: right">
-                                    <router-link
-                                        :to="{
-                                            name: 'admin.shops.tab.edit',
-                                            params: { tabId: tab.id },
-                                        }"
-                                        class="btn btn-primary btn-sm"
-                                    >
+                                    <span class="edit-link">
                                         <span class="mi" style="font-size: 14px"
                                             >edit</span
                                         >
                                         Sửa
-                                    </router-link>
+                                    </span>
                                 </td>
                             </tr>
                         </template>
@@ -129,6 +168,8 @@ export default {
             shops: [],
             search: "",
             loading: false,
+            expandedShops: {},
+            iconBase: "/assets/frontend/home/v1/images/x4/",
         };
     },
     created() {
@@ -138,6 +179,12 @@ export default {
         typeLabel(type) {
             const labels = { 0: "Gold", 3: "Special" };
             return labels[type] || "Type " + type;
+        },
+        toggleShop(id) {
+            this.expandedShops = {
+                ...this.expandedShops,
+                [id]: !this.expandedShops[id],
+            };
         },
         async loadShops() {
             this.loading = true;
@@ -220,8 +267,52 @@ export default {
 .shop-row {
     background: var(--ds-surface-2);
 }
+.shop-row:hover {
+    background: rgba(var(--ds-primary-rgb), 0.04);
+}
 .shop-row td {
     border-top: 2px solid var(--ds-border) !important;
+}
+.shop-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.npc-name-label {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+    background: var(--ds-gray-100);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+}
+.npc-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.npc-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--ds-gray-100);
+    flex-shrink: 0;
+}
+.npc-id {
+    font-size: 12px;
+    color: var(--ds-text-muted);
+}
+.expand-icon {
+    font-size: 20px;
+    color: var(--ds-text-muted);
+    transition: transform 0.2s;
+    transform: rotate(-90deg);
+}
+.expand-icon.rotated {
+    transform: rotate(0deg);
+}
+.tab-row:hover td {
+    background: rgba(var(--ds-primary-rgb), 0.06);
 }
 .tab-row td {
     padding-top: 6px !important;
@@ -243,6 +334,20 @@ export default {
     background: var(--ds-gray-100);
     padding: 1px 6px;
     border-radius: 4px;
+}
+.tab-item-badge {
+    margin-left: 4px;
+}
+.edit-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ds-primary);
+    font-size: 13px;
+    font-weight: 500;
+}
+.tab-row:hover .edit-link {
+    text-decoration: underline;
 }
 
 .badge-type-0 {

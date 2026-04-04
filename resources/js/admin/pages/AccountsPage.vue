@@ -86,9 +86,81 @@
                                     >—</span
                                 >
                             </td>
-                            <td>{{ fmt(acc.cash) }}</td>
-                            <td>{{ fmt(acc.danap) }}</td>
-                            <td>{{ fmt(acc.coin) }}</td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(acc, 'cash')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === acc.id &&
+                                        editing.field === 'cash'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(acc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ fmt(acc.cash) }}</span
+                                >
+                            </td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(acc, 'danap')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === acc.id &&
+                                        editing.field === 'danap'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(acc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ fmt(acc.danap) }}</span
+                                >
+                            </td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(acc, 'coin')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === acc.id &&
+                                        editing.field === 'coin'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(acc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ fmt(acc.coin) }}</span
+                                >
+                            </td>
                             <td style="text-align: right">
                                 <router-link
                                     :to="{
@@ -151,6 +223,7 @@ export default {
             page: 1,
             totalPages: 1,
             loading: false,
+            editing: null,
         };
     },
     created() {
@@ -183,6 +256,51 @@ export default {
                 //
             } finally {
                 this.loading = false;
+            }
+        },
+        startEdit(row, field) {
+            this.editing = {
+                id: row.id,
+                field,
+                value: row[field],
+                original: row[field],
+            };
+            this.$nextTick(() => {
+                const input = this.$refs.inlineInput;
+                if (input) {
+                    const el = Array.isArray(input) ? input[0] : input;
+                    el.focus();
+                    el.select();
+                }
+            });
+        },
+        cancelEdit() {
+            this.editing = null;
+        },
+        async saveEdit(row) {
+            if (!this.editing) return;
+            const { field, value, original } = this.editing;
+            this.editing = null;
+            if (value === original) return;
+            const prev = row[field];
+            row[field] = value;
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch(`/admin/api/accounts/${row.id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": token,
+                    },
+                    body: JSON.stringify({ [field]: value }),
+                });
+                const data = await res.json();
+                if (!data.ok) row[field] = prev;
+            } catch {
+                row[field] = prev;
             }
         },
     },
@@ -244,5 +362,31 @@ export default {
 .search-input {
     padding-left: 38px !important;
     width: 300px;
+}
+.editable-cell {
+    cursor: default;
+}
+.editable-value {
+    cursor: default;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.editable-cell:hover .editable-value {
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    outline: 1px dashed rgba(var(--ds-primary-rgb), 0.3);
+}
+.inline-input {
+    width: 120px;
+    max-width: 140px;
+    padding: 4px 8px;
+    font-size: 13px;
+    border: 2px solid var(--ds-primary);
+    border-radius: 6px;
+    background: var(--ds-body-bg);
+    color: var(--ds-text);
+    outline: none;
+    font-family: inherit;
+    box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.15);
 }
 </style>
