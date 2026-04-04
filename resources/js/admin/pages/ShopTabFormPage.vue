@@ -266,7 +266,11 @@
                                         <td class="td-opts">
                                             <div class="t-opts-list">
                                                 <span
-                                                    v-for="(opt, oi) in item.options.filter(o => !o._pending)"
+                                                    v-for="(
+                                                        opt, oi
+                                                    ) in item.options.filter(
+                                                        (o) => !o._pending,
+                                                    )"
                                                     :key="oi"
                                                     class="t-opt-pill"
                                                 >
@@ -279,24 +283,51 @@
                                                     <button
                                                         type="button"
                                                         class="t-opt-rm"
-                                                        @click="item.options.splice(item.options.indexOf(opt), 1)"
+                                                        @click="
+                                                            item.options.splice(
+                                                                item.options.indexOf(
+                                                                    opt,
+                                                                ),
+                                                                1,
+                                                            )
+                                                        "
                                                     >
                                                         &times;
                                                     </button>
                                                 </span>
                                                 <button
-                                                    v-if="!item.options.some(o => o._pending)"
+                                                    v-if="
+                                                        !item.options.some(
+                                                            (o) => o._pending,
+                                                        )
+                                                    "
                                                     type="button"
                                                     class="t-opt-add"
-                                                    @click="item.options.push({ id: 0, param: 0, search: '', showDrop: false, _pending: true })"
+                                                    @click="
+                                                        item.options.push({
+                                                            id: 0,
+                                                            param: 0,
+                                                            search: '',
+                                                            showDrop: false,
+                                                            _pending: true,
+                                                        })
+                                                    "
                                                     title="Thêm option"
                                                 >
-                                                    <span class="mi" style="font-size: 14px">add</span>
+                                                    <span
+                                                        class="mi"
+                                                        style="font-size: 14px"
+                                                        >add</span
+                                                    >
                                                 </button>
                                             </div>
                                             <!-- Inline option editor for pending -->
                                             <div
-                                                v-if="item.options.some(o => o._pending)"
+                                                v-if="
+                                                    item.options.some(
+                                                        (o) => o._pending,
+                                                    )
+                                                "
                                                 class="t-opt-editor"
                                             >
                                                 <div class="option-select-wrap">
@@ -374,6 +405,18 @@
                                                     class="form-input input-sm param-input"
                                                     placeholder="Param"
                                                 />
+                                                <button
+                                                    type="button"
+                                                    class="t-opt-confirm"
+                                                    @click="confirmOption(item)"
+                                                    title="Xác nhận"
+                                                >
+                                                    <span
+                                                        class="mi"
+                                                        style="font-size: 16px"
+                                                        >check</span
+                                                    >
+                                                </button>
                                             </div>
                                         </td>
                                         <td class="td-act">
@@ -765,9 +808,13 @@ export default {
             opt.search = `${o.name} (ID: ${o.id})`;
             opt.showDrop = false;
         },
+        confirmOption(item) {
+            const opt = this.pendingOpt(item);
+            if (opt._pending) delete opt._pending;
+        },
         pendingOpt(item) {
             return (
-                item.options.find((o) => o.id === 0) || {
+                item.options.find((o) => o._pending) || {
                     search: "",
                     param: 0,
                     showDrop: false,
@@ -926,10 +973,12 @@ export default {
                     is_new: !!item.is_new,
                     is_sell: item.is_sell !== false,
                     item_spec: parseInt(item.item_spec) || 0,
-                    options: item.options.map((o) => ({
-                        id: parseInt(o.id) || 0,
-                        param: parseInt(o.param) || 0,
-                    })),
+                    options: item.options
+                        .filter((o) => !o._pending)
+                        .map((o) => ({
+                            id: parseInt(o.id) || 0,
+                            param: parseInt(o.param) || 0,
+                        })),
                 })),
             );
         },
@@ -1567,6 +1616,22 @@ export default {
     gap: 6px;
     margin-top: 4px;
     align-items: flex-start;
+}
+.t-opt-confirm {
+    background: var(--ds-primary, #4f8cff);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.t-opt-confirm:hover {
+    opacity: 0.85;
 }
 .td-opts {
     min-width: 160px;
