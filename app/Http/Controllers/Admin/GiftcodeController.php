@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -10,12 +11,38 @@ use Illuminate\View\View;
 
 class GiftcodeController extends Controller
 {
+    public function searchItems(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        $query = DB::connection('game')->table('item_template')
+            ->select('id', 'NAME as name', 'icon_id');
+
+        if ($q !== '') {
+            if (is_numeric($q)) {
+                $query->where('id', (int) $q);
+            } else {
+                $query->where('NAME', 'like', "%{$q}%");
+            }
+        }
+
+        return response()->json($query->limit(30)->get());
+    }
+
+    public function allOptions(): JsonResponse
+    {
+        $options = DB::connection('game')->table('item_option_template')
+            ->select('id', 'NAME as name')
+            ->orderBy('id')
+            ->get();
+        return response()->json($options);
+    }
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('search', ''));
 
         $giftcodes = DB::connection('game')->table('giftcode')
-            ->select('id', 'code', 'count_left', 'expired', 'mtv', 'active')
+            ->select('id', 'code', 'count_left', 'detail', 'expired', 'mtv', 'active')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where('code', 'like', "%{$search}%");
             })
@@ -23,15 +50,42 @@ class GiftcodeController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Collect all item IDs from detail JSON to resolve icon_ids
+        $allItemIds = [];
+        foreach ($giftcodes as $gc) {
+            $detail = json_decode($gc->detail ?? '[]', true) ?: [];
+            foreach ($detail as $item) {
+                if (isset($item['temp_id'])) {
+                    $allItemIds[] = (int) $item['temp_id'];
+                }
+            }
+        }
+        $itemIcons = [];
+        if (!empty($allItemIds)) {
+            $items = DB::connection('game')->table('item_template')
+                ->select('id', 'icon_id')
+                ->whereIn('id', array_unique($allItemIds))
+                ->get();
+            foreach ($items as $item) {
+                $itemIcons[$item->id] = $item->icon_id;
+            }
+        }
+
         return view('admin.giftcodes.index', [
             'giftcodes' => $giftcodes,
             'search' => $search,
+            'itemIcons' => $itemIcons,
         ]);
     }
 
     public function create(): View
     {
-        return view('admin.giftcodes.create');
+        $options = DB::connection('game')->table('item_option_template')
+            ->select('id', 'NAME as name')
+            ->orderBy('id')
+            ->get();
+
+        return view('admin.giftcodes.create', compact('options'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -72,8 +126,29 @@ class GiftcodeController extends Controller
     {
         $giftcode = DB::connection('game')->table('giftcode')->where('id', $id)->firstOrFail();
 
+        $options = DB::connection('game')->table('item_option_template')
+            ->select('id', 'NAME as name')
+            ->orderBy('id')
+            ->get();
+
+        // Resolve item names/icons for detail items
+        $detail = json_decode($giftcode->detail ?? '[]', true) ?: [];
+        $itemIds = array_column($detail, 'temp_id');
+        $itemMap = [];
+        if (!empty($itemIds)) {
+            $items = DB::connection('game')->table('item_template')
+                ->select('id', 'NAME as name', 'icon_id')
+                ->whereIn('id', $itemIds)
+                ->get();
+            foreach ($items as $item) {
+                $itemMap[$item->id] = $item;
+            }
+        }
+
         return view('admin.giftcodes.edit', [
             'giftcode' => $giftcode,
+            'options' => $options,
+            'itemMap' => $itemMap,
         ]);
     }
 
