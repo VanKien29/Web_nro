@@ -93,7 +93,31 @@
                                     >
                                 </div>
                             </td>
-                            <td>{{ gc.count_left }}</td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(gc, 'count_left')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === gc.id &&
+                                        editing.field === 'count_left'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(gc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ gc.count_left }}</span
+                                >
+                            </td>
                             <td>{{ gc.mtv ? "Có" : "Không" }}</td>
                             <td style="color: var(--ds-text-muted)">
                                 {{ gc.expired || "—" }}
@@ -171,16 +195,31 @@ export default {
             page: 1,
             totalPages: 1,
             loading: false,
+            editing: null,
         };
     },
     created() {
         this.loadPage(1);
     },
     methods: {
+        fixJson(str) {
+            if (typeof str !== "string") return str;
+            let s = str.trim();
+            // Fix trailing commas before ] or }
+            s = s.replace(/,\s*([\]\}])/g, "$1");
+            // Fix leading commas after [ or {
+            s = s.replace(/([\[\{])\s*,/g, "$1");
+            // Fix double commas
+            s = s.replace(/,\s*,/g, ",");
+            return s;
+        },
         parseDetail(detail) {
             try {
-                const d =
-                    typeof detail === "string" ? JSON.parse(detail) : detail;
+                const raw =
+                    typeof detail === "string"
+                        ? detail
+                        : JSON.stringify(detail);
+                const d = JSON.parse(this.fixJson(raw));
                 return Array.isArray(d) ? d : [];
             } catch {
                 return [];
@@ -243,6 +282,51 @@ export default {
                 }
             } catch {
                 // fallback: icons won't resolve
+            }
+        },
+        startEdit(row, field) {
+            this.editing = {
+                id: row.id,
+                field,
+                value: row[field],
+                original: row[field],
+            };
+            this.$nextTick(() => {
+                const input = this.$refs.inlineInput;
+                if (input) {
+                    const el = Array.isArray(input) ? input[0] : input;
+                    el.focus();
+                    el.select();
+                }
+            });
+        },
+        cancelEdit() {
+            this.editing = null;
+        },
+        async saveEdit(row) {
+            if (!this.editing) return;
+            const { field, value, original } = this.editing;
+            this.editing = null;
+            if (value === original) return;
+            const prev = row[field];
+            row[field] = value;
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch(`/admin/api/giftcodes/${row.id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": token,
+                    },
+                    body: JSON.stringify({ [field]: value }),
+                });
+                const data = await res.json();
+                if (!data.ok) row[field] = prev;
+            } catch {
+                row[field] = prev;
             }
         },
     },
@@ -328,5 +412,31 @@ export default {
 .more-items {
     color: var(--ds-text-muted);
     font-size: 12px;
+}
+.editable-cell {
+    cursor: default;
+}
+.editable-value {
+    cursor: default;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.editable-cell:hover .editable-value {
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    outline: 1px dashed rgba(var(--ds-primary-rgb), 0.3);
+}
+.inline-input {
+    width: 120px;
+    max-width: 140px;
+    padding: 4px 8px;
+    font-size: 13px;
+    border: 2px solid var(--ds-primary);
+    border-radius: 6px;
+    background: var(--ds-body-bg);
+    color: var(--ds-text);
+    outline: none;
+    font-family: inherit;
+    box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.15);
 }
 </style>

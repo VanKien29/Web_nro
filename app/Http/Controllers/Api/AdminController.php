@@ -183,7 +183,7 @@ class AdminController extends Controller
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
 
-        $data = $request->only(['username', 'password', 'cash', 'danap', 'ban', 'is_admin', 'active']);
+        $data = $request->only(['username', 'password', 'cash', 'danap', 'coin', 'ban', 'is_admin', 'active']);
 
         if (isset($data['username'])) {
             $exists = Account::where('username', $data['username'])
@@ -418,13 +418,14 @@ class AdminController extends Controller
         $search = $request->query('search', '');
 
         $query = DB::connection('game')->table('shop')
-            ->select('id', 'npc_id', 'tag_name', 'type_shop');
+            ->leftJoin('npc_template', 'shop.npc_id', '=', 'npc_template.id')
+            ->select('shop.id', 'shop.npc_id', 'shop.tag_name', 'shop.type_shop', 'npc_template.NAME as npc_name', 'npc_template.avatar as npc_avatar');
 
         if ($search) {
-            $query->where('tag_name', 'LIKE', "%{$search}%");
+            $query->where('shop.tag_name', 'LIKE', "%{$search}%");
         }
 
-        $shops = $query->orderBy('id')->get();
+        $shops = $query->orderBy('shop.npc_id')->orderBy('shop.id')->get();
 
         // Attach tabs for each shop
         $shopIds = $shops->pluck('id')->toArray();
@@ -440,7 +441,7 @@ class AdminController extends Controller
             $shop->tabs = $shopTabs->map(function ($tab) {
                 $items = [];
                 try {
-                    $items = json_decode($tab->items, true) ?: [];
+                    $items = json_decode($this->fixJson($tab->items ?? '[]'), true) ?: [];
                 } catch (\Throwable $e) {
                     $items = [];
                 }
@@ -501,5 +502,21 @@ class AdminController extends Controller
         }
 
         return response()->json(['ok' => false, 'message' => 'Update failed'], 500);
+    }
+
+    /**
+     * Fix malformed JSON strings (trailing/leading/double commas).
+     */
+    private function fixJson(?string $str): string
+    {
+        if (!$str) return '[]';
+        $s = trim($str);
+        // Remove trailing commas before ] or }
+        $s = preg_replace('/,\s*([\]\}])/', '$1', $s);
+        // Remove leading commas after [ or {
+        $s = preg_replace('/([\[\{])\s*,/', '$1', $s);
+        // Remove double commas
+        $s = preg_replace('/,\s*,/', ',', $s);
+        return $s;
     }
 }

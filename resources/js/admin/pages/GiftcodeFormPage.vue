@@ -99,9 +99,37 @@
                                     >inventory_2</span
                                 >Vật phẩm
                             </h3>
-                            <span class="item-count"
-                                >{{ items.length }} vật phẩm</span
-                            >
+                            <div class="card-header-actions">
+                                <span class="item-count"
+                                    >{{ items.length }} vật phẩm</span
+                                >
+                                <div class="view-toggle">
+                                    <button
+                                        type="button"
+                                        class="view-toggle-btn"
+                                        :class="{
+                                            active: viewMode === 'table',
+                                        }"
+                                        @click="viewMode = 'table'"
+                                        title="Dạng bảng"
+                                    >
+                                        <span class="mi" style="font-size: 18px"
+                                            >table_rows</span
+                                        >
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="view-toggle-btn"
+                                        :class="{ active: viewMode === 'card' }"
+                                        @click="viewMode = 'card'"
+                                        title="Dạng thẻ"
+                                    >
+                                        <span class="mi" style="font-size: 18px"
+                                            >grid_view</span
+                                        >
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Item search -->
@@ -157,8 +185,197 @@
                             </div>
                         </div>
 
-                        <!-- Items grid -->
-                        <div v-if="items.length" class="items-grid">
+                        <!-- ═══ TABLE VIEW ═══ -->
+                        <div
+                            v-if="items.length && viewMode === 'table'"
+                            class="items-table-wrap"
+                        >
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-idx">#</th>
+                                        <th class="th-icon"></th>
+                                        <th class="th-name">Vật phẩm</th>
+                                        <th class="th-qty">Số lượng</th>
+                                        <th class="th-opts">Options</th>
+                                        <th class="th-act"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="(item, idx) in items"
+                                        :key="'t' + idx"
+                                    >
+                                        <td class="td-idx">{{ idx + 1 }}</td>
+                                        <td class="td-icon">
+                                            <img
+                                                :src="
+                                                    iconBase +
+                                                    item.icon_id +
+                                                    '.png'
+                                                "
+                                                @error="
+                                                    $event.target.style.visibility =
+                                                        'hidden'
+                                                "
+                                            />
+                                        </td>
+                                        <td class="td-name">
+                                            <div class="t-name">
+                                                {{ item.name }}
+                                            </div>
+                                            <div class="t-id">
+                                                ID: {{ item.temp_id }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input
+                                                v-model.number="item.quantity"
+                                                type="number"
+                                                class="form-input input-sm t-input"
+                                                min="1"
+                                            />
+                                        </td>
+                                        <td class="td-opts">
+                                            <div class="t-opts-list">
+                                                <span
+                                                    v-for="(opt, oi) in item.options.filter(o => !o._pending)"
+                                                    :key="oi"
+                                                    class="t-opt-pill"
+                                                >
+                                                    {{
+                                                        optionLabel(
+                                                            opt.id,
+                                                            opt.param,
+                                                        )
+                                                    }}
+                                                    <button
+                                                        type="button"
+                                                        class="t-opt-rm"
+                                                        @click="item.options.splice(item.options.indexOf(opt), 1)"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </span>
+                                                <button
+                                                    v-if="!item.options.some(o => o._pending)"
+                                                    type="button"
+                                                    class="t-opt-add"
+                                                    @click="item.options.push({ id: 0, param: 0, search: '', showDrop: false, _pending: true })"
+                                                    title="Thêm option"
+                                                >
+                                                    <span class="mi" style="font-size: 14px">add</span>
+                                                </button>
+                                            </div>
+                                            <div
+                                                v-if="item.options.some(o => o._pending)"
+                                                class="t-opt-editor"
+                                            >
+                                                    )
+                                                "
+                                                class="t-opt-editor"
+                                            >
+                                                <div class="option-select-wrap">
+                                                    <input
+                                                        v-model="
+                                                            pendingOpt(item)
+                                                                .search
+                                                        "
+                                                        class="form-input input-sm"
+                                                        placeholder="Tìm chỉ số..."
+                                                        autocomplete="off"
+                                                        @focus="
+                                                            pendingOpt(
+                                                                item,
+                                                            ).showDrop = true
+                                                        "
+                                                        @input="
+                                                            pendingOpt(
+                                                                item,
+                                                            ).showDrop = true
+                                                        "
+                                                    />
+                                                    <div
+                                                        v-if="
+                                                            pendingOpt(item)
+                                                                .showDrop
+                                                        "
+                                                        class="option-dropdown"
+                                                    >
+                                                        <div
+                                                            v-for="o in filteredOptions(
+                                                                pendingOpt(item)
+                                                                    .search,
+                                                            )"
+                                                            :key="o.id"
+                                                            class="option-dropdown-item"
+                                                            @mousedown.prevent="
+                                                                selectOption(
+                                                                    pendingOpt(
+                                                                        item,
+                                                                    ),
+                                                                    o,
+                                                                )
+                                                            "
+                                                        >
+                                                            <span
+                                                                class="opt-id"
+                                                                >{{
+                                                                    o.id
+                                                                }}</span
+                                                            >
+                                                            <span>{{
+                                                                o.name
+                                                            }}</span>
+                                                        </div>
+                                                        <div
+                                                            v-if="
+                                                                !filteredOptions(
+                                                                    pendingOpt(
+                                                                        item,
+                                                                    ).search,
+                                                                ).length
+                                                            "
+                                                            class="option-dropdown-empty"
+                                                        >
+                                                            Không tìm thấy
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    v-model.number="
+                                                        pendingOpt(item).param
+                                                    "
+                                                    type="number"
+                                                    class="form-input input-sm param-input"
+                                                    placeholder="Param"
+                                                />
+                                            </div>
+                                        </td>
+                                        <td class="td-act">
+                                            <button
+                                                type="button"
+                                                class="item-remove-btn"
+                                                @click="items.splice(idx, 1)"
+                                                title="Xoá"
+                                            >
+                                                <span
+                                                    class="mi"
+                                                    style="font-size: 18px"
+                                                    >delete</span
+                                                >
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ═══ CARD VIEW ═══ -->
+                        <div
+                            v-if="items.length && viewMode === 'card'"
+                            class="items-grid"
+                        >
                             <div
                                 v-for="(item, idx) in items"
                                 :key="idx"
@@ -437,6 +654,7 @@ export default {
                 active: "1",
             },
             giftcode: {},
+            viewMode: "table",
             items: [],
             allOptions: [],
             itemQuery: "",
@@ -479,6 +697,25 @@ export default {
                 });
             });
         },
+        fixJson(str) {
+            if (typeof str !== "string") return str;
+            let s = str.trim();
+            s = s.replace(/,\s*([\]\}])/g, "$1");
+            s = s.replace(/([\[\{])\s*,/g, "$1");
+            s = s.replace(/,\s*,/g, ",");
+            return s;
+        },
+        optionName(id) {
+            const o = this.allOptions.find((a) => a.id === id);
+            return o ? o.name : null;
+        },
+        optionLabel(id, param) {
+            const o = this.allOptions.find((a) => a.id === id);
+            if (!o) return String(param);
+            return o.name.includes("#")
+                ? o.name.replace("#", param)
+                : o.name + ": " + param;
+        },
         filteredOptions(search) {
             if (!search || !search.trim()) return this.allOptions.slice(0, 30);
             const q = search.trim().toLowerCase();
@@ -494,6 +731,15 @@ export default {
             opt.id = o.id;
             opt.search = `${o.name} (ID: ${o.id})`;
             opt.showDrop = false;
+        },
+        pendingOpt(item) {
+            return (
+                item.options.find((o) => o.id === 0) || {
+                    search: "",
+                    param: 0,
+                    showDrop: false,
+                }
+            );
         },
         async loadOptions() {
             try {
@@ -524,10 +770,11 @@ export default {
 
                     let detail = [];
                     try {
-                        detail =
+                        const raw =
                             typeof gc.detail === "string"
-                                ? JSON.parse(gc.detail)
-                                : gc.detail;
+                                ? gc.detail
+                                : JSON.stringify(gc.detail);
+                        detail = JSON.parse(this.fixJson(raw));
                         if (!Array.isArray(detail)) detail = [];
                     } catch {
                         detail = [];
@@ -750,8 +997,8 @@ export default {
 /* ── 2-column layout ── */
 .form-layout {
     display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 24px;
+    grid-template-columns: 1fr 220px;
+    gap: 20px;
     align-items: start;
 }
 .form-main {
@@ -762,9 +1009,18 @@ export default {
 .form-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
     position: sticky;
     top: 92px;
+}
+.form-sidebar .card {
+    padding: 12px 14px;
+}
+.form-sidebar .card-header {
+    margin-bottom: 6px;
+}
+.form-sidebar .card-header h3 {
+    font-size: 13px;
 }
 .form-row-2 {
     display: grid;
@@ -1154,5 +1410,180 @@ export default {
     background: rgba(var(--ds-primary-rgb), 0.12);
     padding: 3px 10px;
     border-radius: 20px;
+}
+
+/* ── Card header actions ── */
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ── View toggle ── */
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.view-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    color: var(--ds-text-muted);
+    transition: all 0.15s;
+}
+.view-toggle-btn:hover {
+    background: rgba(var(--ds-primary-rgb), 0.06);
+}
+.view-toggle-btn.active {
+    background: rgba(var(--ds-primary-rgb), 0.14);
+    color: var(--ds-primary);
+}
+.view-toggle-btn + .view-toggle-btn {
+    border-left: 1px solid var(--ds-border);
+}
+
+/* ── Table view ── */
+.items-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--ds-border);
+    border-radius: var(--ds-radius);
+}
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.items-table th {
+    background: var(--ds-surface-2);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ds-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--ds-border);
+}
+.items-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--ds-border);
+    vertical-align: middle;
+}
+.items-table tr:last-child td {
+    border-bottom: none;
+}
+.items-table tr:hover td {
+    background: rgba(var(--ds-primary-rgb), 0.03);
+}
+.th-idx {
+    width: 36px;
+    text-align: center;
+}
+.th-icon {
+    width: 40px;
+}
+.th-name {
+    min-width: 120px;
+}
+.th-qty {
+    width: 90px;
+}
+.th-opts {
+    min-width: 160px;
+}
+.th-act {
+    width: 40px;
+}
+.td-idx {
+    text-align: center;
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+.td-icon img {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--ds-gray-100);
+}
+.td-name .t-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ds-text-emphasis);
+}
+.td-name .t-id {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+}
+.td-act {
+    text-align: center;
+}
+.td-num {
+    text-align: center;
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+.t-input {
+    width: 100% !important;
+    min-width: 80px;
+}
+.t-opts-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+.t-opt-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(var(--ds-primary-rgb), 0.1);
+    color: var(--ds-text);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+.t-opt-rm {
+    background: none;
+    border: none;
+    color: var(--ds-text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.t-opt-rm:hover {
+    color: var(--ds-danger);
+}
+.t-opt-add {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: 1px dashed rgba(var(--ds-primary-rgb), 0.4);
+    color: var(--ds-primary);
+    border-radius: 12px;
+    padding: 1px 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.t-opt-add:hover {
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    border-color: var(--ds-primary);
+}
+.t-opt-editor {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    align-items: flex-start;
+}
+.td-opts {
+    min-width: 160px;
 }
 </style>
