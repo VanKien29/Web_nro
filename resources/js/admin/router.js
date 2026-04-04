@@ -1,0 +1,110 @@
+import { createRouter, createWebHistory } from "vue-router";
+import LoginPage from "./pages/LoginPage.vue";
+
+const routes = [
+    {
+        path: "/admin/login",
+        name: "admin.login",
+        component: LoginPage,
+        meta: { guest: true },
+    },
+    {
+        path: "/admin",
+        name: "admin.dashboard",
+        component: () => import("./pages/DashboardPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/accounts",
+        name: "admin.accounts",
+        component: () => import("./pages/AccountsPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/accounts/create",
+        name: "admin.accounts.create",
+        component: () => import("./pages/AccountFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/accounts/:id/edit",
+        name: "admin.accounts.edit",
+        component: () => import("./pages/AccountFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/giftcodes",
+        name: "admin.giftcodes",
+        component: () => import("./pages/GiftcodesPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/giftcodes/create",
+        name: "admin.giftcodes.create",
+        component: () => import("./pages/GiftcodeFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/giftcodes/:id/edit",
+        name: "admin.giftcodes.edit",
+        component: () => import("./pages/GiftcodeFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/items",
+        name: "admin.items",
+        component: () => import("./pages/ItemsPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/shops",
+        name: "admin.shops",
+        component: () => import("./pages/ShopsPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/shops/tab/:tabId/edit",
+        name: "admin.shops.tab.edit",
+        component: () => import("./pages/ShopTabFormPage.vue"),
+        meta: { auth: true },
+    },
+];
+
+const router = createRouter({
+    history: createWebHistory(),
+    routes,
+});
+
+router.beforeEach(async (to, from, next) => {
+    // Check if route needs auth
+    if (to.meta.auth) {
+        try {
+            const res = await fetch("/admin/api/me", {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!res.ok) {
+                return next({ name: "admin.login" });
+            }
+        } catch {
+            return next({ name: "admin.login" });
+        }
+    }
+
+    // Redirect logged-in users away from login page
+    if (to.meta.guest) {
+        try {
+            const res = await fetch("/admin/api/me", {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (res.ok) {
+                return next({ name: "admin.dashboard" });
+            }
+        } catch {
+            // not logged in, continue
+        }
+    }
+
+    next();
+});
+
+export default router;

@@ -42,6 +42,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'game_accounts',
+        ],
     ],
 
     /*
@@ -65,6 +69,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'game_accounts' => [
+            'driver' => 'plaintext',
+            'model' => \App\Models\Game\Account::class,
         ],
 
         // 'users' => [

@@ -12,6 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'admin.auth' => \App\Http\Middleware\AdminAuthenticate::class,
             'game.auth' => \App\Http\Middleware\GameTokenAuth::class,
             'topup.secret' => \App\Http\Middleware\TopupSecret::class,
         ]);

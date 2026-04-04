@@ -38,7 +38,7 @@ Route::prefix('api')->group(function () {
         Route::get('/topup/log/history/{username}', [\App\Http\Controllers\Api\TopupCardController::class, 'history']);
     });
 
-    // Admin — protected by topup.secret middleware
+    // Admin API — protected by topup.secret middleware
     Route::middleware('topup.secret')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
         Route::get('/history', [\App\Http\Controllers\Api\AdminController::class, 'history']);
@@ -63,7 +63,63 @@ Route::prefix('api')->group(function () {
         // Items
         Route::get('/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
         Route::get('/items/{id}/options', [\App\Http\Controllers\Api\AdminController::class, 'itemsOptions']);
+
+        // Shops
+        Route::get('/shops', [\App\Http\Controllers\Api\AdminController::class, 'shopsList']);
+        Route::get('/shops/tab/{tabId}', [\App\Http\Controllers\Api\AdminController::class, 'shopTabGet']);
+        Route::put('/shops/tab/{tabId}', [\App\Http\Controllers\Api\AdminController::class, 'shopTabUpdate']);
     });
+});
+
+// ========== ADMIN WEB ROUTES ==========
+// ========== ADMIN SPA + JSON API ==========
+Route::prefix('admin')->group(function () {
+
+    // JSON auth endpoints
+    Route::middleware('throttle:admin-login')->group(function () {
+        Route::post('/api/login', [\App\Http\Controllers\Admin\AuthController::class, 'apiLogin']);
+    });
+
+    // Protected JSON APIs (session auth)
+    Route::middleware('admin.auth')->group(function () {
+        Route::get('/api/me', [\App\Http\Controllers\Admin\AuthController::class, 'me']);
+        Route::post('/api/logout', [\App\Http\Controllers\Admin\AuthController::class, 'apiLogout']);
+
+        // Dashboard
+        Route::get('/api/dashboard/stats', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
+        Route::get('/api/dashboard/history', [\App\Http\Controllers\Api\AdminController::class, 'history']);
+        Route::get('/api/dashboard/topUsers', [\App\Http\Controllers\Api\AdminController::class, 'topUsers']);
+        Route::get('/api/dashboard/monthRevenue', [\App\Http\Controllers\Api\AdminController::class, 'monthlyRevenue']);
+
+        // Accounts CRUD
+        Route::get('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
+        Route::get('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsGet']);
+        Route::post('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
+        Route::put('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);
+        Route::delete('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsDelete']);
+
+        // Giftcodes CRUD
+        Route::get('/api/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesList']);
+        Route::get('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesGet']);
+        Route::post('/api/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesCreate']);
+        Route::put('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesUpdate']);
+        Route::delete('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesDelete']);
+
+        // Items & Options
+        Route::get('/api/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
+        Route::get('/api/items/batch', [\App\Http\Controllers\Api\AdminController::class, 'itemsBatch']);
+        Route::get('/api/items/search', [\App\Http\Controllers\Admin\GiftcodeController::class, 'searchItems']);
+        Route::get('/api/options', [\App\Http\Controllers\Admin\GiftcodeController::class, 'allOptions']);
+
+        // Shops
+        Route::get('/api/shops', [\App\Http\Controllers\Api\AdminController::class, 'shopsList']);
+        Route::get('/api/shops/tab/{tabId}', [\App\Http\Controllers\Api\AdminController::class, 'shopTabGet']);
+        Route::put('/api/shops/tab/{tabId}', [\App\Http\Controllers\Api\AdminController::class, 'shopTabUpdate']);
+    });
+
+    // Admin SPA catch-all — serves Vue app for all /admin/* routes
+    Route::get('/login', fn () => view('admin.spa'))->name('admin.login');
+    Route::get('/{any?}', fn () => view('admin.spa'))->where('any', '.*')->middleware('admin.auth');
 });
 
 // SPA catch-all: mọi route khác đều trả về Vue app

@@ -324,48 +324,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- Welcome Popup -->
-        <div
-            id="welcome-popup"
-            class="welcome-popup-overlay"
-            :class="{ show: showPopup }"
-            @click.self="showPopup = false"
-        >
-            <div class="welcome-popup-content">
-                <button class="popup-close-btn" @click="showPopup = false">
-                    ✕
-                </button>
-                <h2 class="popup-title">CHÀO MỪNG ĐẾN VỚI</h2>
-                <h1 class="popup-game-title">NGỌC RỒNG HDPE</h1>
-                <div class="popup-buttons">
-                    <a
-                        :href="settings.ios_download_url || '#'"
-                        class="popup-btn btn-ios"
-                    >
-                        <span class="btn-text">Tải Game IOS (TF)</span>
-                    </a>
-                    <a
-                        :href="settings.android_download_url || '#'"
-                        class="popup-btn btn-android"
-                    >
-                        <span class="btn-text">Tải Game Android</span>
-                    </a>
-                    <a
-                        :href="settings.apk_download_url || '#'"
-                        class="popup-btn btn-topup"
-                    >
-                        <span class="btn-text">Tải Game PC</span>
-                    </a>
-                    <a
-                        href="/public/download/ngocronghdpe.jar"
-                        class="popup-btn btn-fanpage"
-                    >
-                        <span class="btn-text">Tải Game Jar</span>
-                    </a>
-                </div>
-            </div>
-        </div>
     </div>
 </template>
 
@@ -382,7 +340,6 @@ export default {
             huong_dan: [],
             settings: {},
             activeTab: "tin-tuc",
-            showPopup: false,
         };
     },
     async mounted() {
@@ -391,9 +348,6 @@ export default {
             this.initSliders();
             this.initAOS();
         });
-        setTimeout(() => {
-            this.showPopup = true;
-        }, 3000);
     },
     methods: {
         async loadData() {

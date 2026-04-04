@@ -234,11 +234,12 @@ export default {
             menuOpen: false,
             sidebarOpen: false,
             scrolled: false,
+            loggedIn: !!localStorage.getItem("token"),
         };
     },
     computed: {
         isLoggedIn() {
-            return !!localStorage.getItem("token");
+            return this.loggedIn;
         },
         username() {
             try {
@@ -265,16 +266,22 @@ export default {
         };
         window.addEventListener("scroll", this._onScroll, { passive: true });
         this._onScroll();
+
+        this._onAuthChanged = () => {
+            this.loggedIn = !!localStorage.getItem("token");
+        };
+        window.addEventListener("auth-changed", this._onAuthChanged);
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this._onScroll);
+        window.removeEventListener("auth-changed", this._onAuthChanged);
     },
     methods: {
         logout() {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
+            window.dispatchEvent(new Event("auth-changed"));
             this.$router.push("/");
-            window.location.reload();
         },
         toggleSidebar() {
             this.sidebarOpen = !this.sidebarOpen;

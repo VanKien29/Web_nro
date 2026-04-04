@@ -77,6 +77,7 @@ export default {
                 if (data.status === "success") {
                     localStorage.setItem("token", data.token);
                     localStorage.setItem("user", JSON.stringify(data.user));
+                    window.dispatchEvent(new Event("auth-changed"));
                     this.$router.push("/");
                 } else {
                     this.error = data.message || "Đăng nhập thất bại";

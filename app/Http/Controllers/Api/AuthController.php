@@ -4,10 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game\Account;
-use App\Models\Game\ApiToken;
+use App\Services\JwtService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -32,12 +31,16 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = bin2hex(random_bytes(32));
-
-        ApiToken::create([
-            'user_id' => $user->id,
-            'token' => $token,
+        $jwt = new JwtService();
+        $token = $jwt->encode([
+            'sub' => $user->id,
+            'username' => $user->username,
+            'is_admin' => (int) $user->is_admin,
         ]);
+
+        // Lưu IP khi đăng nhập
+        $user->ip_address = $request->ip();
+        $user->save();
 
         return response()->json([
             'status' => 'success',
@@ -76,6 +79,7 @@ class AuthController extends Controller
             'cash' => 0,
             'coin' => 0,
             'danap' => 0,
+            'ip_address' => $request->ip(),
         ]);
 
         return response()->json([

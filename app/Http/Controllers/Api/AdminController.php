@@ -331,19 +331,24 @@ class AdminController extends Controller
 
     // ========== ITEMS MANAGEMENT ==========
 
-    // GET /api/admin/items
+    // GET /api/admin/items — paginated
     public function itemsList(Request $request): JsonResponse
     {
         $search = $request->query('search', '');
         $type = $request->query('type', '');
+        $perPage = min((int) $request->query('per_page', 50), 200);
+        $page = max((int) $request->query('page', 1), 1);
 
         $query = DB::connection('game')->table('item_template')
             ->select('id', 'name', 'icon_id', 'type');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'LIKE', "%{$search}%")
-                    ->orWhere('name', 'LIKE', "%{$search}%");
+                if (is_numeric($search)) {
+                    $q->where('id', (int) $search);
+                } else {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                }
             });
         }
 
@@ -351,18 +356,47 @@ class AdminController extends Controller
             $query->where('type', $type);
         }
 
-        $items = $query->get();
+        $total = (clone $query)->count();
+        $items = $query->orderBy('id')->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $types = DB::connection('game')->table('item_template')
-            ->distinct()
-            ->orderBy('type')
-            ->pluck('type');
+        $types = cache()->remember('item_template_types', 600, function () {
+            return DB::connection('game')->table('item_template')
+                ->distinct()
+                ->orderBy('type')
+                ->pluck('type');
+        });
 
         return response()->json([
             'ok' => true,
             'data' => $items,
             'types' => $types,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $total,
+            'total_pages' => (int) ceil($total / $perPage),
         ]);
+    }
+
+    // GET /api/admin/items/batch?ids=1,2,3
+    public function itemsBatch(Request $request): JsonResponse
+    {
+        $idsParam = $request->query('ids', '');
+        if (!$idsParam) {
+            return response()->json([]);
+        }
+
+        $ids = array_map('intval', array_filter(explode(',', $idsParam), 'is_numeric'));
+        if (empty($ids) || count($ids) > 200) {
+            return response()->json([]);
+        }
+
+        $items = DB::connection('game')->table('item_template')
+            ->select('id', 'name as name', 'icon_id')
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
+        return response()->json($items);
     }
 
     // GET /api/admin/items/{id}/options
@@ -374,5 +408,98 @@ class AdminController extends Controller
             ->get();
 
         return response()->json(['ok' => true, 'options' => $options]);
+    }
+
+    // ========== SHOP MANAGEMENT ==========
+
+    // GET /api/admin/shops
+    public function shopsList(Request $request): JsonResponse
+    {
+        $search = $request->query('search', '');
+
+        $query = DB::connection('game')->table('shop')
+            ->select('id', 'npc_id', 'tag_name', 'type_shop');
+
+        if ($search) {
+            $query->where('tag_name', 'LIKE', "%{$search}%");
+        }
+
+        $shops = $query->orderBy('id')->get();
+
+        // Attach tabs for each shop
+        $shopIds = $shops->pluck('id')->toArray();
+        $tabs = DB::connection('game')->table('tab_shop')
+            ->whereIn('shop_id', $shopIds)
+            ->select('id', 'shop_id', 'tab_name', 'tab_index', 'items')
+            ->orderBy('tab_index')
+            ->get()
+            ->groupBy('shop_id');
+
+        foreach ($shops as $shop) {
+            $shopTabs = $tabs->get($shop->id, collect());
+            $shop->tabs = $shopTabs->map(function ($tab) {
+                $items = [];
+                try {
+                    $items = json_decode($tab->items, true) ?: [];
+                } catch (\Throwable $e) {
+                    $items = [];
+                }
+                $tab->item_count = count($items);
+                unset($tab->items);
+                return $tab;
+            })->values();
+        }
+
+        return response()->json(['ok' => true, 'data' => $shops]);
+    }
+
+    // GET /api/admin/shops/tab/{tabId}
+    public function shopTabGet(int $tabId): JsonResponse
+    {
+        $tab = DB::connection('game')->table('tab_shop')
+            ->where('id', $tabId)
+            ->first();
+
+        if (!$tab) {
+            return response()->json(['ok' => false, 'message' => 'Tab not found'], 404);
+        }
+
+        $shop = DB::connection('game')->table('shop')
+            ->where('id', $tab->shop_id)
+            ->first();
+
+        return response()->json(['ok' => true, 'data' => $tab, 'shop' => $shop]);
+    }
+
+    // PUT /api/admin/shops/tab/{tabId}
+    public function shopTabUpdate(Request $request, int $tabId): JsonResponse
+    {
+        $tab = DB::connection('game')->table('tab_shop')
+            ->where('id', $tabId)
+            ->first();
+
+        if (!$tab) {
+            return response()->json(['ok' => false, 'message' => 'Tab not found'], 404);
+        }
+
+        $data = $request->only(['tab_name', 'tab_index', 'items']);
+
+        if (empty($data)) {
+            return response()->json(['ok' => false, 'message' => 'No fields to update'], 400);
+        }
+
+        if (isset($data['tab_index'])) {
+            $data['tab_index'] = (int) $data['tab_index'];
+        }
+
+        $updated = DB::connection('game')->table('tab_shop')
+            ->where('id', $tabId)
+            ->update($data);
+
+        if ($updated !== false) {
+            return response()->json(['ok' => true, 'message' => 'Cập nhật tab thành công']);
+        }
+
+        return response()->json(['ok' => false, 'message' => 'Update failed'], 500);
     }
 }
