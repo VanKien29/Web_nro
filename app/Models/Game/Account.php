@@ -15,7 +15,8 @@ class Account extends Authenticatable
     protected $fillable = [
         'username', 'password', 'email', 'ban', 'is_admin', 'active',
         'cash', 'danap', 'coin', 'thoi_vang', 'tv_mo', 'diem_da_nhan',
-        'luotquay', 'vang', 'event_point', 'token', 'xsrf_token', 'ip_address',
+        'DiemDanh', 'luotquay', 'vang', 'event_point', 'token', 'xsrf_token',
+        'ip_address',
     ];
 
     protected $hidden = ['password'];

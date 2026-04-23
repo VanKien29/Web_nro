@@ -119,18 +119,53 @@ class AdminController extends Controller
         $page = (int) $request->query('page', 1);
         $limit = 20;
 
-        $query = Account::select('id', 'username', 'password', 'ban', 'is_admin', 'active', 'cash', 'danap', 'coin');
+        $query = Account::query()
+            ->select([
+                'id',
+                'username',
+                'ban',
+                'is_admin',
+                'active',
+                'cash',
+                'danap',
+                'coin',
+                'diem_da_nhan',
+            ])
+            ->selectRaw('`DiemDanh` as diem_danh')
+            ->with(['player:id,account_id,name,gender,data_point']);
 
         if ($search) {
-            $query->where('username', 'LIKE', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('username', 'LIKE', "%{$search}%")
+                    ->orWhereHas('player', function ($pq) use ($search) {
+                        $pq->where('name', 'LIKE', "%{$search}%");
+                    });
+            });
         }
 
         $total = $query->count();
         $accounts = $query->orderBy('id')->offset(($page - 1) * $limit)->limit($limit)->get();
+        $rows = $accounts->map(function ($acc) {
+            return [
+                'id' => (int) $acc->id,
+                'username' => $acc->username,
+                'ban' => (int) ($acc->ban ?? 0),
+                'is_admin' => (int) ($acc->is_admin ?? 0),
+                'active' => (int) ($acc->active ?? 0),
+                'cash' => (int) ($acc->cash ?? 0),
+                'danap' => (int) ($acc->danap ?? 0),
+                'coin' => (int) ($acc->coin ?? 0),
+                'diem_da_nhan' => (int) ($acc->diem_da_nhan ?? 0),
+                'diem_danh' => (int) ($acc->diem_danh ?? 0),
+                'player_name' => $acc->player?->name,
+                'player_gender' => $acc->player ? (int) $acc->player->gender : null,
+                'player_power' => $acc->player ? (int) $acc->player->power : 0,
+            ];
+        });
 
         return response()->json([
             'ok' => true,
-            'data' => $accounts,
+            'data' => $rows,
             'total' => $total,
             'page' => $page,
             'limit' => $limit,
@@ -141,14 +176,268 @@ class AdminController extends Controller
     // GET /api/admin/accounts/{id}
     public function accountsGet(int $id): JsonResponse
     {
-        $account = Account::select('id', 'username', 'password', 'ban', 'is_admin', 'active', 'cash', 'danap', 'coin')
+        $account = Account::query()
+            ->select([
+                'id',
+                'username',
+                'ban',
+                'is_admin',
+                'active',
+                'cash',
+                'danap',
+                'coin',
+                'diem_da_nhan',
+            ])
+            ->selectRaw('`DiemDanh` as diem_danh')
+            ->with(['player:id,account_id,name,gender,head,data_point,data_task'])
             ->find($id);
 
         if (!$account) {
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
 
-        return response()->json(['ok' => true, 'data' => $account]);
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'id' => (int) $account->id,
+                'username' => $account->username,
+                'ban' => (int) ($account->ban ?? 0),
+                'is_admin' => (int) ($account->is_admin ?? 0),
+                'active' => (int) ($account->active ?? 0),
+                'cash' => (int) ($account->cash ?? 0),
+                'danap' => (int) ($account->danap ?? 0),
+                'coin' => (int) ($account->coin ?? 0),
+                'diem_da_nhan' => (int) ($account->diem_da_nhan ?? 0),
+                'diem_danh' => (int) ($account->diem_danh ?? 0),
+                'player' => $account->player
+                    ? [
+                        'id' => (int) $account->player->id,
+                        'name' => $account->player->name,
+                        'gender' => (int) ($account->player->gender ?? 0),
+                        'head' => (int) ($account->player->head ?? 0),
+                        'power' => (int) ($account->player->power ?? 0),
+                        'task_data' => $account->player->task_data,
+                    ]
+                    : null,
+            ],
+        ]);
+    }
+
+    // GET /api/admin/accounts/{id}/player-full
+    public function accountsPlayerFull(int $id): JsonResponse
+    {
+        $account = Account::find($id);
+        if (!$account) {
+            return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
+        }
+
+        $game = DB::connection('game');
+        $player = $game->table('player')->where('account_id', $id)->first();
+
+        if (!$player) {
+            return response()->json([
+                'ok' => true,
+                'data' => null,
+                'message' => 'Tài khoản chưa có nhân vật',
+            ]);
+        }
+
+        $raw = (array) $player;
+        $displayFields = [
+            'data_point',
+            'data_inventory',
+            'data_location',
+            'data_task',
+            'items_body',
+            'items_bag',
+            'items_box',
+            'item_mails_box',
+            'items_daban',
+            'data_item_time',
+            'pet',
+            'giftcode',
+            'event_point_boss',
+        ];
+        $point = $this->decodeArray($raw['data_point'] ?? null);
+        $taskData = $this->decodeArray($raw['data_task'] ?? null);
+        $taskId = isset($taskData[0]) ? (int) $taskData[0] : null;
+        $taskName = null;
+        if ($taskId !== null) {
+            $taskName = $game->table('task_main_template')
+                ->where('id', $taskId)
+                ->value('NAME');
+        }
+
+        $fields = [];
+        try {
+            $dbName = $game->getDatabaseName();
+            $columns = $game->table('information_schema.COLUMNS')
+                ->select('COLUMN_NAME', 'DATA_TYPE')
+                ->where('TABLE_SCHEMA', $dbName)
+                ->where('TABLE_NAME', 'player')
+                ->orderBy('ORDINAL_POSITION')
+                ->get();
+
+            foreach ($columns as $col) {
+                $name = $col->COLUMN_NAME;
+                if (!in_array($name, $displayFields, true)) {
+                    continue;
+                }
+                $value = $raw[$name] ?? null;
+                $valueString = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
+                $fields[] = [
+                    'name' => $name,
+                    'label' => $this->playerFieldLabel($name),
+                    'data_type' => strtolower((string) $col->DATA_TYPE),
+                    'is_long' => $this->isLongPlayerField((string) $col->DATA_TYPE, $valueString),
+                ];
+            }
+        } catch (\Throwable $e) {
+            foreach (array_keys($raw) as $name) {
+                if (!in_array($name, $displayFields, true)) {
+                    continue;
+                }
+                $value = $raw[$name] ?? null;
+                $valueString = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
+                $fields[] = [
+                    'name' => $name,
+                    'label' => $this->playerFieldLabel($name),
+                    'data_type' => 'unknown',
+                    'is_long' => $this->isLongPlayerField('text', $valueString),
+                ];
+            }
+        }
+        $displayOrder = array_flip($displayFields);
+        usort($fields, function ($a, $b) use ($displayOrder) {
+            $aOrder = $displayOrder[$a['name']] ?? PHP_INT_MAX;
+            $bOrder = $displayOrder[$b['name']] ?? PHP_INT_MAX;
+            return $aOrder <=> $bOrder;
+        });
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'summary' => [
+                    'id' => (int) ($raw['id'] ?? 0),
+                    'account_id' => (int) ($raw['account_id'] ?? 0),
+                    'name' => $raw['name'] ?? '',
+                    'gender' => isset($raw['gender']) ? (int) $raw['gender'] : null,
+                    'head' => isset($raw['head']) ? (int) $raw['head'] : null,
+                    'power' => isset($point[1]) ? (int) $point[1] : 0,
+                    'task' => [
+                        'id' => $taskId,
+                        'name' => $taskName,
+                        'index' => isset($taskData[1]) ? (int) $taskData[1] : null,
+                        'count' => isset($taskData[2]) ? (int) $taskData[2] : null,
+                        'last_time' => isset($taskData[3]) ? (int) $taskData[3] : null,
+                    ],
+                ],
+                'parsed' => [
+                    'data_inventory' => $this->parseIndexedData($raw['data_inventory'] ?? null, [
+                        0 => 'Vàng',
+                        1 => 'Ngọc xanh',
+                        2 => 'Hồng ngọc (ruby)',
+                        3 => 'Coupon',
+                        4 => 'Điểm sự kiện túi',
+                    ]),
+                    'data_location' => $this->parseIndexedData($raw['data_location'] ?? null, [
+                        0 => 'Map ID',
+                        1 => 'Tọa độ X',
+                        2 => 'Tọa độ Y',
+                    ]),
+                    'data_point' => $this->parseIndexedData($raw['data_point'] ?? null, [
+                        0 => 'Giới hạn sức mạnh',
+                        1 => 'Sức mạnh',
+                        2 => 'Tiềm năng',
+                        3 => 'Thể lực hiện tại',
+                        4 => 'Thể lực tối đa',
+                        5 => 'HP gốc',
+                        6 => 'MP gốc',
+                        7 => 'Dame gốc',
+                        8 => 'Giáp gốc',
+                        9 => 'Chí mạng gốc',
+                        10 => 'Năng động',
+                        11 => 'HP hiện tại',
+                        12 => 'MP hiện tại',
+                    ]),
+                    'data_task' => $this->parseIndexedData($raw['data_task'] ?? null, [
+                        0 => 'Task ID (nhiệm vụ chính)',
+                        1 => 'Index nhiệm vụ con',
+                        2 => 'Số lượng đã làm',
+                        3 => 'Mốc thời gian nhiệm vụ',
+                    ]),
+                ],
+                'fields' => $fields,
+                'raw' => array_reduce($displayFields, function ($carry, $field) use ($raw) {
+                    $carry[$field] = $raw[$field] ?? null;
+                    return $carry;
+                }, []),
+            ],
+        ]);
+    }
+
+    private function decodeArray($value): array
+    {
+        if (!is_string($value) || $value === '') {
+            return [];
+        }
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function isLongPlayerField(string $dataType, ?string $value): bool
+    {
+        $type = strtolower($dataType);
+        if (in_array($type, ['text', 'mediumtext', 'longtext', 'json'], true)) {
+            return true;
+        }
+        if ($value === null) {
+            return false;
+        }
+        return mb_strlen($value) > 180;
+    }
+
+    private function playerFieldLabel(string $name): string
+    {
+        $labels = [
+            'data_point' => 'Dữ liệu chỉ số',
+            'data_inventory' => 'Dữ liệu túi đồ',
+            'data_location' => 'Dữ liệu vị trí',
+            'data_task' => 'Dữ liệu nhiệm vụ chính',
+            'items_body' => 'Vật phẩm đang mặc',
+            'items_bag' => 'Vật phẩm trong túi',
+            'items_box' => 'Vật phẩm trong rương',
+            'item_mails_box' => 'Vật phẩm từ thư',
+            'items_daban' => 'Vật phẩm đã bán',
+            'data_item_time' => 'Dữ liệu thời gian hiệu ứng',
+            'pet' => 'Dữ liệu đệ tử',
+            'giftcode' => 'Giftcode đã nhận',
+            'event_point_boss' => 'Điểm sự kiện boss',
+        ];
+
+        return $labels[$name] ?? $name;
+    }
+
+    private function parseIndexedData($value, array $labels): ?array
+    {
+        $arr = $this->decodeArray($value);
+        if (empty($arr)) {
+            return null;
+        }
+
+        $items = [];
+        foreach ($labels as $index => $label) {
+            $items[] = [
+                'index' => $index,
+                'label' => $label,
+                'value' => array_key_exists($index, $arr) ? $arr[$index] : null,
+            ];
+        }
+
+        return [
+            'size' => count($arr),
+            'items' => $items,
+        ];
     }
 
     // POST /api/admin/accounts
@@ -157,6 +446,11 @@ class AdminController extends Controller
         $request->validate([
             'username' => 'required|string',
             'password' => 'required|string',
+            'cash' => 'nullable|integer|min:0',
+            'danap' => 'nullable|integer|min:0',
+            'coin' => 'nullable|integer|min:0',
+            'diem_da_nhan' => 'nullable|integer|min:0',
+            'diem_danh' => 'nullable|integer|min:0',
         ]);
 
         if (Account::where('username', $request->input('username'))->exists()) {
@@ -166,6 +460,14 @@ class AdminController extends Controller
         $account = Account::create([
             'username' => $request->input('username'),
             'password' => $request->input('password'),
+            'cash' => (int) $request->input('cash', 0),
+            'danap' => (int) $request->input('danap', 0),
+            'coin' => (int) $request->input('coin', 0),
+            'diem_da_nhan' => (int) $request->input('diem_da_nhan', 0),
+            'DiemDanh' => (int) $request->input('diem_danh', 0),
+            'ban' => (int) $request->input('ban', 0),
+            'is_admin' => (int) $request->input('is_admin', 0),
+            'active' => (int) $request->input('active', 1),
         ]);
 
         return response()->json([
@@ -183,7 +485,18 @@ class AdminController extends Controller
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
 
-        $data = $request->only(['username', 'password', 'cash', 'danap', 'coin', 'ban', 'is_admin', 'active']);
+        $data = $request->only([
+            'username',
+            'password',
+            'cash',
+            'danap',
+            'coin',
+            'diem_da_nhan',
+            'diem_danh',
+            'ban',
+            'is_admin',
+            'active',
+        ]);
 
         if (isset($data['username'])) {
             $exists = Account::where('username', $data['username'])
@@ -197,6 +510,18 @@ class AdminController extends Controller
         if (isset($data['password']) && empty($data['password'])) {
             unset($data['password']);
         }
+
+        if (isset($data['cash'])) $data['cash'] = (int) $data['cash'];
+        if (isset($data['danap'])) $data['danap'] = (int) $data['danap'];
+        if (isset($data['coin'])) $data['coin'] = (int) $data['coin'];
+        if (isset($data['diem_da_nhan'])) $data['diem_da_nhan'] = (int) $data['diem_da_nhan'];
+        if (isset($data['diem_danh'])) {
+            $data['DiemDanh'] = (int) $data['diem_danh'];
+            unset($data['diem_danh']);
+        }
+        if (isset($data['ban'])) $data['ban'] = (int) $data['ban'];
+        if (isset($data['is_admin'])) $data['is_admin'] = (int) $data['is_admin'];
+        if (isset($data['active'])) $data['active'] = (int) $data['active'];
 
         if (empty($data)) {
             return response()->json(['ok' => false, 'message' => 'Không có dữ liệu để cập nhật'], 400);

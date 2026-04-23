@@ -75,6 +75,8 @@ const router = createRouter({
     routes,
 });
 
+const CHUNK_RELOAD_KEY = "admin_chunk_reload_once";
+
 router.beforeEach(async (to, from, next) => {
     // Check if route needs auth
     if (to.meta.auth) {
@@ -105,6 +107,24 @@ router.beforeEach(async (to, from, next) => {
     }
 
     next();
+});
+
+router.onError((error, to) => {
+    const msg = String(error?.message || "");
+    const isChunkError =
+        /Failed to fetch dynamically imported module/i.test(msg) ||
+        /Importing a module script failed/i.test(msg) ||
+        /error loading dynamically imported module/i.test(msg) ||
+        /Loading chunk [\d]+ failed/i.test(msg);
+
+    if (!isChunkError) return;
+
+    const now = Date.now();
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (!last || now - last > 15000) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
+        window.location.assign(to?.fullPath || window.location.href);
+    }
 });
 
 export default router;

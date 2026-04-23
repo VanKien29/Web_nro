@@ -103,6 +103,16 @@
                                 <span class="item-count"
                                     >{{ items.length }} vật phẩm</span
                                 >
+                                <button
+                                    type="button"
+                                    class="btn btn-outline btn-sm"
+                                    @click="openItemPicker"
+                                >
+                                    <span class="mi" style="font-size: 15px"
+                                        >list</span
+                                    >
+                                    Chọn item
+                                </button>
                                 <div class="view-toggle">
                                     <button
                                         type="button"
@@ -183,6 +193,22 @@
                                     Không tìm thấy vật phẩm
                                 </div>
                             </div>
+                        </div>
+                        <div v-if="quickItems.length" class="quick-picks">
+                            <span class="quick-picks-label">Item hay dùng</span>
+                            <button
+                                v-for="it in quickItems"
+                                :key="'quick-item-' + it.id"
+                                type="button"
+                                class="quick-pill"
+                                @click="addItem(it)"
+                            >
+                                <img
+                                    :src="iconBase + it.icon_id + '.png'"
+                                    @error="$event.target.style.display = 'none'"
+                                />
+                                <span>{{ it.name }}</span>
+                            </button>
                         </div>
 
                         <!-- ═══ TABLE VIEW ═══ -->
@@ -604,11 +630,29 @@
                         </div>
                         <div class="sidebar-field">
                             <label class="form-label">Ngày hết hạn</label>
-                            <input
-                                v-model="form.expired"
-                                class="form-input"
-                                type="date"
-                            />
+                            <div class="expire-controls">
+                                <input
+                                    v-model="form.expired"
+                                    class="form-input"
+                                    type="datetime-local"
+                                />
+                                <div class="expire-actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline btn-xs"
+                                        @click="setExpireAfterOneYear"
+                                    >
+                                        +1 năm
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline btn-xs"
+                                        @click="clearExpire"
+                                    >
+                                        Xoá hạn
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <button
                             class="btn btn-primary btn-block"

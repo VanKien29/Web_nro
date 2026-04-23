@@ -28,12 +28,42 @@ class GiftcodeController extends Controller
         return response()->json($query->limit(30)->get());
     }
 
-    public function allOptions(): JsonResponse
+    public function allOptions(Request $request): JsonResponse
     {
-        $options = DB::connection('game')->table('item_option_template')
-            ->select('id', 'NAME as name')
-            ->orderBy('id')
-            ->get();
+        $search = trim((string) $request->query('search', ''));
+        $perPage = min(max((int) $request->query('per_page', 30), 1), 200);
+        $page = max((int) $request->query('page', 1), 1);
+        $paginate = $request->boolean('paginate') || $request->has('page') || $search !== '';
+
+        $query = DB::connection('game')->table('item_option_template')
+            ->select('id', 'NAME as name');
+
+        if ($search !== '') {
+            if (is_numeric($search)) {
+                $query->where('id', (int) $search);
+            } else {
+                $query->where('NAME', 'like', "%{$search}%");
+            }
+        }
+
+        if ($paginate) {
+            $total = (clone $query)->count();
+            $options = $query->orderBy('id')
+                ->offset(($page - 1) * $perPage)
+                ->limit($perPage)
+                ->get();
+
+            return response()->json([
+                'ok' => true,
+                'data' => $options,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => (int) ceil($total / $perPage),
+            ]);
+        }
+
+        $options = $query->orderBy('id')->get();
         return response()->json($options);
     }
 
