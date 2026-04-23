@@ -3,13 +3,61 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminActionLog;
 use App\Models\Game\Account;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
+    // GET /api/admin/admin-logs
+    public function adminLogsList(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $targetType = trim((string) $request->query('target_type', ''));
+        $action = trim((string) $request->query('action', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = 20;
+
+        $query = AdminActionLog::query()->orderByDesc('id');
+
+        if ($targetType !== '') {
+            $query->where('target_type', $targetType);
+        }
+
+        if ($action !== '') {
+            $query->where('action', $action);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('admin_username', 'like', "%{$search}%")
+                    ->orWhere('target_label', 'like', "%{$search}%")
+                    ->orWhere('summary', 'like', "%{$search}%");
+                if (is_numeric($search)) {
+                    $q->orWhere('target_id', (string) (int) $search);
+                }
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => (int) ceil($total / $limit),
+        ]);
+    }
+
     // GET /api/admin/stats
     public function stats(): JsonResponse
     {
@@ -378,6 +426,12 @@ class AdminController extends Controller
             ->select([
                 'id',
                 'username',
+                'email',
+                'ip_address',
+                'create_time',
+                'update_time',
+                'last_time_login',
+                'last_time_logout',
                 'ban',
                 'is_admin',
                 'active',
@@ -385,6 +439,12 @@ class AdminController extends Controller
                 'danap',
                 'coin',
                 'diem_da_nhan',
+                'gmail',
+                'mkc2',
+                'luotquay',
+                'vang',
+                'event_point',
+                'lastDiemDanh',
             ])
             ->selectRaw('`DiemDanh` as diem_danh')
             ->with(['player:id,account_id,name,gender,head,data_point,data_task'])
@@ -399,6 +459,14 @@ class AdminController extends Controller
             'data' => [
                 'id' => (int) $account->id,
                 'username' => $account->username,
+                'email' => $account->email,
+                'gmail' => $account->gmail,
+                'mkc2' => $account->mkc2,
+                'ip_address' => $account->ip_address,
+                'create_time' => $account->create_time,
+                'update_time' => $account->update_time,
+                'last_time_login' => $account->last_time_login,
+                'last_time_logout' => $account->last_time_logout,
                 'ban' => (int) ($account->ban ?? 0),
                 'is_admin' => (int) ($account->is_admin ?? 0),
                 'active' => (int) ($account->active ?? 0),
@@ -407,6 +475,10 @@ class AdminController extends Controller
                 'coin' => (int) ($account->coin ?? 0),
                 'diem_da_nhan' => (int) ($account->diem_da_nhan ?? 0),
                 'diem_danh' => (int) ($account->diem_danh ?? 0),
+                'luotquay' => (int) ($account->luotquay ?? 0),
+                'vang' => (int) ($account->vang ?? 0),
+                'event_point' => (int) ($account->event_point ?? 0),
+                'last_diem_danh' => $account->lastDiemDanh,
                 'player' => $account->player
                     ? [
                         'id' => (int) $account->player->id,
@@ -417,6 +489,121 @@ class AdminController extends Controller
                         'task_data' => $account->player->task_data,
                     ]
                     : null,
+            ],
+        ]);
+    }
+
+    // GET /api/admin/accounts/{id}/activity
+    public function accountsActivity(int $id): JsonResponse
+    {
+        $account = Account::query()
+            ->select([
+                'id',
+                'username',
+                'email',
+                'gmail',
+                'ip_address',
+                'create_time',
+                'update_time',
+                'last_time_login',
+                'last_time_logout',
+                'active',
+                'ban',
+                'cash',
+                'danap',
+                'coin',
+                'vang',
+                'event_point',
+                'luotquay',
+                'mkc2',
+            ])
+            ->selectRaw('`DiemDanh` as diem_danh')
+            ->find($id);
+
+        if (!$account) {
+            return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
+        }
+
+        $game = DB::connection('game');
+        $topups = $game->table('topup_transactions')
+            ->select('id', 'trans_id', 'amount', 'currency', 'source', 'note', 'created_at')
+            ->where('user_id', $id)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $topupSummary = $game->table('topup_transactions')
+            ->where('user_id', $id)
+            ->selectRaw('COUNT(*) as total_count, COALESCE(SUM(amount), 0) as total_amount, MAX(created_at) as last_topup_at')
+            ->first();
+
+        $cardLogs = collect();
+        try {
+            $cardLogs = $game->table('trans_log')
+                ->select('id', 'seri', 'pin', 'type', 'amount', 'trans_id', 'status', 'created_at', 'updated_at')
+                ->where('username', $account->username)
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get()
+                ->map(function ($row) {
+                    $pin = (string) ($row->pin ?? '');
+                    $seri = (string) ($row->seri ?? '');
+                    return [
+                        'id' => (int) $row->id,
+                        'seri' => $seri !== '' ? substr($seri, 0, 4) . '...' . substr($seri, -4) : '',
+                        'pin' => $pin !== '' ? substr($pin, 0, 4) . '...' . substr($pin, -4) : '',
+                        'type' => (string) ($row->type ?? ''),
+                        'amount' => (int) ($row->amount ?? 0),
+                        'trans_id' => (string) ($row->trans_id ?? ''),
+                        'status' => (int) ($row->status ?? 0),
+                        'created_at' => $row->created_at,
+                        'updated_at' => $row->updated_at,
+                    ];
+                })
+                ->values();
+        } catch (\Throwable $e) {
+            $cardLogs = collect();
+        }
+
+        $adminLogs = AdminActionLog::query()
+            ->where('target_type', 'account')
+            ->where('target_id', (string) $id)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'overview' => [
+                    'id' => (int) $account->id,
+                    'username' => $account->username,
+                    'email' => $account->email,
+                    'gmail' => $account->gmail,
+                    'ip_address' => $account->ip_address,
+                    'create_time' => $account->create_time,
+                    'update_time' => $account->update_time,
+                    'last_time_login' => $account->last_time_login,
+                    'last_time_logout' => $account->last_time_logout,
+                    'active' => (int) ($account->active ?? 0),
+                    'ban' => (int) ($account->ban ?? 0),
+                    'cash' => (int) ($account->cash ?? 0),
+                    'danap' => (int) ($account->danap ?? 0),
+                    'coin' => (int) ($account->coin ?? 0),
+                    'vang' => (int) ($account->vang ?? 0),
+                    'event_point' => (int) ($account->event_point ?? 0),
+                    'luotquay' => (int) ($account->luotquay ?? 0),
+                    'diem_danh' => (int) ($account->diem_danh ?? 0),
+                    'mkc2' => $account->mkc2,
+                ],
+                'topup_summary' => [
+                    'total_count' => (int) ($topupSummary->total_count ?? 0),
+                    'total_amount' => (int) ($topupSummary->total_amount ?? 0),
+                    'last_topup_at' => $topupSummary->last_topup_at ?? null,
+                ],
+                'topups' => $topups,
+                'card_logs' => $cardLogs,
+                'admin_logs' => $adminLogs,
             ],
         ]);
     }
@@ -668,6 +855,15 @@ class AdminController extends Controller
             'active' => (int) $request->input('active', 1),
         ]);
 
+        $this->logAdminAction(
+            'create',
+            'account',
+            $account->id,
+            "Tạo tài khoản {$account->username}",
+            null,
+            $this->sanitizeLogState($account->fresh()->toArray()),
+        );
+
         return response()->json([
             'ok' => true,
             'message' => 'Tạo tài khoản thành công',
@@ -725,7 +921,17 @@ class AdminController extends Controller
             return response()->json(['ok' => false, 'message' => 'Không có dữ liệu để cập nhật'], 400);
         }
 
+        $before = $this->sanitizeLogState($account->toArray());
         $account->update($data);
+        $account->refresh();
+        $this->logAdminAction(
+            'update',
+            'account',
+            $account->id,
+            "Cập nhật tài khoản {$account->username}",
+            $before,
+            $this->sanitizeLogState($account->toArray()),
+        );
 
         return response()->json(['ok' => true, 'message' => 'Cập nhật tài khoản thành công']);
     }
@@ -738,7 +944,16 @@ class AdminController extends Controller
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
 
+        $before = $this->sanitizeLogState($account->toArray());
         $account->delete();
+        $this->logAdminAction(
+            'delete',
+            'account',
+            $id,
+            "Xoá tài khoản {$before['username']}",
+            $before,
+            null,
+        );
 
         return response()->json(['ok' => true, 'message' => 'Xoá tài khoản thành công']);
     }
@@ -749,14 +964,36 @@ class AdminController extends Controller
     public function giftcodesList(Request $request): JsonResponse
     {
         $search = $request->query('search', '');
+        $status = trim((string) $request->query('status', ''));
+        $mtv = $request->query('mtv');
         $page = (int) $request->query('page', 1);
         $limit = 20;
 
         $query = DB::connection('game')->table('giftcode')
-            ->select('id', 'code', 'count_left', 'expired', 'mtv', 'active');
+            ->select('id', 'code', 'count_left', 'detail', 'expired', 'datecreate', 'mtv', 'active');
 
         if ($search) {
             $query->where('code', 'LIKE', "%{$search}%");
+        }
+
+        if ($mtv !== null && $mtv !== '') {
+            $query->where('mtv', (int) $mtv);
+        }
+
+        if ($status === 'active') {
+            $query->where('active', 1);
+        } elseif ($status === 'inactive') {
+            $query->where('active', 0);
+        } elseif ($status === 'expired') {
+            $query->whereNotNull('expired')->where('expired', '<', now());
+        } elseif ($status === 'available') {
+            $query->where('active', 1)
+                ->where('count_left', '>', 0)
+                ->where(function ($q) {
+                    $q->whereNull('expired')->orWhere('expired', '>=', now());
+                });
+        } elseif ($status === 'depleted') {
+            $query->where('count_left', '<=', 0);
         }
 
         $total = $query->count();
@@ -789,6 +1026,30 @@ class AdminController extends Controller
         return response()->json(['ok' => true, 'data' => $giftcode]);
     }
 
+    // GET /api/admin/giftcodes/{id}/activity
+    public function giftcodesActivity(int $id): JsonResponse
+    {
+        $giftcode = DB::connection('game')->table('giftcode')->where('id', $id)->first();
+        if (!$giftcode) {
+            return response()->json(['ok' => false, 'message' => 'Giftcode không tồn tại'], 404);
+        }
+
+        $logs = AdminActionLog::query()
+            ->where('target_type', 'giftcode')
+            ->where('target_id', (string) $id)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'giftcode' => $giftcode,
+                'admin_logs' => $logs,
+            ],
+        ]);
+    }
+
     // POST /api/admin/giftcodes
     public function giftcodesCreate(Request $request): JsonResponse
     {
@@ -813,6 +1074,16 @@ class AdminController extends Controller
             'expired' => $request->input('expired'),
         ]);
 
+        $created = DB::connection('game')->table('giftcode')->where('id', $id)->first();
+        $this->logAdminAction(
+            'create',
+            'giftcode',
+            $id,
+            "Tạo giftcode {$code}",
+            null,
+            $this->sanitizeLogState((array) $created),
+        );
+
         return response()->json([
             'ok' => true,
             'message' => 'Giftcode created successfully',
@@ -823,12 +1094,26 @@ class AdminController extends Controller
     // PUT /api/admin/giftcodes/{id}
     public function giftcodesUpdate(Request $request, int $id): JsonResponse
     {
-        $data = $request->only(['count_left', 'mtv', 'active', 'detail', 'expired']);
+        $giftcode = DB::connection('game')->table('giftcode')->where('id', $id)->first();
+        if (!$giftcode) {
+            return response()->json(['ok' => false, 'message' => 'Giftcode không tồn tại'], 404);
+        }
+
+        $data = $request->only(['code', 'count_left', 'mtv', 'active', 'detail', 'expired']);
 
         if (empty($data)) {
             return response()->json(['ok' => false, 'message' => 'No fields to update'], 400);
         }
 
+        if (isset($data['code'])) {
+            $exists = DB::connection('game')->table('giftcode')
+                ->where('code', $data['code'])
+                ->where('id', '!=', $id)
+                ->exists();
+            if ($exists) {
+                return response()->json(['ok' => false, 'message' => 'Code đã tồn tại'], 400);
+            }
+        }
         if (isset($data['count_left'])) $data['count_left'] = (int) $data['count_left'];
         if (isset($data['mtv'])) $data['mtv'] = (int) $data['mtv'];
         if (isset($data['active'])) $data['active'] = (int) $data['active'];
@@ -837,17 +1122,82 @@ class AdminController extends Controller
             ->where('id', $id)
             ->update($data);
 
-        if ($updated) {
+        if ($updated !== false) {
+            $after = DB::connection('game')->table('giftcode')->where('id', $id)->first();
+            if (json_encode($this->sanitizeLogState((array) $giftcode)) !== json_encode($this->sanitizeLogState((array) $after))) {
+                $this->logAdminAction(
+                    'update',
+                    'giftcode',
+                    $id,
+                    'Cập nhật giftcode ' . ($after->code ?? $giftcode->code ?? $id),
+                    $this->sanitizeLogState((array) $giftcode),
+                    $this->sanitizeLogState((array) $after),
+                );
+            }
             return response()->json(['ok' => true, 'message' => 'Giftcode updated successfully']);
         }
 
         return response()->json(['ok' => false, 'message' => 'Update failed'], 500);
     }
 
+    // POST /api/admin/giftcodes/{id}/clone
+    public function giftcodesClone(int $id): JsonResponse
+    {
+        $giftcode = DB::connection('game')->table('giftcode')->where('id', $id)->first();
+        if (!$giftcode) {
+            return response()->json(['ok' => false, 'message' => 'Giftcode không tồn tại'], 404);
+        }
+
+        $baseCode = strtoupper((string) $giftcode->code) . '-COPY';
+        $newCode = $baseCode;
+        $suffix = 1;
+        while (DB::connection('game')->table('giftcode')->where('code', $newCode)->exists()) {
+            $suffix++;
+            $newCode = $baseCode . '-' . $suffix;
+        }
+
+        $newId = DB::connection('game')->table('giftcode')->insertGetId([
+            'code' => $newCode,
+            'count_left' => (int) ($giftcode->count_left ?? 0),
+            'detail' => (string) ($giftcode->detail ?? '[]'),
+            'expired' => $giftcode->expired,
+            'type' => (int) ($giftcode->type ?? 0),
+            'mtv' => (int) ($giftcode->mtv ?? 0),
+            'active' => 0,
+        ]);
+
+        $created = DB::connection('game')->table('giftcode')->where('id', $newId)->first();
+        $this->logAdminAction(
+            'clone',
+            'giftcode',
+            $newId,
+            "Clone giftcode {$giftcode->code} thành {$newCode}",
+            $this->sanitizeLogState((array) $giftcode),
+            $this->sanitizeLogState((array) $created),
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã clone giftcode',
+            'id' => $newId,
+        ]);
+    }
+
     // DELETE /api/admin/giftcodes/{id}
     public function giftcodesDelete(int $id): JsonResponse
     {
+        $giftcode = DB::connection('game')->table('giftcode')->where('id', $id)->first();
         DB::connection('game')->table('giftcode')->where('id', $id)->delete();
+        if ($giftcode) {
+            $this->logAdminAction(
+                'delete',
+                'giftcode',
+                $id,
+                'Xoá giftcode ' . $giftcode->code,
+                $this->sanitizeLogState((array) $giftcode),
+                null,
+            );
+        }
 
         return response()->json(['ok' => true, 'message' => 'Giftcode deleted successfully']);
     }
@@ -1390,5 +1740,56 @@ class AdminController extends Controller
         }
 
         return json_encode($decoded, JSON_UNESCAPED_UNICODE);
+    }
+
+    private function sanitizeLogState(?array $state): ?array
+    {
+        if ($state === null) {
+            return null;
+        }
+
+        unset(
+            $state['password'],
+            $state['newpass'],
+            $state['token'],
+            $state['xsrf_token'],
+            $state['remember_token']
+        );
+
+        foreach ($state as $key => $value) {
+            if (is_string($value) && mb_strlen($value) > 2000) {
+                $state[$key] = mb_substr($value, 0, 2000) . ' ...';
+            }
+        }
+
+        return $state;
+    }
+
+    private function logAdminAction(
+        string $action,
+        string $targetType,
+        int|string|null $targetId,
+        ?string $summary,
+        ?array $beforeState = null,
+        ?array $afterState = null,
+        ?array $meta = null
+    ): void {
+        try {
+            $admin = Auth::guard('admin')->user();
+            AdminActionLog::create([
+                'admin_user_id' => $admin?->id,
+                'admin_username' => $admin?->username ?? $admin?->name ?? 'admin',
+                'action' => $action,
+                'target_type' => $targetType,
+                'target_id' => $targetId !== null ? (string) $targetId : null,
+                'target_label' => $summary,
+                'summary' => $summary,
+                'before_state' => $beforeState,
+                'after_state' => $afterState,
+                'meta' => $meta,
+            ]);
+        } catch (\Throwable $e) {
+            // Logging must never break admin actions.
+        }
     }
 }

@@ -96,6 +96,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
         Route::get('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsGet']);
         Route::get('/api/accounts/{id}/player-full', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerFull']);
+        Route::get('/api/accounts/{id}/activity', [\App\Http\Controllers\Api\AdminController::class, 'accountsActivity']);
         Route::post('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
         Route::put('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);
         Route::delete('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsDelete']);
@@ -103,9 +104,14 @@ Route::prefix('admin')->group(function () {
         // Giftcodes CRUD
         Route::get('/api/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesList']);
         Route::get('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesGet']);
+        Route::get('/api/giftcodes/{id}/activity', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesActivity']);
+        Route::post('/api/giftcodes/{id}/clone', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesClone']);
         Route::post('/api/giftcodes', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesCreate']);
         Route::put('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesUpdate']);
         Route::delete('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesDelete']);
+
+        // Admin logs
+        Route::get('/api/admin-logs', [\App\Http\Controllers\Api\AdminController::class, 'adminLogsList']);
 
         // Milestone reward tables
         Route::get('/api/milestones/{type}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesList']);

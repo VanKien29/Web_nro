@@ -36,6 +36,188 @@
             <div class="form-layout">
                 <!-- LEFT: Main -->
                 <div class="form-main">
+                    <div v-if="isEdit" class="card detail-hub">
+                        <div class="card-header">
+                            <h3>Trung tâm tài khoản</h3>
+                        </div>
+
+                        <div v-if="activityError" class="alert alert-error">
+                            {{ activityError }}
+                        </div>
+                        <div v-else-if="activityLoading" class="muted-line">
+                            Đang tải lịch sử tài khoản...
+                        </div>
+                        <template v-else-if="activity">
+                            <div class="hub-summary-grid">
+                                <div class="hub-summary-card">
+                                    <span class="hub-summary-label">Tạo lúc</span>
+                                    <strong>{{ formatDateTime(activity.overview.create_time) }}</strong>
+                                    <small>IP: {{ activity.overview.ip_address || "—" }}</small>
+                                </div>
+                                <div class="hub-summary-card">
+                                    <span class="hub-summary-label">Đăng nhập cuối</span>
+                                    <strong>{{ formatDateTime(activity.overview.last_time_login) }}</strong>
+                                    <small>Logout: {{ formatDateTime(activity.overview.last_time_logout) }}</small>
+                                </div>
+                                <div class="hub-summary-card">
+                                    <span class="hub-summary-label">Tổng nạp</span>
+                                    <strong>{{ fmt(activity.topup_summary.total_amount) }}đ</strong>
+                                    <small>{{ fmt(activity.topup_summary.total_count) }} giao dịch</small>
+                                </div>
+                                <div class="hub-summary-card">
+                                    <span class="hub-summary-label">Bảo mật</span>
+                                    <strong>{{ activity.overview.mkc2 ? "Đã đặt MKC2" : "Chưa có MKC2" }}</strong>
+                                    <small>Gmail: {{ activity.overview.gmail || activity.overview.email || "—" }}</small>
+                                </div>
+                            </div>
+
+                            <div class="detail-tabs">
+                                <button
+                                    type="button"
+                                    class="detail-tab-btn"
+                                    :class="{ active: activeDetailTab === 'overview' }"
+                                    @click="activeDetailTab = 'overview'"
+                                >
+                                    Tổng quan
+                                </button>
+                                <button
+                                    type="button"
+                                    class="detail-tab-btn"
+                                    :class="{ active: activeDetailTab === 'topup' }"
+                                    @click="activeDetailTab = 'topup'"
+                                >
+                                    Lịch sử nạp
+                                </button>
+                                <button
+                                    type="button"
+                                    class="detail-tab-btn"
+                                    :class="{ active: activeDetailTab === 'logs' }"
+                                    @click="activeDetailTab = 'logs'"
+                                >
+                                    Nhật ký admin
+                                </button>
+                            </div>
+
+                            <div v-if="activeDetailTab === 'overview'" class="detail-panel">
+                                <div class="detail-grid">
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Email</span>
+                                        <span class="detail-field-value">{{ activity.overview.email || "—" }}</span>
+                                    </div>
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Gmail</span>
+                                        <span class="detail-field-value">{{ activity.overview.gmail || "—" }}</span>
+                                    </div>
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Lượt quay</span>
+                                        <span class="detail-field-value">{{ fmt(activity.overview.luotquay) }}</span>
+                                    </div>
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Vàng tài khoản</span>
+                                        <span class="detail-field-value">{{ fmt(activity.overview.vang) }}</span>
+                                    </div>
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Event point</span>
+                                        <span class="detail-field-value">{{ fmt(activity.overview.event_point) }}</span>
+                                    </div>
+                                    <div class="detail-field">
+                                        <span class="detail-field-label">Cập nhật gần nhất</span>
+                                        <span class="detail-field-value">{{ formatDateTime(activity.overview.update_time) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="activeDetailTab === 'topup'" class="detail-panel detail-stack">
+                                <div class="mini-summary-row">
+                                    <div class="mini-summary-box">
+                                        <span>Gần nhất</span>
+                                        <strong>{{ formatDateTime(activity.topup_summary.last_topup_at) }}</strong>
+                                    </div>
+                                    <div class="mini-summary-box">
+                                        <span>Tổng giao dịch</span>
+                                        <strong>{{ fmt(activity.topup_summary.total_count) }}</strong>
+                                    </div>
+                                    <div class="mini-summary-box">
+                                        <span>Tổng nạp</span>
+                                        <strong>{{ fmt(activity.topup_summary.total_amount) }}đ</strong>
+                                    </div>
+                                </div>
+
+                                <div class="detail-subsection">
+                                    <div class="detail-subtitle">Topup transactions</div>
+                                    <div v-if="!activity.topups.length" class="muted-line">Chưa có giao dịch topup.</div>
+                                    <div v-else class="activity-list">
+                                        <div v-for="row in activity.topups" :key="'topup-' + row.id" class="activity-row">
+                                            <div>
+                                                <div class="activity-title">{{ fmt(row.amount) }}đ - {{ row.source || row.currency || "Khác" }}</div>
+                                                <div class="activity-sub">{{ row.trans_id }}<span v-if="row.note"> | {{ row.note }}</span></div>
+                                            </div>
+                                            <div class="activity-time">{{ formatDateTime(row.created_at) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="detail-subsection">
+                                    <div class="detail-subtitle">Log nạp thẻ</div>
+                                    <div v-if="!activity.card_logs.length" class="muted-line">Chưa có log thẻ.</div>
+                                    <div v-else class="activity-list">
+                                        <div v-for="row in activity.card_logs" :key="'card-' + row.id" class="activity-row">
+                                            <div>
+                                                <div class="activity-title">
+                                                    {{ row.type }} - {{ fmt(row.amount) }}đ
+                                                    <span class="badge" :class="row.status ? 'badge-success' : 'badge-warning'">
+                                                        {{ row.status ? "Thành công" : "Chờ xử lý" }}
+                                                    </span>
+                                                </div>
+                                                <div class="activity-sub">{{ row.trans_id }} | Seri: {{ row.seri }} | Pin: {{ row.pin }}</div>
+                                            </div>
+                                            <div class="activity-time">{{ formatDateTime(row.created_at) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="activeDetailTab === 'logs'" class="detail-panel">
+                                <div v-if="!activity.admin_logs.length" class="muted-line">
+                                    Chưa có nhật ký admin cho tài khoản này.
+                                </div>
+                                <div v-else class="activity-list">
+                                    <div
+                                        v-for="row in activity.admin_logs"
+                                        :key="'log-' + row.id"
+                                        class="activity-log-card"
+                                    >
+                                        <div class="activity-row-head">
+                                            <div>
+                                                <div class="activity-title">{{ row.summary || "Không có mô tả" }}</div>
+                                                <div class="activity-sub">
+                                                    {{ row.admin_username || "admin" }} - {{ formatDateTime(row.created_at) }}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline btn-xs"
+                                                @click="toggleLogExpanded(row.id)"
+                                            >
+                                                {{ isLogExpanded(row.id) ? "Thu gọn" : "Chi tiết" }}
+                                            </button>
+                                        </div>
+                                        <div v-if="isLogExpanded(row.id)" class="log-state-grid">
+                                            <div class="log-state-box">
+                                                <div class="log-state-title">Trước</div>
+                                                <pre>{{ formatState(row.before_state) }}</pre>
+                                            </div>
+                                            <div class="log-state-box">
+                                                <div class="log-state-title">Sau</div>
+                                                <pre>{{ formatState(row.after_state) }}</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="card">
                         <div class="card-header">
                             <h3>Thông tin đăng nhập</h3>
@@ -400,6 +582,11 @@ export default {
             playerFullError: "",
             showPlayerFull: false,
             expandedFields: {},
+            activity: null,
+            activityLoading: false,
+            activityError: "",
+            activeDetailTab: "overview",
+            expandedLogs: {},
         };
     },
     computed: {
@@ -526,6 +713,30 @@ export default {
             }
             return text;
         },
+        formatDateTime(value) {
+            if (!value) return "—";
+            const date = new Date(String(value).replace(" ", "T"));
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString("vi-VN");
+        },
+        formatState(value) {
+            if (!value) return "(không có)";
+            if (typeof value === "string") return value;
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch {
+                return String(value);
+            }
+        },
+        isLogExpanded(id) {
+            return !!this.expandedLogs[id];
+        },
+        toggleLogExpanded(id) {
+            this.expandedLogs = {
+                ...this.expandedLogs,
+                [id]: !this.expandedLogs[id],
+            };
+        },
         async togglePlayerFull() {
             this.showPlayerFull = !this.showPlayerFull;
             if (
@@ -559,6 +770,30 @@ export default {
                 this.playerFullLoading = false;
             }
         },
+        async loadAccountActivity() {
+            this.activityLoading = true;
+            this.activityError = "";
+            try {
+                const res = await fetch(
+                    `/admin/api/accounts/${this.$route.params.id}/activity`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                const data = await res.json();
+                if (!data.ok) {
+                    throw new Error(
+                        data.message || "Không tải được lịch sử tài khoản",
+                    );
+                }
+                this.activity = data.data || null;
+            } catch (error) {
+                this.activityError =
+                    error?.message || "Không tải được lịch sử tài khoản";
+            } finally {
+                this.activityLoading = false;
+            }
+        },
         async loadAccount() {
             try {
                 const res = await fetch(
@@ -580,6 +815,7 @@ export default {
                     this.form.active = a.active ? "1" : "0";
                     this.form.ban = a.ban ? "1" : "0";
                     this.playerInfo = a.player || null;
+                    await this.loadAccountActivity();
                     if (this.playerInfo) {
                         this.showPlayerFull = true;
                         await this.loadPlayerFull();
@@ -632,6 +868,8 @@ export default {
                     this.success = data.message;
                     if (!this.isEdit) {
                         this.$router.push({ name: "admin.accounts" });
+                    } else {
+                        await this.loadAccountActivity();
                     }
                 } else {
                     this.error = data.message || "Lỗi";
@@ -813,6 +1051,202 @@ export default {
     font-size: 13px;
     color: var(--ds-text-muted);
 }
+.detail-hub {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.hub-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.hub-summary-card {
+    border: 1px solid var(--ds-border);
+    border-radius: 12px;
+    padding: 14px;
+    background: var(--ds-surface-2, var(--ds-gray-100));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.hub-summary-label {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.hub-summary-card strong {
+    color: var(--ds-text-emphasis);
+    font-size: 14px;
+}
+.hub-summary-card small {
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+.detail-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.detail-tab-btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--ds-border);
+    background: transparent;
+    color: var(--ds-text-muted);
+    cursor: pointer;
+    font-weight: 600;
+}
+.detail-tab-btn.active {
+    border-color: rgba(var(--ds-primary-rgb), 0.3);
+    background: rgba(var(--ds-primary-rgb), 0.12);
+    color: var(--ds-text-emphasis);
+}
+.detail-panel {
+    border-top: 1px dashed var(--ds-border);
+    padding-top: 16px;
+}
+.detail-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.detail-field {
+    border: 1px solid var(--ds-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: var(--ds-surface-2, var(--ds-gray-100));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.detail-field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ds-text-muted);
+}
+.detail-field-value {
+    color: var(--ds-text);
+    font-size: 13px;
+}
+.mini-summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.mini-summary-box {
+    border: 1px solid var(--ds-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(var(--ds-primary-rgb), 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mini-summary-box span {
+    font-size: 12px;
+    color: var(--ds-text-muted);
+}
+.mini-summary-box strong {
+    font-size: 14px;
+    color: var(--ds-text-emphasis);
+}
+.detail-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.detail-subtitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ds-text-emphasis);
+}
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.activity-row,
+.activity-log-card {
+    border: 1px solid var(--ds-border);
+    border-radius: 12px;
+    padding: 12px;
+    background: var(--ds-surface-2, var(--ds-gray-100));
+}
+.activity-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.activity-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ds-text-emphasis);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.activity-sub {
+    font-size: 12px;
+    color: var(--ds-text-muted);
+    margin-top: 4px;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.activity-time {
+    font-size: 12px;
+    color: var(--ds-text-muted);
+    white-space: nowrap;
+}
+.activity-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.log-state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+}
+.log-state-box {
+    border: 1px dashed var(--ds-border);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--ds-surface);
+}
+.log-state-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ds-text-emphasis);
+    margin-bottom: 8px;
+}
+.log-state-box pre {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ds-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    max-height: 260px;
+    overflow: auto;
+}
 .player-summary-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -928,6 +1362,9 @@ export default {
     min-height: 26px;
 }
 @media (max-width: 900px) {
+    .hub-summary-grid,
+    .detail-grid,
+    .mini-summary-row,
     .player-summary-grid {
         grid-template-columns: 1fr;
     }
@@ -936,6 +1373,15 @@ export default {
     }
     .player-row {
         grid-template-columns: 1fr;
+    }
+    .activity-row,
+    .activity-row-head,
+    .log-state-grid {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
+    .activity-time {
+        white-space: normal;
     }
 }
 </style>

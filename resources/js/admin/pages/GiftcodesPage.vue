@@ -31,6 +31,19 @@
                         placeholder="Tìm code..."
                     />
                 </div>
+                <select v-model="statusFilter" class="form-input compact-filter">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="available">Đang dùng được</option>
+                    <option value="active">Đang bật</option>
+                    <option value="inactive">Đã tắt</option>
+                    <option value="expired">Đã hết hạn</option>
+                    <option value="depleted">Hết lượt</option>
+                </select>
+                <select v-model="mtvFilter" class="form-input compact-filter">
+                    <option value="">Tất cả MTV</option>
+                    <option value="1">Chỉ 1 lần/tài khoản</option>
+                    <option value="0">Không giới hạn tài khoản</option>
+                </select>
                 <button class="btn btn-primary btn-sm" type="submit">
                     Tìm kiếm
                 </button>
@@ -48,6 +61,7 @@
                             <th>Còn lại</th>
                             <th>MTV</th>
                             <th>Hết hạn</th>
+                            <th>Tạo lúc</th>
                             <th>Trạng thái</th>
                             <th></th>
                         </tr>
@@ -122,34 +136,40 @@
                             <td style="color: var(--ds-text-muted)">
                                 {{ gc.expired || "—" }}
                             </td>
+                            <td style="color: var(--ds-text-muted)">
+                                {{ gc.datecreate || "—" }}
+                            </td>
                             <td>
-                                <span
-                                    v-if="gc.active"
-                                    class="badge badge-success"
-                                    >Active</span
-                                >
-                                <span v-else class="badge badge-danger"
-                                    >Inactive</span
-                                >
+                                <span v-if="gc.active && !isExpired(gc)" class="badge badge-success">Đang bật</span>
+                                <span v-else-if="isExpired(gc)" class="badge badge-warning">Hết hạn</span>
+                                <span v-else class="badge badge-danger">Đã tắt</span>
                             </td>
                             <td style="text-align: right">
-                                <router-link
-                                    :to="{
-                                        name: 'admin.giftcodes.edit',
-                                        params: { id: gc.id },
-                                    }"
-                                    class="btn btn-primary btn-sm"
-                                >
-                                    <span class="mi" style="font-size: 14px"
-                                        >edit</span
+                                <div class="row-actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline btn-sm"
+                                        @click="cloneGiftcode(gc)"
                                     >
-                                    Sửa
-                                </router-link>
+                                        <span class="mi" style="font-size: 14px">content_copy</span>
+                                        Clone
+                                    </button>
+                                    <router-link
+                                        :to="{
+                                            name: 'admin.giftcodes.edit',
+                                            params: { id: gc.id },
+                                        }"
+                                        class="btn btn-primary btn-sm"
+                                    >
+                                        <span class="mi" style="font-size: 14px">edit</span>
+                                        Sửa
+                                    </router-link>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="!giftcodes.length && !loading">
                             <td
-                                colspan="8"
+                                colspan="9"
                                 style="
                                     text-align: center;
                                     color: var(--ds-text-muted);
@@ -214,6 +234,8 @@ export default {
             giftcodes: [],
             itemIconMap: {},
             search: "",
+            statusFilter: "",
+            mtvFilter: "",
             page: 1,
             pageInput: "1",
             totalPages: 1,
@@ -302,6 +324,11 @@ export default {
             const iconId = this.itemIconMap[tempId] || tempId;
             return `/assets/frontend/home/v1/images/x4/${iconId}.png`;
         },
+        isExpired(gc) {
+            if (!gc?.expired) return false;
+            const date = new Date(String(gc.expired).replace(" ", "T"));
+            return !Number.isNaN(date.getTime()) && date.getTime() < Date.now();
+        },
         async loadPage(p) {
             this.loading = true;
             this.page = this.normalizePage(p);
@@ -311,6 +338,12 @@ export default {
                     page: this.page,
                     search: this.search,
                 });
+                if (this.statusFilter) {
+                    params.set("status", this.statusFilter);
+                }
+                if (this.mtvFilter !== "") {
+                    params.set("mtv", this.mtvFilter);
+                }
                 const res = await fetch(
                     `/admin/api/giftcodes?${params.toString()}`,
                     {
@@ -358,6 +391,30 @@ export default {
                 }
             } catch {
                 // fallback: icons won't resolve
+            }
+        },
+        async cloneGiftcode(row) {
+            if (!confirm(`Clone giftcode "${row.code}"?`)) return;
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch(`/admin/api/giftcodes/${row.id}/clone`, {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": token,
+                    },
+                });
+                const data = await res.json();
+                if (data.ok && data.id) {
+                    this.$router.push({
+                        name: "admin.giftcodes.edit",
+                        params: { id: data.id },
+                    });
+                }
+            } catch {
+                //
             }
         },
         startEdit(row, field) {
@@ -446,7 +503,8 @@ export default {
     margin-bottom: 20px;
 }
 .search-form {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 220px 220px auto;
     gap: 8px;
 }
 .search-input-wrap {
@@ -463,7 +521,10 @@ export default {
 }
 .search-input {
     padding-left: 38px !important;
-    width: 300px;
+    width: 100%;
+}
+.compact-filter {
+    min-width: 0;
 }
 .code-badge {
     color: var(--ds-primary);
@@ -488,6 +549,11 @@ export default {
 .more-items {
     color: var(--ds-text-muted);
     font-size: 12px;
+}
+.row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 .editable-cell {
     cursor: default;
@@ -542,5 +608,10 @@ export default {
     width: 72px;
     min-width: 72px;
     padding: 6px 8px !important;
+}
+@media (max-width: 980px) {
+    .search-form {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

@@ -77,6 +77,19 @@
                     </div>
                     <div class="nav-item">
                         <router-link
+                            to="/admin/shops"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name?.startsWith('admin.shops'),
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">storefront</span>
+                            <span class="text">Shop</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
                             to="/admin/milestones/moc_nap"
                             class="nav-link"
                             :class="{
@@ -92,15 +105,13 @@
                     </div>
                     <div class="nav-item">
                         <router-link
-                            to="/admin/shops"
+                            to="/admin/admin-logs"
                             class="nav-link"
-                            :class="{
-                                active: $route.name?.startsWith('admin.shops'),
-                            }"
+                            :class="{ active: $route.name === 'admin.logs' }"
                             @click="closeMobile"
                         >
-                            <span class="nav-icon mi">storefront</span>
-                            <span class="text">Shop</span>
+                            <span class="nav-icon mi">history</span>
+                            <span class="text">Nhật ký admin</span>
                         </router-link>
                     </div>
                 </nav>
