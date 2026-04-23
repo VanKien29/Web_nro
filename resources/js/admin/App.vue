@@ -231,7 +231,7 @@ export default {
         },
         applyBodyBg() {
             document.body.style.background =
-                this.theme === "dark" ? "#0f1117" : "#f5f7fa";
+                this.theme === "dark" ? "#0f1418" : "#f4f8f6";
         },
         async fetchUser() {
             try {
@@ -272,37 +272,37 @@ export default {
 
 /* ── CSS Variables ── */
 :root {
-    --ds-primary: #6366f1;
-    --ds-primary-rgb: 99, 102, 241;
-    --ds-primary-lighter: #c7d2fe;
-    --ds-primary-darker: #3730a3;
-    --ds-danger: #ff5630;
-    --ds-danger-rgb: 255, 86, 48;
-    --ds-warning: #ffab00;
-    --ds-warning-rgb: 255, 171, 0;
-    --ds-info: #00b8d9;
-    --ds-info-rgb: 0, 184, 217;
-    --ds-success: #22c55e;
-    --ds-success-rgb: 34, 197, 94;
+    --ds-primary: #4b9e8b;
+    --ds-primary-rgb: 75, 158, 139;
+    --ds-primary-lighter: #8fd3c4;
+    --ds-primary-darker: #327061;
+    --ds-primary-soft: #70b8a8;
+    --ds-danger: #d05c5c;
+    --ds-danger-rgb: 208, 92, 92;
+    --ds-warning: #d5a042;
+    --ds-warning-rgb: 213, 160, 66;
+    --ds-info: #4aa8b4;
+    --ds-info-rgb: 74, 168, 180;
+    --ds-success: #58ac74;
+    --ds-success-rgb: 88, 172, 116;
 
-    /* Dark grays (blue tint) */
-    --ds-gray-100: #1e2235;
-    --ds-gray-200: #2a2f45;
-    --ds-gray-300: #3d4362;
-    --ds-gray-400: #5c6280;
-    --ds-gray-500: #8088a0;
-    --ds-gray-600: #a3aabe;
-    --ds-gray-700: #c2c7d6;
-    --ds-gray-800: #e0e3eb;
-    --ds-gray-900: #f7f8fa;
+    --ds-gray-100: #172029;
+    --ds-gray-200: #202c37;
+    --ds-gray-300: #2e3c49;
+    --ds-gray-400: #5e7488;
+    --ds-gray-500: #8093a3;
+    --ds-gray-600: #a8b5c0;
+    --ds-gray-700: #c4cdd5;
+    --ds-gray-800: #dce3e8;
+    --ds-gray-900: #edf2f6;
 
-    --ds-body-bg: #0f1117;
-    --ds-surface: #191d2b;
-    --ds-surface-2: #212536;
-    --ds-border: rgba(61, 67, 98, 0.35);
-    --ds-text: #a3aabe;
-    --ds-text-emphasis: #f7f8fa;
-    --ds-text-muted: #5c6280;
+    --ds-body-bg: #0f1418;
+    --ds-surface: #151d25;
+    --ds-surface-2: #1b2530;
+    --ds-border: rgba(94, 116, 136, 0.38);
+    --ds-text: #b6c2cd;
+    --ds-text-emphasis: #eef3f7;
+    --ds-text-muted: #8a9fb2;
 
     --ds-shadow-xl:
         0 0 2px 0 rgba(0, 0, 0, 0.2), 0 12px 24px -4px rgba(0, 0, 0, 0.12);
@@ -331,11 +331,13 @@ export default {
     -webkit-font-smoothing: antialiased;
 }
 .admin-app a {
-    color: var(--ds-primary);
     text-decoration: none;
 }
-.admin-app a:hover {
-    color: #818cf8;
+.admin-app a:not(.btn) {
+    color: var(--ds-primary);
+}
+.admin-app a:not(.btn):hover {
+    color: var(--ds-primary-lighter);
 }
 
 /* Material icon shorthand */
@@ -385,7 +387,11 @@ export default {
 .brand-icon {
     width: 36px;
     height: 36px;
-    background: linear-gradient(135deg, var(--ds-primary), #818cf8);
+    background: linear-gradient(
+        135deg,
+        var(--ds-primary),
+        var(--ds-primary-soft)
+    );
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -500,7 +506,7 @@ export default {
     top: 0;
     z-index: 1030;
     backdrop-filter: blur(6px);
-    background-color: rgba(15, 17, 23, 0.8);
+    background-color: rgba(15, 20, 24, 0.88);
     border-bottom: 1px dashed var(--ds-border);
 }
 .topbar-inner {
@@ -569,7 +575,11 @@ export default {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--ds-primary), #818cf8);
+    background: linear-gradient(
+        135deg,
+        var(--ds-primary),
+        var(--ds-primary-soft)
+    );
     display: flex;
     align-items: center;
     justify-content: center;
@@ -753,39 +763,54 @@ export default {
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.2s;
     text-decoration: none;
     font-family: inherit;
+    line-height: 1.2;
+    white-space: nowrap;
+    position: relative;
+    pointer-events: auto;
+}
+.btn > * {
+    pointer-events: none;
 }
 .btn:hover {
     opacity: 0.88;
 }
 .btn-primary {
     background: var(--ds-primary);
+    border-color: var(--ds-primary);
     color: #fff;
 }
 .btn-success {
     background: var(--ds-success);
+    border-color: var(--ds-success);
     color: #fff;
 }
 .btn-danger {
     background: var(--ds-danger);
+    border-color: var(--ds-danger);
     color: #fff;
 }
 .btn-warning {
     background: var(--ds-warning);
+    border-color: var(--ds-warning);
     color: #212b36;
 }
 .btn-outline {
     background: transparent;
-    color: var(--ds-text);
+    color: var(--ds-text-emphasis);
     border: 1px solid var(--ds-border);
 }
 .btn-outline:hover {
     background: var(--ds-gray-100);
     color: var(--ds-text-emphasis);
+}
+.btn:disabled {
+    opacity: 0.56;
+    cursor: not-allowed;
 }
 .btn-sm {
     padding: 6px 12px;
@@ -923,23 +948,24 @@ export default {
 
 /* ═══ LIGHT THEME ═══ */
 .admin-app.theme-light {
-    --ds-gray-100: #f4f6f8;
-    --ds-gray-200: #e8ecf0;
-    --ds-gray-300: #dde2e8;
-    --ds-gray-400: #919eab;
-    --ds-gray-500: #637381;
-    --ds-gray-600: #454f5b;
-    --ds-gray-700: #333f4c;
-    --ds-gray-800: #1c252e;
-    --ds-gray-900: #141a21;
+    --ds-primary-soft: #8ecdc0;
+    --ds-gray-100: #eef3f7;
+    --ds-gray-200: #dde6ee;
+    --ds-gray-300: #c6d2dd;
+    --ds-gray-400: #8497aa;
+    --ds-gray-500: #5f7386;
+    --ds-gray-600: #435668;
+    --ds-gray-700: #2d3f50;
+    --ds-gray-800: #1a2e3f;
+    --ds-gray-900: #0f2335;
 
-    --ds-body-bg: #f5f7fa;
+    --ds-body-bg: #f4f8f6;
     --ds-surface: #ffffff;
-    --ds-surface-2: #f4f6f8;
-    --ds-border: rgba(145, 158, 171, 0.24);
-    --ds-text: #454f5b;
-    --ds-text-emphasis: #1c252e;
-    --ds-text-muted: #919eab;
+    --ds-surface-2: #eef3f7;
+    --ds-border: rgba(95, 115, 134, 0.24);
+    --ds-text: #435668;
+    --ds-text-emphasis: #1a2e3f;
+    --ds-text-muted: #8497aa;
 
     --ds-shadow-xl:
         0 0 2px 0 rgba(145, 158, 171, 0.2),
@@ -947,7 +973,7 @@ export default {
     --ds-shadow-sm: 0 4px 8px 0 rgba(145, 158, 171, 0.16);
 }
 .admin-app.theme-light .navbar-glass {
-    background-color: rgba(245, 247, 250, 0.8);
+    background-color: rgba(244, 248, 246, 0.84);
 }
 .admin-app.theme-light #miniSidebar {
     background: #ffffff;

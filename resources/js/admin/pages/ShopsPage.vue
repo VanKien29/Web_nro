@@ -133,12 +133,21 @@
                                     </div>
                                 </td>
                                 <td style="text-align: right">
-                                    <span class="edit-link">
+                                    <button
+                                        type="button"
+                                        class="edit-link"
+                                        @click.stop="
+                                            $router.push({
+                                                name: 'admin.shops.tab.edit',
+                                                params: { tabId: tab.id },
+                                            })
+                                        "
+                                    >
                                         <span class="mi" style="font-size: 14px"
                                             >edit</span
                                         >
                                         Sửa
-                                    </span>
+                                    </button>
                                 </td>
                             </tr>
                         </template>
@@ -343,11 +352,19 @@ export default {
     align-items: center;
     gap: 4px;
     color: var(--ds-primary);
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: 1px solid rgba(var(--ds-primary-rgb), 0.35);
+    border-radius: 6px;
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    cursor: pointer;
+    font-family: inherit;
 }
 .tab-row:hover .edit-link {
-    text-decoration: underline;
+    text-decoration: none;
+    background: rgba(var(--ds-primary-rgb), 0.14);
+    border-color: rgba(var(--ds-primary-rgb), 0.55);
 }
 
 .badge-type-0 {

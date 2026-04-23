@@ -102,6 +102,186 @@
                                 />
                             </div>
                         </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">Điểm đã nhận</label>
+                                <input
+                                    v-model.number="form.diem_da_nhan"
+                                    class="form-input"
+                                    type="number"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Điểm danh</label>
+                                <input
+                                    v-model.number="form.diem_danh"
+                                    class="form-input"
+                                    type="number"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" v-if="isEdit">
+                        <div class="card-header">
+                            <h3>Dữ liệu nhân vật (player)</h3>
+                        </div>
+
+                        <div v-if="!playerInfo" class="muted-line">
+                            Tài khoản này chưa có nhân vật.
+                        </div>
+
+                        <div v-else>
+                            <div class="player-summary-grid">
+                                <div class="summary-item">
+                                    <span class="summary-label">ID</span>
+                                    <span class="summary-value">{{
+                                        playerInfo.id
+                                    }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Tên</span>
+                                    <span class="summary-value">{{
+                                        playerInfo.name || "—"
+                                    }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Giới tính</span>
+                                    <span class="summary-value">{{
+                                        genderLabel(playerInfo.gender)
+                                    }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Sức mạnh</span>
+                                    <span class="summary-value">{{
+                                        fmt(playerInfo.power)
+                                    }}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label"
+                                        >Nhiệm vụ hiện tại</span
+                                    >
+                                    <span class="summary-value">{{
+                                        taskPreviewText(playerInfo.task)
+                                    }}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="btn btn-outline btn-sm"
+                                @click="togglePlayerFull"
+                                :disabled="playerFullLoading"
+                            >
+                                <span class="mi" style="font-size: 14px">{{
+                                    showPlayerFull ? "visibility_off" : "list"
+                                }}</span>
+                                {{
+                                    showPlayerFull
+                                        ? "Ẩn dữ liệu player"
+                                        : "Hiển thị dữ liệu player"
+                                }}
+                            </button>
+                        </div>
+
+                        <div v-if="showPlayerFull" class="player-full-wrap">
+                            <div v-if="playerFullLoading" class="muted-line">
+                                Đang tải dữ liệu player...
+                            </div>
+                            <div
+                                v-else-if="playerFullError"
+                                class="alert alert-error"
+                            >
+                                {{ playerFullError }}
+                            </div>
+                            <div
+                                v-else-if="playerFull === null"
+                                class="muted-line"
+                            >
+                                Tài khoản chưa có nhân vật.
+                            </div>
+                            <template v-else-if="playerFull && playerFull.raw">
+                                <div class="task-banner">
+                                    <strong>Nhiệm vụ chính:</strong>
+                                    {{
+                                        taskPreviewText(playerFull.summary.task)
+                                    }}
+                                </div>
+
+                                <div
+                                    v-if="parsedSections.length"
+                                    class="parsed-wrap"
+                                >
+                                    <div
+                                        class="parsed-box"
+                                        v-for="section in parsedSections"
+                                        :key="section.key"
+                                    >
+                                        <div class="parsed-title">
+                                            {{ section.title }}
+                                        </div>
+                                        <div
+                                            class="parsed-row"
+                                            v-for="item in section.items"
+                                            :key="`${section.key}-${item.index}`"
+                                        >
+                                            <span class="parsed-label"
+                                                >[{{ item.index }}]
+                                                {{ item.label }}</span
+                                            >
+                                            <span class="parsed-value">{{
+                                                formatParsedValue(item.value)
+                                            }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="player-rows">
+                                    <div
+                                        class="player-row"
+                                        v-for="field in playerFields"
+                                        :key="field.name"
+                                    >
+                                        <div class="player-row-key">
+                                            <div class="player-row-title">
+                                                {{ field.label || field.name }}
+                                            </div>
+                                            <div class="player-row-name">
+                                                {{ field.name }}
+                                            </div>
+                                        </div>
+                                        <div class="player-row-value">
+                                            <pre>{{
+                                                getFieldDisplay(
+                                                    field,
+                                                    !isFieldExpanded(
+                                                        field.name,
+                                                    ),
+                                                )
+                                            }}</pre>
+                                            <button
+                                                v-if="
+                                                    shouldCollapseField(field)
+                                                "
+                                                type="button"
+                                                class="btn btn-outline btn-xs"
+                                                @click="
+                                                    toggleFieldExpanded(
+                                                        field.name,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    isFieldExpanded(field.name)
+                                                        ? "Thu gọn"
+                                                        : "Mở rộng"
+                                                }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
 
@@ -205,6 +385,8 @@ export default {
                 cash: 0,
                 danap: 0,
                 coin: 0,
+                diem_da_nhan: 0,
+                diem_danh: 0,
                 is_admin: "0",
                 active: "1",
                 ban: "0",
@@ -212,11 +394,62 @@ export default {
             error: "",
             success: "",
             saving: false,
+            playerInfo: null,
+            playerFull: null,
+            playerFullLoading: false,
+            playerFullError: "",
+            showPlayerFull: false,
+            expandedFields: {},
         };
     },
     computed: {
         isEdit() {
             return !!this.$route.params.id;
+        },
+        playerFields() {
+            const order = [
+                "data_point",
+                "data_inventory",
+                "data_location",
+                "data_task",
+                "items_body",
+                "items_bag",
+                "items_box",
+                "item_mails_box",
+                "items_daban",
+                "data_item_time",
+                "pet",
+                "giftcode",
+                "event_point_boss",
+            ];
+            const fields = this.playerFull?.fields || [];
+            const fieldMap = new Map(
+                fields.map((field) => [field.name, field]),
+            );
+            return order
+                .filter((name) => fieldMap.has(name))
+                .map((name) => fieldMap.get(name));
+        },
+        parsedSections() {
+            const parsed = this.playerFull?.parsed || {};
+            const titleMap = {
+                data_inventory: "Túi đồ",
+                data_location: "Vị trí",
+                data_point: "Chỉ số",
+                data_task: "Nhiệm vụ",
+            };
+            return [
+                "data_inventory",
+                "data_location",
+                "data_point",
+                "data_task",
+            ]
+                .filter((k) => parsed[k] && Array.isArray(parsed[k].items))
+                .map((k) => ({
+                    key: k,
+                    title: titleMap[k] || k,
+                    items: parsed[k].items,
+                }));
         },
     },
     created() {
@@ -225,6 +458,107 @@ export default {
         }
     },
     methods: {
+        fmt(n) {
+            return Number(n || 0).toLocaleString("vi-VN");
+        },
+        genderLabel(gender) {
+            if (gender === 0 || gender === "0") return "Trái Đất";
+            if (gender === 1 || gender === "1") return "Namek";
+            if (gender === 2 || gender === "2") return "Xayda";
+            return "Không rõ";
+        },
+        taskPreviewText(task) {
+            if (!task || task.id === null || task.id === undefined) {
+                return "Chưa có nhiệm vụ";
+            }
+            const taskName = task.name ? ` - ${task.name}` : "";
+            const taskIndex =
+                task.index !== null && task.index !== undefined
+                    ? ` | bước: ${task.index}`
+                    : "";
+            const taskCount =
+                task.count !== null && task.count !== undefined
+                    ? ` | tiến độ: ${task.count}`
+                    : "";
+            return `#${task.id}${taskName}${taskIndex}${taskCount}`;
+        },
+        normalizeValue(v) {
+            if (v === null || v === undefined) return "(trống)";
+            if (typeof v === "string") return v;
+            try {
+                return JSON.stringify(v);
+            } catch {
+                return String(v);
+            }
+        },
+        shouldCollapseField(field) {
+            const value = this.normalizeValue(
+                this.playerFull?.raw?.[field.name],
+            );
+            return !!field.is_long || value.length > 260;
+        },
+        isFieldExpanded(name) {
+            return !!this.expandedFields[name];
+        },
+        toggleFieldExpanded(name) {
+            this.expandedFields = {
+                ...this.expandedFields,
+                [name]: !this.expandedFields[name],
+            };
+        },
+        getFieldDisplay(field, shortMode = true) {
+            const text = this.normalizeValue(
+                this.playerFull?.raw?.[field.name],
+            );
+            if (
+                shortMode &&
+                this.shouldCollapseField(field) &&
+                text.length > 260
+            ) {
+                return `${text.slice(0, 260)} ...`;
+            }
+            return text;
+        },
+        formatParsedValue(v) {
+            const text = this.normalizeValue(v);
+            if (text.length > 80) {
+                return `${text.slice(0, 80)} ...`;
+            }
+            return text;
+        },
+        async togglePlayerFull() {
+            this.showPlayerFull = !this.showPlayerFull;
+            if (
+                this.showPlayerFull &&
+                !this.playerFull &&
+                !this.playerFullLoading
+            ) {
+                await this.loadPlayerFull();
+            }
+        },
+        async loadPlayerFull() {
+            this.playerFullError = "";
+            this.playerFullLoading = true;
+            try {
+                const res = await fetch(
+                    `/admin/api/accounts/${this.$route.params.id}/player-full`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                const data = await res.json();
+                if (data.ok) {
+                    this.playerFull = data.data;
+                } else {
+                    this.playerFullError =
+                        data.message || "Không tải được dữ liệu player";
+                }
+            } catch {
+                this.playerFullError = "Không tải được dữ liệu player";
+            } finally {
+                this.playerFullLoading = false;
+            }
+        },
         async loadAccount() {
             try {
                 const res = await fetch(
@@ -240,9 +574,19 @@ export default {
                     this.form.cash = a.cash || 0;
                     this.form.danap = a.danap || 0;
                     this.form.coin = a.coin || 0;
+                    this.form.diem_da_nhan = a.diem_da_nhan || 0;
+                    this.form.diem_danh = a.diem_danh || 0;
                     this.form.is_admin = a.is_admin ? "1" : "0";
                     this.form.active = a.active ? "1" : "0";
                     this.form.ban = a.ban ? "1" : "0";
+                    this.playerInfo = a.player || null;
+                    if (this.playerInfo) {
+                        this.showPlayerFull = true;
+                        await this.loadPlayerFull();
+                    } else {
+                        this.showPlayerFull = false;
+                        this.playerFull = null;
+                    }
                 }
             } catch {
                 this.error = "Không thể tải dữ liệu";
@@ -257,10 +601,14 @@ export default {
                     .querySelector('meta[name="csrf-token"]')
                     ?.getAttribute("content");
                 const body = { ...this.form };
-                // Convert checkbox values to int
                 body.is_admin = parseInt(body.is_admin);
                 body.active = parseInt(body.active);
                 body.ban = parseInt(body.ban);
+                body.cash = parseInt(body.cash || 0);
+                body.danap = parseInt(body.danap || 0);
+                body.coin = parseInt(body.coin || 0);
+                body.diem_da_nhan = parseInt(body.diem_da_nhan || 0);
+                body.diem_danh = parseInt(body.diem_danh || 0);
                 if (this.isEdit && !body.password) {
                     delete body.password;
                 }
@@ -375,12 +723,24 @@ export default {
     grid-template-columns: 1fr 1fr 1fr;
     gap: 16px;
 }
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+}
 @media (max-width: 1100px) {
     .form-layout {
         grid-template-columns: 1fr;
     }
     .form-sidebar {
         position: static;
+    }
+}
+@media (max-width: 740px) {
+    .form-row-3,
+    .form-row-2 {
+        grid-template-columns: 1fr;
     }
 }
 .toggle-field {
@@ -448,5 +808,134 @@ export default {
     font-size: 12px;
     color: var(--ds-text-muted);
     margin-bottom: 12px;
+}
+.muted-line {
+    font-size: 13px;
+    color: var(--ds-text-muted);
+}
+.player-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    margin-bottom: 12px;
+}
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.summary-label {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.summary-value {
+    font-size: 13px;
+    color: var(--ds-text);
+}
+.player-full-wrap {
+    margin-top: 12px;
+    border-top: 1px dashed var(--ds-border);
+    padding-top: 12px;
+}
+.task-banner {
+    font-size: 13px;
+    color: var(--ds-text);
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    border: 1px solid rgba(var(--ds-primary-rgb), 0.25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+}
+.parsed-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.parsed-box {
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--ds-surface-1);
+}
+.parsed-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ds-text-emphasis);
+    margin-bottom: 6px;
+}
+.parsed-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+    padding: 2px 0;
+}
+.parsed-label {
+    color: var(--ds-text-muted);
+}
+.parsed-value {
+    color: var(--ds-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    text-align: right;
+}
+.player-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 620px;
+    overflow: auto;
+    padding-right: 4px;
+}
+.player-row {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 12px;
+    align-items: start;
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--ds-surface-1);
+}
+.player-row-title {
+    color: var(--ds-text-emphasis);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.player-row-name {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+    margin-top: 3px;
+}
+.player-row-value pre {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ds-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.btn-xs {
+    margin-top: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: 26px;
+}
+@media (max-width: 900px) {
+    .player-summary-grid {
+        grid-template-columns: 1fr;
+    }
+    .parsed-wrap {
+        grid-template-columns: 1fr;
+    }
+    .player-row {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

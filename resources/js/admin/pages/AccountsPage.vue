@@ -29,7 +29,7 @@
                     <input
                         v-model="search"
                         class="form-input search-input"
-                        placeholder="Tìm username..."
+                        placeholder="Tìm username hoặc tên nhân vật..."
                     />
                 </div>
                 <button class="btn btn-primary btn-sm" type="submit">
@@ -45,12 +45,15 @@
                         <tr>
                             <th>ID</th>
                             <th>Username</th>
+                            <th>Nhân vật</th>
                             <th>Ban</th>
                             <th>Admin</th>
                             <th>Active</th>
                             <th>Cash</th>
                             <th>Danap</th>
                             <th>Coin</th>
+                            <th>Điểm Đã Nhận</th>
+                            <th>Điểm Danh</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -58,6 +61,29 @@
                         <tr v-for="acc in accounts" :key="acc.id">
                             <td>{{ acc.id }}</td>
                             <td style="font-weight: 500">{{ acc.username }}</td>
+                            <td>
+                                <div v-if="acc.player_name" class="player-cell">
+                                    <div class="player-name">
+                                        {{ acc.player_name }}
+                                    </div>
+                                    <div class="player-meta">
+                                        <span class="badge badge-info"
+                                            >SM
+                                            {{
+                                                fmt(
+                                                    acc.player_power || 0,
+                                                )
+                                            }}</span
+                                        >
+                                        <span class="gender-chip">{{
+                                            genderText(acc.player_gender)
+                                        }}</span>
+                                    </div>
+                                </div>
+                                <span v-else class="player-empty"
+                                    >Chưa tạo nhân vật</span
+                                >
+                            </td>
                             <td>
                                 <span v-if="acc.ban" class="badge badge-danger"
                                     >Có</span
@@ -161,6 +187,56 @@
                                     >{{ fmt(acc.coin) }}</span
                                 >
                             </td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(acc, 'diem_da_nhan')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === acc.id &&
+                                        editing.field === 'diem_da_nhan'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(acc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ fmt(acc.diem_da_nhan) }}</span
+                                >
+                            </td>
+                            <td
+                                class="editable-cell"
+                                @dblclick="startEdit(acc, 'diem_danh')"
+                            >
+                                <input
+                                    v-if="
+                                        editing &&
+                                        editing.id === acc.id &&
+                                        editing.field === 'diem_danh'
+                                    "
+                                    v-model.number="editing.value"
+                                    type="number"
+                                    class="inline-input"
+                                    @blur="saveEdit(acc)"
+                                    @keydown.enter="$event.target.blur()"
+                                    @keydown.escape="cancelEdit"
+                                    ref="inlineInput"
+                                />
+                                <span
+                                    v-else
+                                    class="editable-value"
+                                    :title="'Nhấp đúp để sửa'"
+                                    >{{ fmt(acc.diem_danh) }}</span
+                                >
+                            </td>
                             <td style="text-align: right">
                                 <router-link
                                     :to="{
@@ -178,7 +254,7 @@
                         </tr>
                         <tr v-if="!accounts.length && !loading">
                             <td
-                                colspan="9"
+                                colspan="12"
                                 style="
                                     text-align: center;
                                     color: var(--ds-text-muted);
@@ -232,6 +308,13 @@ export default {
     methods: {
         fmt(n) {
             return Number(n || 0).toLocaleString("vi-VN");
+        },
+        genderText(gender) {
+            const g = Number(gender);
+            if (g === 0) return "Trái Đất";
+            if (g === 1) return "Namec";
+            if (g === 2) return "Xayda";
+            return "Không rõ";
         },
         async loadPage(p) {
             this.loading = true;
@@ -362,6 +445,32 @@ export default {
 .search-input {
     padding-left: 38px !important;
     width: 300px;
+}
+.player-cell {
+    min-width: 150px;
+}
+.player-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ds-text-emphasis);
+}
+.player-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+.gender-chip {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+    background: var(--ds-gray-100);
+    border: 1px solid var(--ds-border);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+.player-empty {
+    color: var(--ds-text-muted);
+    font-size: 12px;
 }
 .editable-cell {
     cursor: default;

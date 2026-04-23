@@ -109,7 +109,11 @@ export default {
 .login-brand-icon {
     width: 44px;
     height: 44px;
-    background: linear-gradient(135deg, var(--ds-primary), #818cf8);
+    background: linear-gradient(
+        135deg,
+        var(--ds-primary),
+        var(--ds-primary-soft, #59a08f)
+    );
     border-radius: 12px;
     display: flex;
     align-items: center;

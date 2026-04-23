@@ -113,8 +113,7 @@ class AccountController extends Controller
 
     public function destroy(Account $account): RedirectResponse
     {
-        $account->delete();
-
+        Account::query()->whereKey($account->id)->delete();
         return redirect()->route('admin.accounts.index')->with('status', 'Đã xoá tài khoản game.');
     }
 }

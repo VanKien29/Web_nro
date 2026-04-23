@@ -94,6 +94,7 @@ Route::prefix('admin')->group(function () {
         // Accounts CRUD
         Route::get('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
         Route::get('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsGet']);
+        Route::get('/api/accounts/{id}/player-full', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerFull']);
         Route::post('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
         Route::put('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);
         Route::delete('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsDelete']);
@@ -118,8 +119,20 @@ Route::prefix('admin')->group(function () {
     });
 
     // Admin SPA catch-all — serves Vue app for all /admin/* routes
-    Route::get('/login', fn () => view('admin.spa'))->name('admin.login');
-    Route::get('/{any?}', fn () => view('admin.spa'))->where('any', '.*')->middleware('admin.auth');
+    Route::get('/login', function () {
+        return response()
+            ->view('admin.spa')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    })->name('admin.login');
+    Route::get('/{any?}', function () {
+        return response()
+            ->view('admin.spa')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    })->where('any', '.*')->middleware('admin.auth');
 });
 
 // SPA catch-all: mọi route khác đều trả về Vue app
