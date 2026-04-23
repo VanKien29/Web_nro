@@ -273,6 +273,8 @@
                                                     )"
                                                     :key="oi"
                                                     class="t-opt-pill"
+                                                    @click="editOption(item, opt)"
+                                                    title="Bấm để sửa option"
                                                 >
                                                     {{
                                                         optionLabel(
@@ -283,7 +285,7 @@
                                                     <button
                                                         type="button"
                                                         class="t-opt-rm"
-                                                        @click="
+                                                        @click.stop="
                                                             item.options.splice(
                                                                 item.options.indexOf(
                                                                     opt,
@@ -303,15 +305,7 @@
                                                     "
                                                     type="button"
                                                     class="t-opt-add"
-                                                    @click="
-                                                        item.options.push({
-                                                            id: 0,
-                                                            param: 0,
-                                                            search: '',
-                                                            showDrop: false,
-                                                            _pending: true,
-                                                        })
-                                                    "
+                                                    @click="addPendingOption(item)"
                                                     title="Thêm option"
                                                 >
                                                     <span
@@ -415,6 +409,18 @@
                                                         class="mi"
                                                         style="font-size: 16px"
                                                         >check</span
+                                                    >
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="t-opt-cancel"
+                                                    @click="cancelPendingOption(item)"
+                                                    title="Hủy"
+                                                >
+                                                    <span
+                                                        class="mi"
+                                                        style="font-size: 16px"
+                                                        >close</span
                                                     >
                                                 </button>
                                             </div>
@@ -808,18 +814,61 @@ export default {
             opt.search = `${o.name} (ID: ${o.id})`;
             opt.showDrop = false;
         },
+        addPendingOption(item) {
+            if (item.options.some((o) => o._pending)) return;
+            item.options.push({
+                id: 0,
+                param: 0,
+                search: "",
+                showDrop: false,
+                _pending: true,
+            });
+        },
+        editOption(item, opt) {
+            if (item.options.some((o) => o._pending)) return;
+            const name = this.optionName(opt.id);
+            opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
+            opt.showDrop = false;
+            opt._pending = true;
+            opt._editing = true;
+            opt._backup = {
+                id: opt.id,
+                param: opt.param,
+                search: opt.search,
+            };
+        },
         confirmOption(item) {
             const opt = this.pendingOpt(item);
-            if (opt._pending) delete opt._pending;
+            if (!opt || !opt._pending) return;
+            if (!opt.id) return;
+            if (!opt.search || !opt.search.trim()) {
+                const name = this.optionName(opt.id);
+                opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
+            }
+            delete opt._pending;
+            delete opt._editing;
+            delete opt._backup;
+        },
+        cancelPendingOption(item) {
+            const opt = this.pendingOpt(item);
+            if (!opt) return;
+            opt.showDrop = false;
+            if (opt._editing && opt._backup) {
+                opt.id = opt._backup.id;
+                opt.param = opt._backup.param;
+                opt.search = opt._backup.search;
+                delete opt._pending;
+                delete opt._editing;
+                delete opt._backup;
+                return;
+            }
+            const idx = item.options.indexOf(opt);
+            if (idx >= 0) {
+                item.options.splice(idx, 1);
+            }
         },
         pendingOpt(item) {
-            return (
-                item.options.find((o) => o._pending) || {
-                    search: "",
-                    param: 0,
-                    showDrop: false,
-                }
-            );
+            return item.options.find((o) => o._pending) || null;
         },
         async loadOptions() {
             try {
@@ -1583,6 +1632,13 @@ export default {
     padding: 2px 8px;
     border-radius: 12px;
     white-space: nowrap;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.t-opt-pill:hover {
+    background: rgba(var(--ds-primary-rgb), 0.17);
+    border-color: rgba(var(--ds-primary-rgb), 0.35);
 }
 .t-opt-rm {
     background: none;
@@ -1632,6 +1688,22 @@ export default {
 }
 .t-opt-confirm:hover {
     opacity: 0.85;
+}
+.t-opt-cancel {
+    background: rgba(var(--ds-danger-rgb), 0.12);
+    color: var(--ds-danger);
+    border: 1px solid rgba(var(--ds-danger-rgb), 0.32);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.t-opt-cancel:hover {
+    background: rgba(var(--ds-danger-rgb), 0.2);
 }
 .td-opts {
     min-width: 160px;

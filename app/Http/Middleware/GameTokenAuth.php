@@ -24,7 +24,7 @@ class GameTokenAuth
             return response()->json(['ok' => false, 'error' => 'invalid_token'], 401);
         }
 
-        $account = Account::find($payload->sub);
+        $account = Account::query()->where('id', $payload->sub)->first();
 
         if (!$account) {
             return response()->json(['ok' => false, 'error' => 'invalid_token'], 401);
