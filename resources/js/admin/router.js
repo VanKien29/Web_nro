@@ -87,6 +87,12 @@ const routes = [
         component: () => import("./pages/ShopTabFormPage.vue"),
         meta: { auth: true },
     },
+    {
+        path: "/admin/admin-logs",
+        name: "admin.logs",
+        component: () => import("./pages/AdminLogsPage.vue"),
+        meta: { auth: true },
+    },
 ];
 
 const router = createRouter({

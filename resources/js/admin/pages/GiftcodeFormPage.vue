@@ -20,13 +20,24 @@
                     }}</span>
                 </nav>
             </div>
-            <router-link
-                :to="{ name: 'admin.giftcodes' }"
-                class="btn btn-outline"
-            >
-                <span class="mi" style="font-size: 16px">arrow_back</span> Quay
-                lại
-            </router-link>
+            <div class="page-top-actions">
+                <button
+                    v-if="isEdit"
+                    type="button"
+                    class="btn btn-outline"
+                    @click="cloneCurrentGiftcode"
+                >
+                    <span class="mi" style="font-size: 16px">content_copy</span>
+                    Clone
+                </button>
+                <router-link
+                    :to="{ name: 'admin.giftcodes' }"
+                    class="btn btn-outline"
+                >
+                    <span class="mi" style="font-size: 16px">arrow_back</span> Quay
+                    lại
+                </router-link>
+            </div>
         </div>
 
         <div v-if="error" class="alert alert-error">{{ error }}</div>
@@ -1451,8 +1462,9 @@ export default {
                 const data = await res.json();
                 if (data.ok) {
                     this.success = data.message;
-                    if (!this.isEdit)
+                    if (!this.isEdit) {
                         this.$router.push({ name: "admin.giftcodes" });
+                    }
                 } else {
                     this.error = data.message || "Lỗi";
                 }
@@ -1480,6 +1492,34 @@ export default {
                 this.error = "Lỗi kết nối";
             }
         },
+        async cloneCurrentGiftcode() {
+            if (!this.isEdit) return;
+            if (!confirm(`Clone giftcode "${this.form.code}"?`)) return;
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch(
+                    `/admin/api/giftcodes/${this.$route.params.id}/clone`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": token,
+                        },
+                    },
+                );
+                const data = await res.json();
+                if (data.ok && data.id) {
+                    this.$router.push({
+                        name: "admin.giftcodes.edit",
+                        params: { id: data.id },
+                    });
+                }
+            } catch {
+                this.error = "Không thể clone giftcode";
+            }
+        },
     },
 };
 </script>
@@ -1492,6 +1532,12 @@ export default {
     justify-content: space-between;
     margin-bottom: 24px;
     gap: 16px;
+    flex-wrap: wrap;
+}
+.page-top-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
 }
 .page-title {
