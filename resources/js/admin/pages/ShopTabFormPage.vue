@@ -75,6 +75,16 @@
                                 <span class="item-count"
                                     >{{ items.length }} vật phẩm</span
                                 >
+                                <button
+                                    type="button"
+                                    class="btn btn-outline btn-sm"
+                                    @click="openItemPicker"
+                                >
+                                    <span class="mi" style="font-size: 15px"
+                                        >list</span
+                                    >
+                                    Chọn item
+                                </button>
                                 <div class="view-toggle">
                                     <button
                                         type="button"
@@ -708,6 +718,171 @@
                 </div>
             </div>
         </form>
+
+        <div
+            v-if="itemPicker.open"
+            class="picker-overlay"
+            @click.self="closeItemPicker"
+        >
+            <div class="picker-panel">
+                <div class="picker-head">
+                    <h3>Chọn vật phẩm</h3>
+                    <button
+                        type="button"
+                        class="picker-close"
+                        @click="closeItemPicker"
+                    >
+                        <span class="mi" style="font-size: 18px">close</span>
+                    </button>
+                </div>
+                <div class="picker-tools">
+                    <input
+                        v-model="itemPicker.search"
+                        class="form-input"
+                        placeholder="Tìm theo ID hoặc tên..."
+                        @keyup.enter="loadItemPicker(1)"
+                    />
+                    <select
+                        v-model="itemPicker.type"
+                        class="form-input"
+                        @change="loadItemPicker(1)"
+                    >
+                        <option value="">Tất cả TYPE</option>
+                        <option
+                            v-for="t in itemPickerTypes"
+                            :key="'picker-type-' + t.id"
+                            :value="String(t.id)"
+                        >
+                            {{ t.name }} (TYPE {{ t.id }})
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        @click="loadItemPicker(1)"
+                    >
+                        Lọc
+                    </button>
+                </div>
+
+                <div class="picker-list">
+                    <div v-if="itemPicker.loading" class="picker-empty">
+                        Đang tải dữ liệu...
+                    </div>
+                    <div
+                        v-else-if="!itemPicker.rows.length"
+                        class="picker-empty"
+                    >
+                        Không có vật phẩm phù hợp.
+                    </div>
+                    <button
+                        v-else
+                        v-for="row in itemPicker.rows"
+                        :key="'picker-item-' + row.id"
+                        type="button"
+                        class="picker-item"
+                        @click="pickItemFromPicker(row)"
+                    >
+                        <img
+                            :src="iconBase + row.icon_id + '.png'"
+                            @error="$event.target.style.display = 'none'"
+                        />
+                        <div class="picker-item-info">
+                            <div class="picker-item-name">{{ row.name }}</div>
+                            <div class="picker-item-meta">
+                                ID: {{ row.id }} | {{ itemTypeLabel(row.type) }}
+                            </div>
+                        </div>
+                        <span class="mi" style="font-size: 18px">add</span>
+                    </button>
+                </div>
+
+                <div class="picker-foot">
+                    <span>
+                        {{ itemPicker.total.toLocaleString("vi-VN") }} item
+                    </span>
+                    <div class="picker-pagination">
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-xs"
+                            :disabled="itemPicker.page <= 1"
+                            @click="goToItemPickerPage(1)"
+                        >
+                            Đầu
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-xs"
+                            :disabled="itemPicker.page <= 1"
+                            @click="goToItemPickerPage(itemPicker.page - 1)"
+                        >
+                            Trước
+                        </button>
+                        <div class="picker-page-list">
+                            <template
+                                v-for="p in itemPickerPaginationItems"
+                                :key="'picker-page-' + String(p)"
+                            >
+                                <span
+                                    v-if="typeof p !== 'number'"
+                                    class="picker-pagination-ellipsis"
+                                >
+                                    ...
+                                </span>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="btn btn-outline btn-xs"
+                                    :class="{ active: p === itemPicker.page }"
+                                    @click="goToItemPickerPage(p)"
+                                >
+                                    {{ p }}
+                                </button>
+                            </template>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-xs"
+                            :disabled="
+                                itemPicker.page >= itemPicker.totalPages
+                            "
+                            @click="goToItemPickerPage(itemPicker.page + 1)"
+                        >
+                            Sau
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-xs"
+                            :disabled="
+                                itemPicker.page >= itemPicker.totalPages
+                            "
+                            @click="goToItemPickerPage(itemPicker.totalPages)"
+                        >
+                            Cuối
+                        </button>
+                        <span class="picker-pagination-summary"
+                            >Trang {{ itemPicker.page }} /
+                            {{ itemPicker.totalPages }}</span
+                        >
+                        <input
+                            v-model="itemPicker.pageInput"
+                            type="number"
+                            min="1"
+                            :max="itemPicker.totalPages"
+                            class="form-input picker-page-input"
+                            @keyup.enter="jumpItemPickerPage"
+                        />
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-xs"
+                            @click="jumpItemPickerPage"
+                        >
+                            Đi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -721,6 +896,19 @@ export default {
             items: [],
             allOptions: [],
             specIconMap: {},
+            itemPicker: {
+                open: false,
+                loading: false,
+                rows: [],
+                types: [],
+                typeOptions: [],
+                search: "",
+                type: "",
+                page: 1,
+                pageInput: "1",
+                totalPages: 1,
+                total: 0,
+            },
             itemQuery: "",
             searchResults: [],
             showResults: false,
@@ -735,6 +923,58 @@ export default {
     computed: {
         tabId() {
             return this.$route.params.tabId;
+        },
+        itemPickerTypes() {
+            const fromOptions = Array.isArray(this.itemPicker?.typeOptions)
+                ? this.itemPicker.typeOptions
+                : [];
+            if (fromOptions.length) {
+                const normalized = fromOptions
+                    .map((opt) => ({
+                        id: Number(opt?.id),
+                        name: String(opt?.name || "").trim(),
+                    }))
+                    .filter(
+                        (opt) =>
+                            Number.isFinite(opt.id) &&
+                            opt.name &&
+                            opt.name.toLowerCase() !== "undefined" &&
+                            opt.name.toLowerCase() !== "null",
+                    );
+                const dedup = new Map();
+                normalized.forEach((opt) => {
+                    if (!dedup.has(opt.id)) dedup.set(opt.id, opt);
+                });
+                return Array.from(dedup.values()).sort((a, b) => a.id - b.id);
+            }
+
+            const rawTypes = this.itemPicker?.types;
+            const src = Array.isArray(rawTypes)
+                ? rawTypes
+                : rawTypes && typeof rawTypes === "object"
+                  ? Object.values(rawTypes)
+                  : [];
+            const fallbackFromRows = (this.itemPicker?.rows || []).map(
+                (row) => row?.type,
+            );
+            const merged = [...src, ...fallbackFromRows];
+            const cleaned = merged
+                .map((t) => String(t ?? "").trim())
+                .filter(
+                    (t) =>
+                        t !== "" &&
+                        t.toLowerCase() !== "undefined" &&
+                        t.toLowerCase() !== "null" &&
+                        t.toLowerCase() !== "nan",
+                );
+            const ids = [...new Set(cleaned)];
+            return ids.map((id) => ({ id: Number(id), name: `Type ${id}` }));
+        },
+        itemPickerPaginationItems() {
+            return this.buildPaginationItems(
+                this.itemPicker.page,
+                this.itemPicker.totalPages,
+            );
         },
     },
     created() {
@@ -765,6 +1005,109 @@ export default {
             s = s.replace(/([\[\{])\s*,/g, "$1");
             s = s.replace(/,\s*,/g, ",");
             return s;
+        },
+        async openItemPicker() {
+            this.itemPicker.open = true;
+            if (!this.itemPicker.rows.length) {
+                await this.loadItemPicker(1);
+            }
+        },
+        closeItemPicker() {
+            this.itemPicker.open = false;
+        },
+        buildPaginationItems(current, total) {
+            if (total <= 7) {
+                return Array.from({ length: total }, (_, index) => index + 1);
+            }
+
+            const pages = new Set([1, total, current - 1, current, current + 1]);
+            if (current <= 3) {
+                pages.add(2);
+                pages.add(3);
+                pages.add(4);
+            }
+            if (current >= total - 2) {
+                pages.add(total - 1);
+                pages.add(total - 2);
+                pages.add(total - 3);
+            }
+
+            const sorted = [...pages]
+                .filter((page) => page >= 1 && page <= total)
+                .sort((a, b) => a - b);
+            const items = [];
+            sorted.forEach((page, index) => {
+                if (index > 0 && page - sorted[index - 1] > 1) {
+                    items.push(`ellipsis-${sorted[index - 1]}-${page}`);
+                }
+                items.push(page);
+            });
+            return items;
+        },
+        normalizePickerPage(page) {
+            const value = Number(page);
+            if (!Number.isFinite(value)) return 1;
+            return Math.min(
+                Math.max(1, Math.trunc(value)),
+                this.itemPicker.totalPages || 1,
+            );
+        },
+        goToItemPickerPage(page) {
+            const target = this.normalizePickerPage(page);
+            if (target === this.itemPicker.page && this.itemPicker.rows.length) {
+                this.itemPicker.pageInput = String(target);
+                return;
+            }
+            this.loadItemPicker(target);
+        },
+        jumpItemPickerPage() {
+            this.goToItemPickerPage(this.itemPicker.pageInput);
+        },
+        async loadItemPicker(page = 1) {
+            try {
+                this.itemPicker.loading = true;
+                this.itemPicker.page = this.normalizePickerPage(page);
+                this.itemPicker.pageInput = String(this.itemPicker.page);
+                const params = new URLSearchParams({
+                    page: String(this.itemPicker.page),
+                    per_page: "30",
+                });
+                if (this.itemPicker.search && this.itemPicker.search.trim()) {
+                    params.set("search", this.itemPicker.search.trim());
+                }
+                if (this.itemPicker.type !== "") {
+                    params.set("type", this.itemPicker.type);
+                }
+                const res = await fetch(`/admin/api/items?${params.toString()}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                });
+                const data = await res.json();
+                this.itemPicker.rows = data?.data || [];
+                this.itemPicker.types = data?.types || this.itemPicker.types;
+                this.itemPicker.typeOptions =
+                    data?.type_options || this.itemPicker.typeOptions;
+                this.itemPicker.page = data?.page || 1;
+                this.itemPicker.pageInput = String(this.itemPicker.page);
+                this.itemPicker.totalPages = data?.total_pages || 1;
+                this.itemPicker.total = data?.total || 0;
+            } catch {
+                this.itemPicker.rows = [];
+                this.itemPicker.total = 0;
+                this.itemPicker.totalPages = 1;
+            } finally {
+                this.itemPicker.loading = false;
+            }
+        },
+        pickItemFromPicker(item) {
+            this.addItem(item);
+        },
+        itemTypeLabel(typeValue) {
+            const key = String(typeValue ?? "").trim();
+            const found = this.itemPickerTypes.find((t) => String(t.id) === key);
+            if (found) {
+                return `TYPE: ${found.id} - ${found.name}`;
+            }
+            return `TYPE: ${typeValue}`;
         },
         optionName(id) {
             const o = this.allOptions.find((a) => a.id === id);
@@ -1707,5 +2050,154 @@ export default {
 }
 .td-opts {
     min-width: 160px;
+}
+.picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 10, 18, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1500;
+}
+.picker-panel {
+    width: min(980px, 100%);
+    max-height: calc(100vh - 48px);
+    background: var(--ds-surface-2);
+    border: 1px solid var(--ds-border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ds-border);
+}
+.picker-head h3 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--ds-text-emphasis);
+}
+.picker-close {
+    background: transparent;
+    border: 1px solid var(--ds-border);
+    color: var(--ds-text-muted);
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.picker-close:hover {
+    border-color: rgba(var(--ds-primary-rgb), 0.5);
+    color: var(--ds-text);
+}
+.picker-tools {
+    display: grid;
+    grid-template-columns: 1fr 180px auto;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ds-border);
+}
+.picker-list {
+    overflow: auto;
+    padding: 8px 10px;
+    min-height: 320px;
+}
+.picker-item {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ds-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: left;
+}
+.picker-item:hover {
+    background: rgba(var(--ds-primary-rgb), 0.08);
+    border-color: rgba(var(--ds-primary-rgb), 0.3);
+}
+.picker-item img {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--ds-gray-100);
+    flex-shrink: 0;
+}
+.picker-item-info {
+    flex: 1;
+    min-width: 0;
+}
+.picker-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ds-text-emphasis);
+}
+.picker-item-meta {
+    font-size: 11px;
+    color: var(--ds-text-muted);
+}
+.picker-empty {
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ds-text-muted);
+    font-size: 13px;
+}
+.picker-foot {
+    border-top: 1px solid var(--ds-border);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ds-text-muted);
+}
+.picker-pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.picker-page-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.picker-pagination-ellipsis {
+    color: var(--ds-text-muted);
+    font-size: 12px;
+    padding: 0 2px;
+}
+.picker-pagination-summary {
+    color: var(--ds-text-muted);
+}
+.picker-page-input {
+    width: 72px;
+    min-width: 72px;
+    padding: 6px 8px !important;
+}
+@media (max-width: 900px) {
+    .picker-overlay {
+        padding: 12px;
+    }
+    .picker-tools {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
