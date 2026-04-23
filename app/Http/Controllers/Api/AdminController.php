@@ -660,12 +660,19 @@ class AdminController extends Controller
     public function itemsList(Request $request): JsonResponse
     {
         $search = $request->query('search', '');
-        $type = $request->query('type', '');
-        $perPage = min((int) $request->query('per_page', 50), 200);
+        $typeInput = $request->query('type');
+        $type = null;
+        if ($typeInput !== null) {
+            $typeStr = trim((string) $typeInput);
+            if ($typeStr !== '' && !in_array(strtolower($typeStr), ['undefined', 'null', 'nan'], true)) {
+                $type = is_numeric($typeStr) ? (int) $typeStr : $typeStr;
+            }
+        }
+        $perPage = max(1, min((int) $request->query('per_page', 50), 200));
         $page = max((int) $request->query('page', 1), 1);
 
         $query = DB::connection('game')->table('item_template')
-            ->select('id', 'name', 'icon_id', 'type');
+            ->selectRaw('id, NAME as name, TYPE as type, icon_id, part, head, body, leg, description, is_up_to_up');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -677,24 +684,111 @@ class AdminController extends Controller
             });
         }
 
-        if ($type !== '') {
+        if ($type !== null) {
             $query->where('type', $type);
         }
 
         $total = (clone $query)->count();
         $items = $query->orderBy('id')->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $types = cache()->remember('item_template_types', 600, function () {
-            return DB::connection('game')->table('item_template')
-                ->distinct()
-                ->orderBy('type')
-                ->pluck('type');
-        });
+        $partIds = [];
+        foreach ($items as $item) {
+            foreach (['part', 'head', 'body', 'leg'] as $field) {
+                $value = isset($item->{$field}) ? (int) $item->{$field} : -1;
+                if ($value >= 0) {
+                    $partIds[$value] = true;
+                }
+            }
+        }
+
+        $partMap = [];
+        if (!empty($partIds)) {
+            $parts = DB::connection('game')->table('part')
+                ->whereIn('id', array_keys($partIds))
+                ->orderBy('id')
+                ->get(['id', 'TYPE as type', 'DATA as data']);
+
+            foreach ($parts as $part) {
+                $layers = $this->decodePartData($part->data);
+                $partMap[(int) $part->id] = [
+                    'id' => (int) $part->id,
+                    'type' => (int) $part->type,
+                    'type_name' => $this->partTypeName((int) $part->type),
+                    'layers' => $layers,
+                    'layer_count' => count($layers),
+                ];
+            }
+        }
+
+        $items = $items->map(function ($item) use ($partMap) {
+            $item->id = (int) $item->id;
+            $item->type = isset($item->type) ? (int) $item->type : null;
+            $item->icon_id = isset($item->icon_id) ? (int) $item->icon_id : 0;
+            $item->part = isset($item->part) ? (int) $item->part : -1;
+            $item->head = isset($item->head) ? (int) $item->head : -1;
+            $item->body = isset($item->body) ? (int) $item->body : -1;
+            $item->leg = isset($item->leg) ? (int) $item->leg : -1;
+            $item->is_up_to_up = !empty($item->is_up_to_up);
+            $item->part_preview = [
+                'part' => $item->part >= 0 ? ($partMap[$item->part] ?? null) : null,
+                'head' => $item->head >= 0 ? ($partMap[$item->head] ?? null) : null,
+                'body' => $item->body >= 0 ? ($partMap[$item->body] ?? null) : null,
+                'leg' => $item->leg >= 0 ? ($partMap[$item->leg] ?? null) : null,
+            ];
+            return $item;
+        })->values();
+
+        $typeRows = DB::connection('game')->table('item_template')
+            ->selectRaw('type as id, COUNT(*) as item_count')
+            ->whereNotNull('type')
+            ->groupBy('type')
+            ->orderBy('type')
+            ->get();
+
+        $typeIds = $typeRows->pluck('id')->map(fn ($id) => (int) $id)->values();
+
+        $nameById = DB::connection('game')->table('type_item')
+            ->whereIn('id', $typeIds)
+            ->where('NAME', '<>', '.')
+            ->pluck('NAME', 'id');
+
+        $nameByIndex = [];
+        $indexRows = DB::connection('game')->table('type_item')
+            ->whereIn('index_body', $typeIds)
+            ->where('index_body', '>=', 0)
+            ->where('NAME', '<>', '.')
+            ->orderBy('id')
+            ->get(['index_body', 'NAME']);
+        foreach ($indexRows as $row) {
+            $idx = (int) $row->index_body;
+            if (!isset($nameByIndex[$idx])) {
+                $nameByIndex[$idx] = (string) $row->NAME;
+            }
+        }
+
+        $countByType = [];
+        foreach ($typeRows as $row) {
+            $countByType[(int) $row->id] = (int) $row->item_count;
+        }
+
+        $typeOptions = [];
+        foreach ($typeIds as $typeId) {
+            $name = $nameById[$typeId] ?? ($nameByIndex[$typeId] ?? ('Type ' . $typeId));
+            $typeOptions[] = [
+                'id' => (int) $typeId,
+                'name' => (string) $name,
+                'item_count' => (int) ($countByType[$typeId] ?? 0),
+            ];
+        }
+
+        $types = array_map(fn ($opt) => $opt['id'], $typeOptions);
 
         return response()->json([
             'ok' => true,
             'data' => $items,
+            'part_map' => $partMap,
             'types' => $types,
+            'type_options' => $typeOptions,
             'page' => $page,
             'per_page' => $perPage,
             'total' => $total,
@@ -843,5 +937,50 @@ class AdminController extends Controller
         // Remove double commas
         $s = preg_replace('/,\s*,/', ',', $s);
         return $s;
+    }
+
+    private function decodePartData(?string $raw): array
+    {
+        if (!$raw) {
+            return [];
+        }
+
+        $normalized = trim((string) $raw);
+        $normalized = str_replace('\\"', '"', $normalized);
+        $normalized = $this->fixJson($normalized);
+
+        $decoded = json_decode($normalized, true);
+        if (is_string($decoded)) {
+            $decoded = json_decode($this->fixJson($decoded), true);
+        }
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $layers = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $layers[] = [
+                'icon_id' => isset($entry[0]) ? (int) $entry[0] : 0,
+                'dx' => isset($entry[1]) ? (int) $entry[1] : 0,
+                'dy' => isset($entry[2]) ? (int) $entry[2] : 0,
+            ];
+        }
+
+        return $layers;
+    }
+
+    private function partTypeName(int $type): string
+    {
+        return match ($type) {
+            0 => 'Đầu',
+            1 => 'Thân',
+            2 => 'Chân',
+            default => 'TYPE ' . $type,
+        };
     }
 }

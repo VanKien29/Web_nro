@@ -163,23 +163,45 @@
                 </table>
             </div>
             <div v-if="totalPages > 1" class="pagination">
-                <button :disabled="page <= 1" @click="loadPage(page - 1)">
+                <button :disabled="page <= 1" @click="goToPage(1)">Đầu</button>
+                <button :disabled="page <= 1" @click="goToPage(page - 1)">
                     &laquo;
                 </button>
-                <button
-                    v-for="p in totalPages"
-                    :key="p"
-                    :class="{ active: p === page }"
-                    @click="loadPage(p)"
-                >
-                    {{ p }}
-                </button>
-                <button
-                    :disabled="page >= totalPages"
-                    @click="loadPage(page + 1)"
-                >
+                <template v-for="p in paginationItems" :key="String(p)">
+                    <span
+                        v-if="typeof p !== 'number'"
+                        class="pagination-ellipsis"
+                    >
+                        ...
+                    </span>
+                    <button
+                        v-else
+                        :class="{ active: p === page }"
+                        @click="goToPage(p)"
+                    >
+                        {{ p }}
+                    </button>
+                </template>
+                <button :disabled="page >= totalPages" @click="goToPage(page + 1)">
                     &raquo;
                 </button>
+                <button :disabled="page >= totalPages" @click="goToPage(totalPages)">
+                    Cuối
+                </button>
+                <div class="pagination-jump">
+                    <span class="pagination-summary"
+                        >Trang {{ page }} / {{ totalPages }}</span
+                    >
+                    <input
+                        v-model="pageInput"
+                        type="number"
+                        min="1"
+                        :max="totalPages"
+                        class="form-input pagination-input"
+                        @keyup.enter="jumpToPage"
+                    />
+                    <button @click="jumpToPage">Đi</button>
+                </div>
             </div>
         </div>
     </div>
@@ -193,15 +215,66 @@ export default {
             itemIconMap: {},
             search: "",
             page: 1,
+            pageInput: "1",
             totalPages: 1,
             loading: false,
             editing: null,
         };
     },
+    computed: {
+        paginationItems() {
+            return this.buildPaginationItems(this.page, this.totalPages);
+        },
+    },
     created() {
         this.loadPage(1);
     },
     methods: {
+        buildPaginationItems(current, total) {
+            if (total <= 7) {
+                return Array.from({ length: total }, (_, index) => index + 1);
+            }
+
+            const pages = new Set([1, total, current - 1, current, current + 1]);
+            if (current <= 3) {
+                pages.add(2);
+                pages.add(3);
+                pages.add(4);
+            }
+            if (current >= total - 2) {
+                pages.add(total - 1);
+                pages.add(total - 2);
+                pages.add(total - 3);
+            }
+
+            const sorted = [...pages]
+                .filter((page) => page >= 1 && page <= total)
+                .sort((a, b) => a - b);
+            const items = [];
+            sorted.forEach((page, index) => {
+                if (index > 0 && page - sorted[index - 1] > 1) {
+                    items.push(`ellipsis-${sorted[index - 1]}-${page}`);
+                }
+                items.push(page);
+            });
+            return items;
+        },
+        normalizePage(page) {
+            const value = Number(page);
+            if (!Number.isFinite(value)) return 1;
+            return Math.min(Math.max(1, Math.trunc(value)), this.totalPages || 1);
+        },
+        goToPage(page) {
+            const target = this.normalizePage(page);
+            if (target === this.page && this.giftcodes.length) {
+                this.pageInput = String(target);
+                return;
+            }
+            this.loadPage(target);
+        },
+        jumpToPage() {
+            this.goToPage(this.pageInput);
+        },
         fixJson(str) {
             if (typeof str !== "string") return str;
             let s = str.trim();
@@ -231,10 +304,11 @@ export default {
         },
         async loadPage(p) {
             this.loading = true;
-            this.page = p;
+            this.page = this.normalizePage(p);
+            this.pageInput = String(this.page);
             try {
                 const params = new URLSearchParams({
-                    page: p,
+                    page: this.page,
                     search: this.search,
                 });
                 const res = await fetch(
@@ -246,6 +320,8 @@ export default {
                 const data = await res.json();
                 this.giftcodes = data.data || [];
                 this.totalPages = data.total_pages || 1;
+                this.page = this.normalizePage(data.page || this.page);
+                this.pageInput = String(this.page);
 
                 // Resolve icon_ids for all items
                 const allIds = new Set();
@@ -438,5 +514,33 @@ export default {
     outline: none;
     font-family: inherit;
     box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.15);
+}
+.pagination {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    color: var(--ds-text-muted);
+    font-size: 13px;
+}
+.pagination-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+    flex-wrap: wrap;
+}
+.pagination-summary {
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+.pagination-input {
+    width: 72px;
+    min-width: 72px;
+    padding: 6px 8px !important;
 }
 </style>
