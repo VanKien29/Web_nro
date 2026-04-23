@@ -77,6 +77,21 @@
                     </div>
                     <div class="nav-item">
                         <router-link
+                            to="/admin/milestones/moc_nap"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name?.startsWith(
+                                    'admin.milestones',
+                                ),
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">emoji_events</span>
+                            <span class="text">Mốc thưởng</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
                             to="/admin/shops"
                             class="nav-link"
                             :class="{
