@@ -14,7 +14,7 @@
 
 <body style="margin:0;">
     <script>
-        document.body.style.background=localStorage.getItem('adminTheme')==='light'?'#f5f7fa':'#0f1117';
+        document.body.style.background=localStorage.getItem('adminTheme')==='light'?'#e7ecef':'#0f1117';
     </script>
     <div id="admin-app"></div>
 </body>

@@ -112,6 +112,204 @@ class AdminController extends Controller
         return response()->json(['ok' => true, 'total' => (int) $total]);
     }
 
+    // GET /api/dashboard/overview
+    public function dashboardOverview(): JsonResponse
+    {
+        $game = DB::connection('game');
+        $today = now();
+        $todayDate = $today->toDateString();
+        $monthKey = $today->format('Y-m');
+
+        $milestoneTables = [
+            'moc_nap' => 'Mốc nạp',
+            'moc_nap_top' => 'Mốc nạp top',
+            'moc_nhiem_vu_top' => 'Mốc nhiệm vụ top',
+            'moc_suc_manh_top' => 'Mốc sức mạnh top',
+        ];
+
+        $milestoneBreakdown = [];
+        $milestoneTotal = 0;
+        foreach ($milestoneTables as $table => $label) {
+            $count = (int) $game->table($table)->count();
+            $milestoneTotal += $count;
+            $milestoneBreakdown[] = [
+                'table' => $table,
+                'label' => $label,
+                'count' => $count,
+            ];
+        }
+
+        $sourceExpr = "COALESCE(NULLIF(source, ''), NULLIF(currency, ''), 'Khác')";
+
+        $stats = [
+            'accounts' => (int) $game->table('account')->count(),
+            'players' => (int) $game->table('player')->count(),
+            'topups' => (int) $game->table('topup_transactions')->count(),
+            'items' => (int) $game->table('item_template')->count(),
+            'giftcodes' => (int) $game->table('giftcode')->count(),
+            'giftcodes_active' => (int) $game->table('giftcode')->where('active', 1)->count(),
+            'shops' => (int) $game->table('shop')->count(),
+            'shop_tabs' => (int) $game->table('tab_shop')->count(),
+            'milestones' => $milestoneTotal,
+            'today_revenue' => (int) $game->table('topup_transactions')
+                ->whereRaw('DATE(created_at) = ?', [$todayDate])
+                ->sum('amount'),
+            'today_topups' => (int) $game->table('topup_transactions')
+                ->whereRaw('DATE(created_at) = ?', [$todayDate])
+                ->count(),
+            'month_revenue' => (int) $game->table('topup_transactions')
+                ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$monthKey])
+                ->sum('amount'),
+            'month_topups' => (int) $game->table('topup_transactions')
+                ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$monthKey])
+                ->count(),
+        ];
+
+        $sevenDayRows = $game->table('topup_transactions')
+            ->selectRaw('DATE(created_at) as label, SUM(amount) as total, COUNT(*) as count')
+            ->whereRaw('created_at >= CURDATE() - INTERVAL 6 DAY')
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy(DB::raw('DATE(created_at)'))
+            ->get()
+            ->keyBy('label');
+
+        $sevenDayRevenue = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = $today->copy()->subDays($i)->toDateString();
+            $row = $sevenDayRows->get($date);
+            $sevenDayRevenue[] = [
+                'date' => $date,
+                'label' => $today->copy()->subDays($i)->format('d/m'),
+                'total' => (int) ($row->total ?? 0),
+                'count' => (int) ($row->count ?? 0),
+            ];
+        }
+
+        $thirtyDayRows = $game->table('topup_transactions')
+            ->selectRaw('DATE(created_at) as label, SUM(amount) as total, COUNT(*) as count')
+            ->whereRaw('created_at >= CURDATE() - INTERVAL 29 DAY')
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy(DB::raw('DATE(created_at)'))
+            ->get()
+            ->keyBy('label');
+
+        $thirtyDayRevenue = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $date = $today->copy()->subDays($i)->toDateString();
+            $row = $thirtyDayRows->get($date);
+            $thirtyDayRevenue[] = [
+                'date' => $date,
+                'label' => $today->copy()->subDays($i)->format('d/m'),
+                'total' => (int) ($row->total ?? 0),
+                'count' => (int) ($row->count ?? 0),
+            ];
+        }
+
+        $sourceRevenue = $game->table('topup_transactions')
+            ->selectRaw($sourceExpr . ' as source_label, SUM(amount) as total, COUNT(*) as count')
+            ->whereRaw('created_at >= CURDATE() - INTERVAL 29 DAY')
+            ->groupBy(DB::raw($sourceExpr))
+            ->orderByDesc('total')
+            ->limit(6)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'source' => $row->source_label ?: 'Khác',
+                    'total' => (int) ($row->total ?? 0),
+                    'count' => (int) ($row->count ?? 0),
+                ];
+            })
+            ->values();
+
+        $recentTransactions = $game->table('topup_transactions')
+            ->select('trans_id', 'username', 'amount', 'currency', 'source', 'created_at')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'trans_id' => $row->trans_id,
+                    'username' => $row->username,
+                    'amount' => (int) ($row->amount ?? 0),
+                    'currency' => $row->currency,
+                    'source' => $row->source,
+                    'created_at' => $row->created_at,
+                ];
+            })
+            ->values();
+
+        $topUsers = $game->table('topup_transactions')
+            ->select('username', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
+            ->groupBy('username')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'username' => $row->username,
+                    'total' => (int) ($row->total ?? 0),
+                    'count' => (int) ($row->count ?? 0),
+                ];
+            })
+            ->values();
+
+        $recentAccounts = $game->table('account as a')
+            ->leftJoin('player as p', 'p.account_id', '=', 'a.id')
+            ->select([
+                'a.id',
+                'a.username',
+                'a.create_time',
+                'a.active',
+                'a.ban',
+                'a.cash',
+                'a.danap',
+                'p.name as player_name',
+            ])
+            ->orderByDesc('a.create_time')
+            ->limit(8)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'id' => (int) $row->id,
+                    'username' => $row->username,
+                    'player_name' => $row->player_name,
+                    'create_time' => $row->create_time,
+                    'active' => (int) ($row->active ?? 0),
+                    'ban' => (int) ($row->ban ?? 0),
+                    'cash' => (int) ($row->cash ?? 0),
+                    'danap' => (int) ($row->danap ?? 0),
+                ];
+            })
+            ->values();
+
+        $systemSummary = [
+            ['label' => 'Tài khoản', 'count' => $stats['accounts'], 'hint' => 'Bảng account'],
+            ['label' => 'Nhân vật', 'count' => $stats['players'], 'hint' => 'Bảng player'],
+            ['label' => 'Giao dịch nạp', 'count' => $stats['topups'], 'hint' => 'Bảng topup_transactions'],
+            ['label' => 'Giftcode', 'count' => $stats['giftcodes'], 'hint' => 'Đang bật: ' . number_format($stats['giftcodes_active'], 0, ',', '.')],
+            ['label' => 'Vật phẩm mẫu', 'count' => $stats['items'], 'hint' => 'Bảng item_template'],
+            ['label' => 'Shop / Tab', 'count' => $stats['shops'] . ' / ' . $stats['shop_tabs'], 'hint' => 'shop / tab_shop'],
+            ['label' => 'Mốc thưởng', 'count' => $stats['milestones'], 'hint' => '4 bảng mốc chính'],
+        ];
+
+        return response()->json([
+            'ok' => true,
+            'stats' => $stats,
+            'charts' => [
+                'revenue_7d' => $sevenDayRevenue,
+                'revenue_30d' => $thirtyDayRevenue,
+                'source_revenue_30d' => $sourceRevenue,
+            ],
+            'tables' => [
+                'recent_transactions' => $recentTransactions,
+                'top_users' => $topUsers,
+                'recent_accounts' => $recentAccounts,
+                'system_summary' => $systemSummary,
+                'milestone_breakdown' => $milestoneBreakdown,
+            ],
+        ]);
+    }
+
     // GET /api/admin/accounts
     public function accountsList(Request $request): JsonResponse
     {

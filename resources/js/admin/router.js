@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import LoginPage from "./pages/LoginPage.vue";
+import DashboardPage from "./pages/DashboardPage.vue";
 
 const routes = [
     {
@@ -11,7 +12,7 @@ const routes = [
     {
         path: "/admin",
         name: "admin.dashboard",
-        component: () => import("./pages/DashboardPage.vue"),
+        component: DashboardPage,
         meta: { auth: true },
     },
     {

@@ -246,7 +246,7 @@ export default {
         },
         applyBodyBg() {
             document.body.style.background =
-                this.theme === "dark" ? "#0f1418" : "#f4f8f6";
+                this.theme === "dark" ? "#0f1418" : "#e7ecef";
         },
         async fetchUser() {
             try {
@@ -964,37 +964,48 @@ export default {
 /* ═══ LIGHT THEME ═══ */
 .admin-app.theme-light {
     --ds-primary-soft: #8ecdc0;
-    --ds-gray-100: #eef3f7;
-    --ds-gray-200: #dde6ee;
-    --ds-gray-300: #c6d2dd;
-    --ds-gray-400: #8497aa;
-    --ds-gray-500: #5f7386;
-    --ds-gray-600: #435668;
-    --ds-gray-700: #2d3f50;
-    --ds-gray-800: #1a2e3f;
-    --ds-gray-900: #0f2335;
+    --ds-gray-100: #e9eef2;
+    --ds-gray-200: #d9e1e8;
+    --ds-gray-300: #c0ccd7;
+    --ds-gray-400: #77899b;
+    --ds-gray-500: #56697b;
+    --ds-gray-600: #405364;
+    --ds-gray-700: #2c3f50;
+    --ds-gray-800: #182b3a;
+    --ds-gray-900: #0f2230;
 
-    --ds-body-bg: #f4f8f6;
-    --ds-surface: #ffffff;
-    --ds-surface-2: #eef3f7;
-    --ds-border: rgba(95, 115, 134, 0.24);
-    --ds-text: #435668;
-    --ds-text-emphasis: #1a2e3f;
-    --ds-text-muted: #8497aa;
+    --ds-body-bg: #e7ecef;
+    --ds-surface: #f1f4f6;
+    --ds-surface-2: #e7edf1;
+    --ds-border: rgba(86, 105, 123, 0.24);
+    --ds-text: #3f5364;
+    --ds-text-emphasis: #182b3a;
+    --ds-text-muted: #6f8194;
 
     --ds-shadow-xl:
-        0 0 2px 0 rgba(145, 158, 171, 0.2),
-        0 12px 24px -4px rgba(145, 158, 171, 0.12);
-    --ds-shadow-sm: 0 4px 8px 0 rgba(145, 158, 171, 0.16);
+        0 0 2px 0 rgba(116, 129, 142, 0.16),
+        0 14px 30px -10px rgba(116, 129, 142, 0.18);
+    --ds-shadow-sm: 0 8px 18px -10px rgba(116, 129, 142, 0.22);
 }
 .admin-app.theme-light .navbar-glass {
-    background-color: rgba(244, 248, 246, 0.84);
+    background-color: rgba(231, 236, 239, 0.88);
 }
 .admin-app.theme-light #miniSidebar {
-    background: #ffffff;
+    background: #edf1f4;
 }
 .admin-app.theme-light .brand-logo {
-    background: #ffffff;
+    background: #edf1f4;
+}
+.admin-app.theme-light .nav-link:hover {
+    background: rgba(86, 105, 123, 0.08);
+}
+.admin-app.theme-light .topbar-user:hover,
+.admin-app.theme-light .topbar-btn:hover,
+.admin-app.theme-light .btn-outline:hover {
+    background: rgba(86, 105, 123, 0.08);
+}
+.admin-app.theme-light tr:hover td {
+    background: rgba(86, 105, 123, 0.08);
 }
 
 /* ═══ MOBILE ═══ */

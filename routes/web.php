@@ -90,6 +90,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/dashboard/history', [\App\Http\Controllers\Api\AdminController::class, 'history']);
         Route::get('/api/dashboard/topUsers', [\App\Http\Controllers\Api\AdminController::class, 'topUsers']);
         Route::get('/api/dashboard/monthRevenue', [\App\Http\Controllers\Api\AdminController::class, 'monthlyRevenue']);
+        Route::get('/api/dashboard/overview', [\App\Http\Controllers\Api\AdminController::class, 'dashboardOverview']);
 
         // Accounts CRUD
         Route::get('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
