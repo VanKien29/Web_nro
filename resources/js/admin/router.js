@@ -57,6 +57,24 @@ const routes = [
         meta: { auth: true },
     },
     {
+        path: "/admin/milestones/:type",
+        name: "admin.milestones",
+        component: () => import("./pages/MilestonesPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/milestones/:type/create",
+        name: "admin.milestones.create",
+        component: () => import("./pages/MilestoneFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/milestones/:type/:id/edit",
+        name: "admin.milestones.edit",
+        component: () => import("./pages/MilestoneFormPage.vue"),
+        meta: { auth: true },
+    },
+    {
         path: "/admin/shops",
         name: "admin.shops",
         component: () => import("./pages/ShopsPage.vue"),

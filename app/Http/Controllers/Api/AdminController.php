@@ -654,6 +654,167 @@ class AdminController extends Controller
         return response()->json(['ok' => true, 'message' => 'Giftcode deleted successfully']);
     }
 
+    // ========== MILESTONE REWARD MANAGEMENT ==========
+
+    // GET /api/admin/milestones/{type}
+    public function milestonesList(Request $request, string $type): JsonResponse
+    {
+        $resolved = $this->resolveMilestoneType($type);
+        if (!$resolved) {
+            return response()->json(['ok' => false, 'message' => 'Loại bảng không hợp lệ'], 404);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = 20;
+
+        $query = DB::connection('game')->table($resolved['table'])->select('id', 'info', 'detail');
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q->orWhere('info', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query
+            ->orderBy('id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(function ($row) {
+                $detailItems = $this->decodeMilestoneDetail($row->detail ?? null);
+                return [
+                    'id' => (int) $row->id,
+                    'info' => (string) ($row->info ?? ''),
+                    'detail' => (string) ($row->detail ?? '[]'),
+                    'detail_count' => count($detailItems),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'type' => $resolved['type'],
+            'label' => $resolved['label'],
+            'data' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => (int) ceil($total / $limit),
+        ]);
+    }
+
+    // GET /api/admin/milestones/{type}/{id}
+    public function milestonesGet(string $type, int $id): JsonResponse
+    {
+        $resolved = $this->resolveMilestoneType($type);
+        if (!$resolved) {
+            return response()->json(['ok' => false, 'message' => 'Loại bảng không hợp lệ'], 404);
+        }
+
+        $row = DB::connection('game')->table($resolved['table'])->where('id', $id)->first();
+        if (!$row) {
+            return response()->json(['ok' => false, 'message' => 'Không tìm thấy mốc quà'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'type' => $resolved['type'],
+            'label' => $resolved['label'],
+            'data' => [
+                'id' => (int) $row->id,
+                'info' => (string) ($row->info ?? ''),
+                'detail' => (string) ($row->detail ?? '[]'),
+            ],
+        ]);
+    }
+
+    // POST /api/admin/milestones/{type}
+    public function milestonesCreate(Request $request, string $type): JsonResponse
+    {
+        $resolved = $this->resolveMilestoneType($type);
+        if (!$resolved) {
+            return response()->json(['ok' => false, 'message' => 'Loại bảng không hợp lệ'], 404);
+        }
+
+        $info = trim((string) $request->input('info', ''));
+        if ($info === '') {
+            return response()->json(['ok' => false, 'message' => 'Thông tin mốc là bắt buộc'], 400);
+        }
+
+        $requestedId = $request->input('id');
+        $id = null;
+        if ($requestedId !== null && $requestedId !== '') {
+            $id = (int) $requestedId;
+            if ($id <= 0) {
+                return response()->json(['ok' => false, 'message' => 'ID không hợp lệ'], 400);
+            }
+            $exists = DB::connection('game')->table($resolved['table'])->where('id', $id)->exists();
+            if ($exists) {
+                return response()->json(['ok' => false, 'message' => 'ID đã tồn tại'], 400);
+            }
+        } else {
+            $id = ((int) DB::connection('game')->table($resolved['table'])->max('id')) + 1;
+        }
+
+        DB::connection('game')->table($resolved['table'])->insert([
+            'id' => $id,
+            'info' => $info,
+            'detail' => $this->normalizeMilestoneDetail($request->input('detail', '[]')),
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Tạo mốc quà thành công',
+            'id' => $id,
+        ]);
+    }
+
+    // PUT /api/admin/milestones/{type}/{id}
+    public function milestonesUpdate(Request $request, string $type, int $id): JsonResponse
+    {
+        $resolved = $this->resolveMilestoneType($type);
+        if (!$resolved) {
+            return response()->json(['ok' => false, 'message' => 'Loại bảng không hợp lệ'], 404);
+        }
+
+        $exists = DB::connection('game')->table($resolved['table'])->where('id', $id)->exists();
+        if (!$exists) {
+            return response()->json(['ok' => false, 'message' => 'Không tìm thấy mốc quà'], 404);
+        }
+
+        $data = [];
+        if ($request->has('info')) {
+            $data['info'] = trim((string) $request->input('info', ''));
+        }
+        if ($request->has('detail')) {
+            $data['detail'] = $this->normalizeMilestoneDetail($request->input('detail'));
+        }
+
+        if (empty($data)) {
+            return response()->json(['ok' => false, 'message' => 'Không có dữ liệu để cập nhật'], 400);
+        }
+
+        DB::connection('game')->table($resolved['table'])->where('id', $id)->update($data);
+
+        return response()->json(['ok' => true, 'message' => 'Cập nhật mốc quà thành công']);
+    }
+
+    // DELETE /api/admin/milestones/{type}/{id}
+    public function milestonesDelete(string $type, int $id): JsonResponse
+    {
+        $resolved = $this->resolveMilestoneType($type);
+        if (!$resolved) {
+            return response()->json(['ok' => false, 'message' => 'Loại bảng không hợp lệ'], 404);
+        }
+
+        DB::connection('game')->table($resolved['table'])->where('id', $id)->delete();
+        return response()->json(['ok' => true, 'message' => 'Đã xoá mốc quà']);
+    }
+
     // ========== ITEMS MANAGEMENT ==========
 
     // GET /api/admin/items — paginated
@@ -982,5 +1143,54 @@ class AdminController extends Controller
             2 => 'Chân',
             default => 'TYPE ' . $type,
         };
+    }
+
+    private function resolveMilestoneType(string $type): ?array
+    {
+        $map = [
+            'moc_nap' => ['table' => 'moc_nap', 'label' => 'Mốc nạp'],
+            'moc_nap_top' => ['table' => 'moc_nap_top', 'label' => 'Mốc nạp top'],
+            'moc_nhiem_vu_top' => ['table' => 'moc_nhiem_vu_top', 'label' => 'Mốc nhiệm vụ top'],
+            'moc_suc_manh_top' => ['table' => 'moc_suc_manh_top', 'label' => 'Mốc sức mạnh top'],
+        ];
+
+        if (!isset($map[$type])) {
+            return null;
+        }
+
+        return [
+            'type' => $type,
+            'table' => $map[$type]['table'],
+            'label' => $map[$type]['label'],
+        ];
+    }
+
+    private function decodeMilestoneDetail($value): array
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($this->fixJson($value), true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function normalizeMilestoneDetail($value): string
+    {
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return '[]';
+        }
+
+        $fixed = $this->fixJson($value);
+        $decoded = json_decode($fixed, true);
+        if (!is_array($decoded)) {
+            return '[]';
+        }
+
+        return json_encode($decoded, JSON_UNESCAPED_UNICODE);
     }
 }

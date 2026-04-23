@@ -106,6 +106,13 @@ Route::prefix('admin')->group(function () {
         Route::put('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesUpdate']);
         Route::delete('/api/giftcodes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'giftcodesDelete']);
 
+        // Milestone reward tables
+        Route::get('/api/milestones/{type}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesList']);
+        Route::get('/api/milestones/{type}/{id}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesGet']);
+        Route::post('/api/milestones/{type}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesCreate']);
+        Route::put('/api/milestones/{type}/{id}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesUpdate']);
+        Route::delete('/api/milestones/{type}/{id}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesDelete']);
+
         // Items & Options
         Route::get('/api/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
         Route::get('/api/items/batch', [\App\Http\Controllers\Api\AdminController::class, 'itemsBatch']);
