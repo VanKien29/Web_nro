@@ -96,6 +96,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsList']);
         Route::get('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsGet']);
         Route::get('/api/accounts/{id}/player-full', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerFull']);
+        Route::get('/api/accounts/{id}/player-sections/{section}', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerSection']);
         Route::get('/api/accounts/{id}/activity', [\App\Http\Controllers\Api\AdminController::class, 'accountsActivity']);
         Route::post('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
         Route::put('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);

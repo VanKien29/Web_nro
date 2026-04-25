@@ -382,7 +382,7 @@
                             >
                                 Tài khoản chưa có nhân vật.
                             </div>
-                            <template v-else-if="playerFull && playerFull.raw">
+                            <template v-else-if="playerFull">
                                 <div class="task-banner">
                                     <strong>Nhiệm vụ chính:</strong>
                                     {{
@@ -433,32 +433,131 @@
                                             </div>
                                         </div>
                                         <div class="player-row-value">
-                                            <pre>{{
-                                                getFieldDisplay(
-                                                    field,
-                                                    !isFieldExpanded(
-                                                        field.name,
-                                                    ),
-                                                )
-                                            }}</pre>
-                                            <button
+                                            <div class="player-row-actions">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline btn-xs"
+                                                    @click="
+                                                        togglePlayerField(
+                                                            field.name,
+                                                        )
+                                                    "
+                                                    :disabled="
+                                                        isPlayerSectionLoading(
+                                                            field.name,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        isPlayerSectionLoading(
+                                                            field.name,
+                                                        )
+                                                            ? "Đang tải..."
+                                                            : isFieldExpanded(
+                                                                    field.name,
+                                                                )
+                                                              ? "Ẩn dữ liệu"
+                                                              : isPlayerSectionLoaded(
+                                                                      field.name,
+                                                                  )
+                                                                ? "Xem dữ liệu"
+                                                                : "Tải dữ liệu"
+                                                    }}
+                                                </button>
+                                                <button
+                                                    v-if="
+                                                        isPlayerSectionLoaded(
+                                                            field.name,
+                                                        )
+                                                    "
+                                                    type="button"
+                                                    class="btn btn-outline btn-xs"
+                                                    @click="
+                                                        loadPlayerSection(
+                                                            field.name,
+                                                            true,
+                                                        )
+                                                    "
+                                                    :disabled="
+                                                        isPlayerSectionLoading(
+                                                            field.name,
+                                                        )
+                                                    "
+                                                >
+                                                    Tải lại
+                                                </button>
+                                            </div>
+                                            <div
                                                 v-if="
-                                                    shouldCollapseField(field)
-                                                "
-                                                type="button"
-                                                class="btn btn-outline btn-xs"
-                                                @click="
-                                                    toggleFieldExpanded(
+                                                    playerSectionErrorText(
                                                         field.name,
                                                     )
                                                 "
+                                                class="player-row-note player-row-error"
                                             >
                                                 {{
-                                                    isFieldExpanded(field.name)
-                                                        ? "Thu gọn"
-                                                        : "Mở rộng"
+                                                    playerSectionErrorText(
+                                                        field.name,
+                                                    )
                                                 }}
-                                            </button>
+                                            </div>
+                                            <div
+                                                v-else-if="
+                                                    !isPlayerSectionLoaded(
+                                                        field.name,
+                                                    )
+                                                "
+                                                class="player-row-note"
+                                            >
+                                                Dữ liệu lớn chỉ tải khi bấm
+                                                xem.
+                                            </div>
+                                            <template
+                                                v-else-if="
+                                                    isFieldExpanded(field.name)
+                                                "
+                                            >
+                                                <div
+                                                    v-if="
+                                                        sectionParsedItems(
+                                                            field.name,
+                                                        ).length
+                                                    "
+                                                    class="player-section-parsed"
+                                                >
+                                                    <div
+                                                        class="parsed-row"
+                                                        v-for="item in sectionParsedItems(
+                                                            field.name,
+                                                        )"
+                                                        :key="
+                                                            `${field.name}-${item.index}`
+                                                        "
+                                                    >
+                                                        <span
+                                                            class="parsed-label"
+                                                            >[{{ item.index }}]
+                                                            {{
+                                                                item.label
+                                                            }}</span
+                                                        >
+                                                        <span
+                                                            class="parsed-value"
+                                                            >{{
+                                                                formatParsedValue(
+                                                                    item.value,
+                                                                )
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                </div>
+                                                <pre>{{
+                                                    getFieldDisplay(
+                                                        field,
+                                                        false,
+                                                    )
+                                                }}</pre>
+                                            </template>
                                         </div>
                                     </div>
                                 </div>
@@ -582,6 +681,9 @@ export default {
             playerFullError: "",
             showPlayerFull: false,
             expandedFields: {},
+            playerSectionCache: {},
+            playerSectionLoading: {},
+            playerSectionErrors: {},
             activity: null,
             activityLoading: false,
             activityError: "",
@@ -680,7 +782,7 @@ export default {
         },
         shouldCollapseField(field) {
             const value = this.normalizeValue(
-                this.playerFull?.raw?.[field.name],
+                this.playerSectionCache?.[field.name]?.raw,
             );
             return !!field.is_long || value.length > 260;
         },
@@ -695,7 +797,7 @@ export default {
         },
         getFieldDisplay(field, shortMode = true) {
             const text = this.normalizeValue(
-                this.playerFull?.raw?.[field.name],
+                this.playerSectionCache?.[field.name]?.raw,
             );
             if (
                 shortMode &&
@@ -737,6 +839,30 @@ export default {
                 [id]: !this.expandedLogs[id],
             };
         },
+        isPlayerSectionLoaded(name) {
+            return !!this.playerSectionCache?.[name];
+        },
+        isPlayerSectionLoading(name) {
+            return !!this.playerSectionLoading?.[name];
+        },
+        playerSectionErrorText(name) {
+            return this.playerSectionErrors?.[name] || "";
+        },
+        sectionParsedItems(name) {
+            const parsed = this.playerSectionCache?.[name]?.parsed;
+            return Array.isArray(parsed?.items) ? parsed.items : [];
+        },
+        async togglePlayerField(name) {
+            const expanded = this.isFieldExpanded(name);
+            this.expandedFields = {
+                ...this.expandedFields,
+                [name]: !expanded,
+            };
+
+            if (!expanded && !this.isPlayerSectionLoaded(name)) {
+                await this.loadPlayerSection(name);
+            }
+        },
         async togglePlayerFull() {
             this.showPlayerFull = !this.showPlayerFull;
             if (
@@ -768,6 +894,50 @@ export default {
                 this.playerFullError = "Không tải được dữ liệu player";
             } finally {
                 this.playerFullLoading = false;
+            }
+        },
+        async loadPlayerSection(name, force = false) {
+            if (!force && (this.isPlayerSectionLoaded(name) || this.isPlayerSectionLoading(name))) {
+                return;
+            }
+
+            this.playerSectionLoading = {
+                ...this.playerSectionLoading,
+                [name]: true,
+            };
+            this.playerSectionErrors = {
+                ...this.playerSectionErrors,
+                [name]: "",
+            };
+
+            try {
+                const res = await fetch(
+                    `/admin/api/accounts/${this.$route.params.id}/player-sections/${name}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                const data = await res.json();
+                if (!data.ok) {
+                    throw new Error(
+                        data.message || "Không tải được dữ liệu mục này",
+                    );
+                }
+                this.playerSectionCache = {
+                    ...this.playerSectionCache,
+                    [name]: data.data || null,
+                };
+            } catch (error) {
+                this.playerSectionErrors = {
+                    ...this.playerSectionErrors,
+                    [name]:
+                        error?.message || "Không tải được dữ liệu mục này",
+                };
+            } finally {
+                this.playerSectionLoading = {
+                    ...this.playerSectionLoading,
+                    [name]: false,
+                };
             }
         },
         async loadAccountActivity() {
@@ -817,8 +987,12 @@ export default {
                     this.playerInfo = a.player || null;
                     await this.loadAccountActivity();
                     if (this.playerInfo) {
-                        this.showPlayerFull = true;
-                        await this.loadPlayerFull();
+                        this.showPlayerFull = false;
+                        this.playerFull = null;
+                        this.playerSectionCache = {};
+                        this.playerSectionLoading = {};
+                        this.playerSectionErrors = {};
+                        this.expandedFields = {};
                     } else {
                         this.showPlayerFull = false;
                         this.playerFull = null;
@@ -1354,6 +1528,26 @@ export default {
     word-break: break-word;
     overflow-wrap: anywhere;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.player-row-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.player-row-note {
+    font-size: 12px;
+    color: var(--ds-text-muted);
+}
+.player-row-error {
+    color: var(--ds-danger);
+}
+.player-section-parsed {
+    border: 1px dashed var(--ds-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--ds-surface);
+    margin-bottom: 8px;
 }
 .btn-xs {
     margin-top: 8px;

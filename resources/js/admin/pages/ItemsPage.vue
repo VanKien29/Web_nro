@@ -73,6 +73,8 @@
                                     <img
                                         :src="iconUrl(item.icon_id)"
                                         class="item-icon"
+                                        loading="lazy"
+                                        decoding="async"
                                         @error="
                                             $event.target.style.display = 'none'
                                         "
@@ -233,6 +235,8 @@
                                                                 )
                                                             "
                                                             class="layer-icon"
+                                                            loading="lazy"
+                                                            decoding="async"
                                                             @error="
                                                                 $event.target.style.display =
                                                                     'none'

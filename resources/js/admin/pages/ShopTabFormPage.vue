@@ -136,7 +136,10 @@
                                     @click="addItem(item)"
                                 >
                                     <img
-                                        :src="iconBase + item.icon_id + '.png'"
+                                        v-if="hasImageId(item.icon_id)"
+                                        :src="iconSrc(item.icon_id)"
+                                        loading="lazy"
+                                        decoding="async"
                                         @error="
                                             $event.target.style.display = 'none'
                                         "
@@ -200,6 +203,8 @@
                                                     item.icon_id +
                                                     '.png'
                                                 "
+                                                loading="lazy"
+                                                decoding="async"
                                                 @error="
                                                     $event.target.style.visibility =
                                                         'hidden'
@@ -237,15 +242,24 @@
                                         <td>
                                             <div class="spec-cell">
                                                 <img
-                                                    v-if="item.item_spec"
+                                                    v-if="
+                                                        item.item_spec &&
+                                                        hasImageId(
+                                                            specIconId(
+                                                                item.item_spec,
+                                                            ),
+                                                        )
+                                                    "
                                                     class="spec-icon"
                                                     :src="
-                                                        iconBase +
-                                                        specIconId(
-                                                            item.item_spec,
-                                                        ) +
-                                                        '.png'
+                                                        iconSrc(
+                                                            specIconId(
+                                                                item.item_spec,
+                                                            ),
+                                                        )
                                                     "
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     @error="
                                                         $event.target.style.display =
                                                             'none'
@@ -343,6 +357,9 @@
                                                         class="form-input input-sm"
                                                         placeholder="Tìm chỉ số..."
                                                         autocomplete="off"
+                                                        @keyup.enter="
+                                                            confirmOption(item)
+                                                        "
                                                         @focus="
                                                             pendingOpt(
                                                                 item,
@@ -408,10 +425,16 @@
                                                     type="number"
                                                     class="form-input input-sm param-input"
                                                     placeholder="Param"
+                                                    @keyup.enter="
+                                                        confirmOption(item)
+                                                    "
                                                 />
                                                 <button
                                                     type="button"
                                                     class="t-opt-confirm"
+                                                    @mousedown.prevent="
+                                                        confirmOption(item)
+                                                    "
                                                     @click="confirmOption(item)"
                                                     title="Xác nhận"
                                                 >
@@ -467,10 +490,11 @@
                                 <div class="item-card-top">
                                     <div class="item-card-head">
                                         <img
+                                            v-if="hasImageId(item.icon_id)"
                                             class="item-card-icon"
-                                            :src="
-                                                iconBase + item.icon_id + '.png'
-                                            "
+                                            :src="iconSrc(item.icon_id)"
+                                            loading="lazy"
+                                            decoding="async"
                                             @error="
                                                 $event.target.style.visibility =
                                                     'hidden'
@@ -523,15 +547,24 @@
                                             <label>Item Spec</label>
                                             <div class="spec-cell">
                                                 <img
-                                                    v-if="item.item_spec"
+                                                    v-if="
+                                                        item.item_spec &&
+                                                        hasImageId(
+                                                            specIconId(
+                                                                item.item_spec,
+                                                            ),
+                                                        )
+                                                    "
                                                     class="spec-icon"
                                                     :src="
-                                                        iconBase +
-                                                        specIconId(
-                                                            item.item_spec,
-                                                        ) +
-                                                        '.png'
+                                                        iconSrc(
+                                                            specIconId(
+                                                                item.item_spec,
+                                                            ),
+                                                        )
                                                     "
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     @error="
                                                         $event.target.style.display =
                                                             'none'
@@ -578,7 +611,7 @@
                                             class="option-add-btn"
                                             @click="
                                                 item.options.push({
-                                                    id: 0,
+                                                    id: null,
                                                     param: 0,
                                                     search: '',
                                                     showDrop: false,
@@ -604,8 +637,20 @@
                                                 class="form-input input-sm"
                                                 placeholder="Tìm chỉ số..."
                                                 autocomplete="off"
+                                                @keyup.enter="
+                                                    normalizeOptionInput(opt)
+                                                "
                                                 @focus="opt.showDrop = true"
                                                 @input="opt.showDrop = true"
+                                                @blur="
+                                                    setTimeout(
+                                                        () =>
+                                                            normalizeOptionInput(
+                                                                opt,
+                                                            ),
+                                                        120,
+                                                    )
+                                                "
                                             />
                                             <div
                                                 v-if="opt.showDrop"
@@ -643,6 +688,9 @@
                                             type="number"
                                             class="form-input input-sm param-input"
                                             placeholder="Param"
+                                            @keyup.enter="
+                                                normalizeOptionInput(opt)
+                                            "
                                         />
                                         <button
                                             type="button"
@@ -785,6 +833,8 @@
                     >
                         <img
                             :src="iconBase + row.icon_id + '.png'"
+                            loading="lazy"
+                            decoding="async"
                             @error="$event.target.style.display = 'none'"
                         />
                         <div class="picker-item-info">
@@ -918,6 +968,8 @@ export default {
             saving: false,
             iconBase: "/assets/frontend/home/v1/images/x4/",
             searchTimeout: null,
+            optionsCacheKey: "admin_item_options_v1",
+            optionsCacheTtlMs: 1000 * 60 * 30,
         };
     },
     computed: {
@@ -1015,6 +1067,38 @@ export default {
         closeItemPicker() {
             this.itemPicker.open = false;
         },
+        readCachedOptions() {
+            try {
+                const raw = localStorage.getItem(this.optionsCacheKey);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (
+                    !parsed ||
+                    !Array.isArray(parsed.data) ||
+                    !parsed.expires_at ||
+                    Date.now() > Number(parsed.expires_at)
+                ) {
+                    localStorage.removeItem(this.optionsCacheKey);
+                    return null;
+                }
+                return parsed.data;
+            } catch {
+                return null;
+            }
+        },
+        writeCachedOptions(data) {
+            try {
+                localStorage.setItem(
+                    this.optionsCacheKey,
+                    JSON.stringify({
+                        data,
+                        expires_at: Date.now() + this.optionsCacheTtlMs,
+                    }),
+                );
+            } catch {
+                // ignore storage error
+            }
+        },
         buildPaginationItems(current, total) {
             if (total <= 7) {
                 return Array.from({ length: total }, (_, index) => index + 1);
@@ -1071,6 +1155,7 @@ export default {
                 const params = new URLSearchParams({
                     page: String(this.itemPicker.page),
                     per_page: "30",
+                    lite: "1",
                 });
                 if (this.itemPicker.search && this.itemPicker.search.trim()) {
                     params.set("search", this.itemPicker.search.trim());
@@ -1120,12 +1205,26 @@ export default {
                 ? o.name.replace("#", param)
                 : o.name + ": " + param;
         },
+        hasImageId(value) {
+            return (
+                value !== null &&
+                value !== undefined &&
+                value !== "" &&
+                Number.isInteger(Number(value)) &&
+                Number(value) >= 0
+            );
+        },
+        iconSrc(iconId) {
+            return `${this.iconBase}${iconId}.png`;
+        },
         specIconId(specId) {
             if (!specId || specId <= 0) return specId;
             if (this.specIconMap[specId] !== undefined)
                 return this.specIconMap[specId];
-            // Try to fetch it lazily
-            this.specIconMap[specId] = specId; // fallback to specId initially
+            this.specIconMap = {
+                ...this.specIconMap,
+                [specId]: null,
+            };
             fetch(`/admin/api/items/batch?ids=${specId}`, {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
             })
@@ -1139,7 +1238,7 @@ export default {
                     }
                 })
                 .catch(() => {});
-            return specId;
+            return null;
         },
         filteredOptions(search) {
             if (!search || !search.trim()) return this.allOptions.slice(0, 30);
@@ -1152,15 +1251,67 @@ export default {
                 )
                 .slice(0, 20);
         },
+        resolveOptionCandidate(search) {
+            const keyword = String(search || "").trim();
+            if (!keyword) return null;
+
+            const idMatch = keyword.match(/\bID:\s*(\d+)\b/i);
+            if (idMatch) {
+                const foundByLabelId = this.allOptions.find(
+                    (o) => Number(o.id) === Number(idMatch[1]),
+                );
+                if (foundByLabelId) return foundByLabelId;
+            }
+
+            if (/^\d+$/.test(keyword)) {
+                const numeric = Number(keyword);
+                const foundById = this.allOptions.find(
+                    (o) => Number(o.id) === numeric,
+                );
+                if (foundById) return foundById;
+            }
+
+            const normalized = keyword.toLowerCase();
+            const foundByExactName = this.allOptions.find(
+                (o) => String(o.name || "").trim().toLowerCase() === normalized,
+            );
+            if (foundByExactName) return foundByExactName;
+
+            const matches = this.filteredOptions(keyword);
+            if (matches.length === 1) {
+                return matches[0];
+            }
+
+            return null;
+        },
         selectOption(opt, o) {
             opt.id = o.id;
             opt.search = `${o.name} (ID: ${o.id})`;
             opt.showDrop = false;
         },
+        normalizeOptionInput(opt) {
+            if (!opt) return;
+            const resolved = this.resolveOptionCandidate(opt.search);
+            if (resolved) {
+                opt.id = resolved.id;
+                opt.search = `${resolved.name} (ID: ${resolved.id})`;
+            } else if (opt.id && (!opt.search || !opt.search.trim())) {
+                const name = this.optionName(opt.id);
+                opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
+            }
+            opt.showDrop = false;
+        },
+        hasOptionId(opt) {
+            if (!opt) return false;
+            if (opt.id === null || opt.id === undefined || opt.id === "") {
+                return false;
+            }
+            return !Number.isNaN(Number(opt.id));
+        },
         addPendingOption(item) {
             if (item.options.some((o) => o._pending)) return;
             item.options.push({
-                id: 0,
+                id: null,
                 param: 0,
                 search: "",
                 showDrop: false,
@@ -1183,11 +1334,8 @@ export default {
         confirmOption(item) {
             const opt = this.pendingOpt(item);
             if (!opt || !opt._pending) return;
-            if (!opt.id) return;
-            if (!opt.search || !opt.search.trim()) {
-                const name = this.optionName(opt.id);
-                opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
-            }
+            this.normalizeOptionInput(opt);
+            if (!this.hasOptionId(opt)) return;
             delete opt._pending;
             delete opt._editing;
             delete opt._backup;
@@ -1214,12 +1362,20 @@ export default {
             return item.options.find((o) => o._pending) || null;
         },
         async loadOptions() {
+            const cached = this.readCachedOptions();
+            if (cached?.length) {
+                this.allOptions = cached;
+                return;
+            }
             try {
                 const res = await fetch("/admin/api/options", {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 });
                 const data = await res.json();
                 this.allOptions = data || [];
+                if (Array.isArray(this.allOptions) && this.allOptions.length) {
+                    this.writeCachedOptions(this.allOptions);
+                }
             } catch {
                 //
             }
@@ -1286,7 +1442,7 @@ export default {
                         this.items.push({
                             temp_id: d.temp_id,
                             name: itemInfo?.name || "Item #" + d.temp_id,
-                            icon_id: itemInfo?.icon_id || d.temp_id,
+                            icon_id: itemInfo?.icon_id ?? null,
                             cost: d.cost || 0,
                             type_sell: d.type_sell ?? 0,
                             is_new: !!d.is_new,

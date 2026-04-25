@@ -8,7 +8,9 @@ use App\Models\Game\Account;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
@@ -195,7 +197,7 @@ class AdminController extends Controller
             'topups' => (int) $game->table('topup_transactions')->count(),
             'items' => (int) $game->table('item_template')->count(),
             'giftcodes' => (int) $game->table('giftcode')->count(),
-            'giftcodes_active' => (int) $game->table('giftcode')->where('active', 1)->count(),
+            'giftcodes_active' => (int) $game->table('giftcode')->where('active', 0)->count(),
             'shops' => (int) $game->table('shop')->count(),
             'shop_tabs' => (int) $game->table('tab_shop')->count(),
             'milestones' => $milestoneTotal,
@@ -447,7 +449,7 @@ class AdminController extends Controller
                 'lastDiemDanh',
             ])
             ->selectRaw('`DiemDanh` as diem_danh')
-            ->with(['player:id,account_id,name,gender,head,data_point,data_task'])
+            ->with(['player:id,account_id,name,gender,head,power,data_task'])
             ->find($id);
 
         if (!$account) {
@@ -486,7 +488,7 @@ class AdminController extends Controller
                         'gender' => (int) ($account->player->gender ?? 0),
                         'head' => (int) ($account->player->head ?? 0),
                         'power' => (int) ($account->player->power ?? 0),
-                        'task_data' => $account->player->task_data,
+                        'task' => $this->buildTaskSummary($account->player->data_task),
                     ]
                     : null,
             ],
@@ -617,7 +619,21 @@ class AdminController extends Controller
         }
 
         $game = DB::connection('game');
-        $player = $game->table('player')->where('account_id', $id)->first();
+        $player = $game->table('player')
+            ->select([
+                'id',
+                'account_id',
+                'name',
+                'gender',
+                'head',
+                'power',
+                'data_point',
+                'data_inventory',
+                'data_location',
+                'data_task',
+            ])
+            ->where('account_id', $id)
+            ->first();
 
         if (!$player) {
             return response()->json([
@@ -628,76 +644,9 @@ class AdminController extends Controller
         }
 
         $raw = (array) $player;
-        $displayFields = [
-            'data_point',
-            'data_inventory',
-            'data_location',
-            'data_task',
-            'items_body',
-            'items_bag',
-            'items_box',
-            'item_mails_box',
-            'items_daban',
-            'data_item_time',
-            'pet',
-            'giftcode',
-            'event_point_boss',
-        ];
+        $displayFields = $this->playerDisplayFields();
         $point = $this->decodeArray($raw['data_point'] ?? null);
-        $taskData = $this->decodeArray($raw['data_task'] ?? null);
-        $taskId = isset($taskData[0]) ? (int) $taskData[0] : null;
-        $taskName = null;
-        if ($taskId !== null) {
-            $taskName = $game->table('task_main_template')
-                ->where('id', $taskId)
-                ->value('NAME');
-        }
-
-        $fields = [];
-        try {
-            $dbName = $game->getDatabaseName();
-            $columns = $game->table('information_schema.COLUMNS')
-                ->select('COLUMN_NAME', 'DATA_TYPE')
-                ->where('TABLE_SCHEMA', $dbName)
-                ->where('TABLE_NAME', 'player')
-                ->orderBy('ORDINAL_POSITION')
-                ->get();
-
-            foreach ($columns as $col) {
-                $name = $col->COLUMN_NAME;
-                if (!in_array($name, $displayFields, true)) {
-                    continue;
-                }
-                $value = $raw[$name] ?? null;
-                $valueString = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
-                $fields[] = [
-                    'name' => $name,
-                    'label' => $this->playerFieldLabel($name),
-                    'data_type' => strtolower((string) $col->DATA_TYPE),
-                    'is_long' => $this->isLongPlayerField((string) $col->DATA_TYPE, $valueString),
-                ];
-            }
-        } catch (\Throwable $e) {
-            foreach (array_keys($raw) as $name) {
-                if (!in_array($name, $displayFields, true)) {
-                    continue;
-                }
-                $value = $raw[$name] ?? null;
-                $valueString = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
-                $fields[] = [
-                    'name' => $name,
-                    'label' => $this->playerFieldLabel($name),
-                    'data_type' => 'unknown',
-                    'is_long' => $this->isLongPlayerField('text', $valueString),
-                ];
-            }
-        }
-        $displayOrder = array_flip($displayFields);
-        usort($fields, function ($a, $b) use ($displayOrder) {
-            $aOrder = $displayOrder[$a['name']] ?? PHP_INT_MAX;
-            $bOrder = $displayOrder[$b['name']] ?? PHP_INT_MAX;
-            return $aOrder <=> $bOrder;
-        });
+        $fields = $this->loadPlayerFieldDefinitions($game, $displayFields);
 
         return response()->json([
             'ok' => true,
@@ -708,14 +657,8 @@ class AdminController extends Controller
                     'name' => $raw['name'] ?? '',
                     'gender' => isset($raw['gender']) ? (int) $raw['gender'] : null,
                     'head' => isset($raw['head']) ? (int) $raw['head'] : null,
-                    'power' => isset($point[1]) ? (int) $point[1] : 0,
-                    'task' => [
-                        'id' => $taskId,
-                        'name' => $taskName,
-                        'index' => isset($taskData[1]) ? (int) $taskData[1] : null,
-                        'count' => isset($taskData[2]) ? (int) $taskData[2] : null,
-                        'last_time' => isset($taskData[3]) ? (int) $taskData[3] : null,
-                    ],
+                    'power' => isset($raw['power']) ? (int) $raw['power'] : (isset($point[1]) ? (int) $point[1] : 0),
+                    'task' => $this->buildTaskSummary($raw['data_task'] ?? null),
                 ],
                 'parsed' => [
                     'data_inventory' => $this->parseIndexedData($raw['data_inventory'] ?? null, [
@@ -753,11 +696,56 @@ class AdminController extends Controller
                     ]),
                 ],
                 'fields' => $fields,
-                'raw' => array_reduce($displayFields, function ($carry, $field) use ($raw) {
-                    $carry[$field] = $raw[$field] ?? null;
-                    return $carry;
-                }, []),
             ],
+        ]);
+    }
+
+    public function accountsPlayerSection(int $id, string $section): JsonResponse
+    {
+        $account = Account::find($id);
+        if (!$account) {
+            return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
+        }
+
+        $displayFields = $this->playerDisplayFields();
+        if (!in_array($section, $displayFields, true)) {
+            return response()->json(['ok' => false, 'message' => 'Field không hợp lệ'], 404);
+        }
+
+        $cacheKey = "admin:player-section:{$id}:{$section}";
+        $payload = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($id, $section, $displayFields) {
+            $game = DB::connection('game');
+            $player = $game->table('player')
+                ->select(['id', 'account_id', $section])
+                ->where('account_id', $id)
+                ->first();
+
+            if (!$player) {
+                return null;
+            }
+
+            $definitions = $this->loadPlayerFieldDefinitions($game, $displayFields);
+            $field = collect($definitions)->firstWhere('name', $section) ?? [
+                'name' => $section,
+                'label' => $this->playerFieldLabel($section),
+                'data_type' => 'unknown',
+                'is_long' => true,
+            ];
+
+            $rawValue = $player->{$section} ?? null;
+            $rawText = $this->normalizePlayerValue($rawValue);
+
+            return [
+                'field' => $field,
+                'raw' => $rawValue,
+                'size' => mb_strlen($rawText),
+                'parsed' => $this->parsePlayerSection($section, $rawValue),
+            ];
+        });
+
+        return response()->json([
+            'ok' => true,
+            'data' => $payload,
         ]);
     }
 
@@ -780,6 +768,177 @@ class AdminController extends Controller
             return false;
         }
         return mb_strlen($value) > 180;
+    }
+
+    private function playerDisplayFields(): array
+    {
+        return [
+            'data_point',
+            'data_inventory',
+            'data_location',
+            'data_task',
+            'items_body',
+            'items_bag',
+            'items_box',
+            'item_mails_box',
+            'items_daban',
+            'data_item_time',
+            'pet',
+            'giftcode',
+            'event_point_boss',
+        ];
+    }
+
+    private function loadPlayerFieldDefinitions($game, array $displayFields): array
+    {
+        $fields = [];
+
+        try {
+            $dbName = $game->getDatabaseName();
+            $columns = $game->table('information_schema.COLUMNS')
+                ->select('COLUMN_NAME', 'DATA_TYPE')
+                ->where('TABLE_SCHEMA', $dbName)
+                ->where('TABLE_NAME', 'player')
+                ->orderBy('ORDINAL_POSITION')
+                ->get();
+
+            foreach ($columns as $col) {
+                $name = (string) $col->COLUMN_NAME;
+                if (!in_array($name, $displayFields, true)) {
+                    continue;
+                }
+
+                $fields[] = [
+                    'name' => $name,
+                    'label' => $this->playerFieldLabel($name),
+                    'data_type' => strtolower((string) $col->DATA_TYPE),
+                    'is_long' => true,
+                ];
+            }
+        } catch (\Throwable $e) {
+            foreach ($displayFields as $name) {
+                $fields[] = [
+                    'name' => $name,
+                    'label' => $this->playerFieldLabel($name),
+                    'data_type' => 'unknown',
+                    'is_long' => true,
+                ];
+            }
+        }
+
+        $displayOrder = array_flip($displayFields);
+        usort($fields, function ($a, $b) use ($displayOrder) {
+            $aOrder = $displayOrder[$a['name']] ?? PHP_INT_MAX;
+            $bOrder = $displayOrder[$b['name']] ?? PHP_INT_MAX;
+            return $aOrder <=> $bOrder;
+        });
+
+        return $fields;
+    }
+
+    private function normalizePlayerValue($value): string
+    {
+        if ($value === null) {
+            return '(trống)';
+        }
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        try {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '(trống)';
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+
+    private function parsePlayerSection(string $section, $value): ?array
+    {
+        return match ($section) {
+            'data_inventory' => $this->parseIndexedData($value, [
+                0 => 'Vàng',
+                1 => 'Ngọc xanh',
+                2 => 'Hồng ngọc (ruby)',
+                3 => 'Coupon',
+                4 => 'Điểm sự kiện túi',
+            ]),
+            'data_location' => $this->parseIndexedData($value, [
+                0 => 'Map ID',
+                1 => 'Tọa độ X',
+                2 => 'Tọa độ Y',
+            ]),
+            'data_point' => $this->parseIndexedData($value, [
+                0 => 'Giới hạn sức mạnh',
+                1 => 'Sức mạnh',
+                2 => 'Tiềm năng',
+                3 => 'Thể lực hiện tại',
+                4 => 'Thể lực tối đa',
+                5 => 'HP gốc',
+                6 => 'MP gốc',
+                7 => 'Dame gốc',
+                8 => 'Giáp gốc',
+                9 => 'Chí mạng gốc',
+                10 => 'Năng động',
+                11 => 'HP hiện tại',
+                12 => 'MP hiện tại',
+            ]),
+            'data_task' => $this->parseIndexedData($value, [
+                0 => 'Task ID (nhiệm vụ chính)',
+                1 => 'Index nhiệm vụ con',
+                2 => 'Số lượng đã làm',
+                3 => 'Mốc thời gian nhiệm vụ',
+            ]),
+            default => $this->summarizeDecodedArray($value),
+        };
+    }
+
+    private function summarizeDecodedArray($value): ?array
+    {
+        $decoded = $this->decodeArray($value);
+        if (empty($decoded)) {
+            return null;
+        }
+
+        $preview = [];
+        foreach (array_slice($decoded, 0, 5, true) as $index => $item) {
+            $preview[] = [
+                'index' => is_int($index) ? $index : (string) $index,
+                'label' => 'Mục',
+                'value' => $item,
+            ];
+        }
+
+        return [
+            'type' => array_is_list($decoded) ? 'list' : 'map',
+            'count' => count($decoded),
+            'items' => $preview,
+        ];
+    }
+
+    private function buildTaskSummary($taskValue): array
+    {
+        $taskData = $this->decodeArray($taskValue);
+        $taskId = isset($taskData[0]) ? (int) $taskData[0] : null;
+        $taskName = null;
+
+        if ($taskId !== null) {
+            try {
+                $taskName = DB::connection('game')->table('task_main_template')
+                    ->where('id', $taskId)
+                    ->value('NAME');
+            } catch (\Throwable $e) {
+                $taskName = null;
+            }
+        }
+
+        return [
+            'id' => $taskId,
+            'name' => $taskName,
+            'index' => isset($taskData[1]) ? (int) $taskData[1] : null,
+            'count' => isset($taskData[2]) ? (int) $taskData[2] : null,
+            'last_time' => isset($taskData[3]) ? (int) $taskData[3] : null,
+        ];
     }
 
     private function playerFieldLabel(string $name): string
@@ -981,13 +1140,13 @@ class AdminController extends Controller
         }
 
         if ($status === 'active') {
-            $query->where('active', 1);
-        } elseif ($status === 'inactive') {
             $query->where('active', 0);
+        } elseif ($status === 'inactive') {
+            $query->where('active', 1);
         } elseif ($status === 'expired') {
             $query->whereNotNull('expired')->where('expired', '<', now());
         } elseif ($status === 'available') {
-            $query->where('active', 1)
+            $query->where('active', 0)
                 ->where('count_left', '>', 0)
                 ->where(function ($q) {
                     $q->whereNull('expired')->orWhere('expired', '>=', now());
@@ -1370,6 +1529,7 @@ class AdminController extends Controller
     {
         $search = $request->query('search', '');
         $typeInput = $request->query('type');
+        $lite = $request->boolean('lite');
         $type = null;
         if ($typeInput !== null) {
             $typeStr = trim((string) $typeInput);
@@ -1380,15 +1540,28 @@ class AdminController extends Controller
         $perPage = max(1, min((int) $request->query('per_page', 50), 200));
         $page = max((int) $request->query('page', 1), 1);
 
-        $query = DB::connection('game')->table('item_template')
-            ->selectRaw('id, NAME as name, TYPE as type, icon_id, part, head, body, leg, description, is_up_to_up');
+        $usingWebIndex = $this->webItemIndexReady();
+        $query = $usingWebIndex
+            ? DB::table('game_item_indexes')->selectRaw($lite
+                ? 'id, name, type, icon_id'
+                : 'id, name, type, icon_id, part, head, body, leg, description, is_up_to_up')
+            : DB::connection('game')->table('item_template')->selectRaw($lite
+                ? 'id, NAME as name, TYPE as type, icon_id'
+                : 'id, NAME as name, TYPE as type, icon_id, part, head, body, leg, description, is_up_to_up');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 if (is_numeric($search)) {
                     $q->where('id', (int) $search);
                 } else {
-                    $q->where('name', 'LIKE', "%{$search}%");
+                    if ($usingWebIndex) {
+                        $q->where(function ($nested) use ($search) {
+                            $nested->where('name', 'LIKE', "%{$search}%")
+                                ->orWhere('normalized_name', 'LIKE', '%' . mb_strtolower($search) . '%');
+                        });
+                    } else {
+                        $q->where('name', 'LIKE', "%{$search}%");
+                    }
                 }
             });
         }
@@ -1400,39 +1573,45 @@ class AdminController extends Controller
         $total = (clone $query)->count();
         $items = $query->orderBy('id')->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $partIds = [];
-        foreach ($items as $item) {
-            foreach (['part', 'head', 'body', 'leg'] as $field) {
-                $value = isset($item->{$field}) ? (int) $item->{$field} : -1;
-                if ($value >= 0) {
-                    $partIds[$value] = true;
+        $partMap = [];
+        if (!$lite) {
+            $partIds = [];
+            foreach ($items as $item) {
+                foreach (['part', 'head', 'body', 'leg'] as $field) {
+                    $value = isset($item->{$field}) ? (int) $item->{$field} : -1;
+                    if ($value >= 0) {
+                        $partIds[$value] = true;
+                    }
+                }
+            }
+
+            if (!empty($partIds)) {
+                $parts = DB::connection('game')->table('part')
+                    ->whereIn('id', array_keys($partIds))
+                    ->orderBy('id')
+                    ->get(['id', 'TYPE as type', 'DATA as data']);
+
+                foreach ($parts as $part) {
+                    $layers = $this->decodePartData($part->data);
+                    $partMap[(int) $part->id] = [
+                        'id' => (int) $part->id,
+                        'type' => (int) $part->type,
+                        'type_name' => $this->partTypeName((int) $part->type),
+                        'layers' => $layers,
+                        'layer_count' => count($layers),
+                    ];
                 }
             }
         }
 
-        $partMap = [];
-        if (!empty($partIds)) {
-            $parts = DB::connection('game')->table('part')
-                ->whereIn('id', array_keys($partIds))
-                ->orderBy('id')
-                ->get(['id', 'TYPE as type', 'DATA as data']);
-
-            foreach ($parts as $part) {
-                $layers = $this->decodePartData($part->data);
-                $partMap[(int) $part->id] = [
-                    'id' => (int) $part->id,
-                    'type' => (int) $part->type,
-                    'type_name' => $this->partTypeName((int) $part->type),
-                    'layers' => $layers,
-                    'layer_count' => count($layers),
-                ];
-            }
-        }
-
-        $items = $items->map(function ($item) use ($partMap) {
+        $items = $items->map(function ($item) use ($partMap, $lite) {
             $item->id = (int) $item->id;
             $item->type = isset($item->type) ? (int) $item->type : null;
             $item->icon_id = isset($item->icon_id) ? (int) $item->icon_id : 0;
+            if ($lite) {
+                return $item;
+            }
+
             $item->part = isset($item->part) ? (int) $item->part : -1;
             $item->head = isset($item->head) ? (int) $item->head : -1;
             $item->body = isset($item->body) ? (int) $item->body : -1;
@@ -1447,55 +1626,74 @@ class AdminController extends Controller
             return $item;
         })->values();
 
-        $typeRows = DB::connection('game')->table('item_template')
-            ->selectRaw('type as id, COUNT(*) as item_count')
-            ->whereNotNull('type')
-            ->groupBy('type')
-            ->orderBy('type')
-            ->get();
+        $typeOptions = $this->webItemTypeIndexReady()
+            ? Cache::remember('admin:item_type_options:web:v1', now()->addMinutes(15), function () {
+                return DB::table('game_item_type_indexes')
+                    ->orderBy('id')
+                    ->get(['id', 'name', 'item_count'])
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => (string) $row->name,
+                            'item_count' => (int) ($row->item_count ?? 0),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            })
+            : Cache::remember('admin:item_type_options:v2', now()->addMinutes(15), function () {
+            $typeRows = DB::connection('game')->table('item_template')
+                ->selectRaw('type as id, COUNT(*) as item_count')
+                ->whereNotNull('type')
+                ->groupBy('type')
+                ->orderBy('type')
+                ->get();
 
-        $typeIds = $typeRows->pluck('id')->map(fn ($id) => (int) $id)->values();
+            $typeIds = $typeRows->pluck('id')->map(fn ($id) => (int) $id)->values();
 
-        $nameById = DB::connection('game')->table('type_item')
-            ->whereIn('id', $typeIds)
-            ->where('NAME', '<>', '.')
-            ->pluck('NAME', 'id');
+            $nameById = DB::connection('game')->table('type_item')
+                ->whereIn('id', $typeIds)
+                ->where('NAME', '<>', '.')
+                ->pluck('NAME', 'id');
 
-        $nameByIndex = [];
-        $indexRows = DB::connection('game')->table('type_item')
-            ->whereIn('index_body', $typeIds)
-            ->where('index_body', '>=', 0)
-            ->where('NAME', '<>', '.')
-            ->orderBy('id')
-            ->get(['index_body', 'NAME']);
-        foreach ($indexRows as $row) {
-            $idx = (int) $row->index_body;
-            if (!isset($nameByIndex[$idx])) {
-                $nameByIndex[$idx] = (string) $row->NAME;
+            $nameByIndex = [];
+            $indexRows = DB::connection('game')->table('type_item')
+                ->whereIn('index_body', $typeIds)
+                ->where('index_body', '>=', 0)
+                ->where('NAME', '<>', '.')
+                ->orderBy('id')
+                ->get(['index_body', 'NAME']);
+            foreach ($indexRows as $row) {
+                $idx = (int) $row->index_body;
+                if (!isset($nameByIndex[$idx])) {
+                    $nameByIndex[$idx] = (string) $row->NAME;
+                }
             }
-        }
 
-        $countByType = [];
-        foreach ($typeRows as $row) {
-            $countByType[(int) $row->id] = (int) $row->item_count;
-        }
+            $countByType = [];
+            foreach ($typeRows as $row) {
+                $countByType[(int) $row->id] = (int) $row->item_count;
+            }
 
-        $typeOptions = [];
-        foreach ($typeIds as $typeId) {
-            $name = $nameById[$typeId] ?? ($nameByIndex[$typeId] ?? ('Type ' . $typeId));
-            $typeOptions[] = [
-                'id' => (int) $typeId,
-                'name' => (string) $name,
-                'item_count' => (int) ($countByType[$typeId] ?? 0),
-            ];
-        }
+            $options = [];
+            foreach ($typeIds as $typeId) {
+                $name = $nameById[$typeId] ?? ($nameByIndex[$typeId] ?? ('Type ' . $typeId));
+                $options[] = [
+                    'id' => (int) $typeId,
+                    'name' => (string) $name,
+                    'item_count' => (int) ($countByType[$typeId] ?? 0),
+                ];
+            }
 
-        $types = array_map(fn ($opt) => $opt['id'], $typeOptions);
+            return $options;
+            });
+
+        $types = array_map(fn ($opt) => (int) $opt['id'], $typeOptions);
 
         return response()->json([
             'ok' => true,
             'data' => $items,
-            'part_map' => $partMap,
+            'part_map' => $lite ? [] : $partMap,
             'types' => $types,
             'type_options' => $typeOptions,
             'page' => $page,
@@ -1518,11 +1716,23 @@ class AdminController extends Controller
             return response()->json([]);
         }
 
-        $items = DB::connection('game')->table('item_template')
-            ->select('id', 'name as name', 'icon_id')
-            ->whereIn('id', $ids)
-            ->get()
-            ->keyBy('id');
+        sort($ids);
+        $cacheKey = 'admin:item_batch:' . md5(implode(',', $ids));
+        $items = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($ids) {
+            if ($this->webItemIndexReady()) {
+                return DB::table('game_item_indexes')
+                    ->select('id', 'name', 'icon_id')
+                    ->whereIn('id', $ids)
+                    ->get()
+                    ->keyBy('id');
+            }
+
+            return DB::connection('game')->table('item_template')
+                ->select('id', 'name as name', 'icon_id')
+                ->whereIn('id', $ids)
+                ->get()
+                ->keyBy('id');
+        });
 
         return response()->json($items);
     }
@@ -1530,10 +1740,15 @@ class AdminController extends Controller
     // GET /api/admin/items/{id}/options
     public function itemsOptions(int $id): JsonResponse
     {
-        $options = DB::connection('game')->table('item_option_template')
-            ->select('id', 'name')
-            ->orderBy('id')
-            ->get();
+        $options = $this->webOptionIndexReady()
+            ? DB::table('game_item_option_indexes')
+                ->select('id', 'name')
+                ->orderBy('id')
+                ->get()
+            : DB::connection('game')->table('item_option_template')
+                ->selectRaw('id, NAME as name')
+                ->orderBy('id')
+                ->get();
 
         return response()->json(['ok' => true, 'options' => $options]);
     }
@@ -1791,5 +2006,56 @@ class AdminController extends Controller
         } catch (\Throwable $e) {
             // Logging must never break admin actions.
         }
+    }
+
+    private function webItemIndexReady(): bool
+    {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $ready = Schema::hasTable('game_item_indexes')
+                && DB::table('game_item_indexes')->exists();
+        } catch (\Throwable $e) {
+            $ready = false;
+        }
+
+        return $ready;
+    }
+
+    private function webItemTypeIndexReady(): bool
+    {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $ready = Schema::hasTable('game_item_type_indexes')
+                && DB::table('game_item_type_indexes')->exists();
+        } catch (\Throwable $e) {
+            $ready = false;
+        }
+
+        return $ready;
+    }
+
+    private function webOptionIndexReady(): bool
+    {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $ready = Schema::hasTable('game_item_option_indexes')
+                && DB::table('game_item_option_indexes')->exists();
+        } catch (\Throwable $e) {
+            $ready = false;
+        }
+
+        return $ready;
     }
 }

@@ -31,11 +31,14 @@
                         placeholder="Tìm code..."
                     />
                 </div>
-                <select v-model="statusFilter" class="form-input compact-filter">
+                <select
+                    v-model="statusFilter"
+                    class="form-input compact-filter"
+                >
                     <option value="">Tất cả trạng thái</option>
-                    <option value="available">Đang dùng được</option>
-                    <option value="active">Đang bật</option>
-                    <option value="inactive">Đã tắt</option>
+                    <option value="available">Đang hiển thị và dùng được</option>
+                    <option value="active">Đang hiển thị</option>
+                    <option value="inactive">Đang ẩn</option>
                     <option value="expired">Đã hết hạn</option>
                     <option value="depleted">Hết lượt</option>
                 </select>
@@ -140,9 +143,19 @@
                                 {{ gc.datecreate || "—" }}
                             </td>
                             <td>
-                                <span v-if="gc.active && !isExpired(gc)" class="badge badge-success">Đang bật</span>
-                                <span v-else-if="isExpired(gc)" class="badge badge-warning">Hết hạn</span>
-                                <span v-else class="badge badge-danger">Đã tắt</span>
+                                <span
+                                    v-if="!isHidden(gc) && !isExpired(gc)"
+                                    class="badge badge-success"
+                                    >Đang hiển thị</span
+                                >
+                                <span
+                                    v-else-if="isExpired(gc)"
+                                    class="badge badge-warning"
+                                    >Hết hạn</span
+                                >
+                                <span v-else class="badge badge-danger"
+                                    >Đang ẩn</span
+                                >
                             </td>
                             <td style="text-align: right">
                                 <div class="row-actions">
@@ -151,7 +164,9 @@
                                         class="btn btn-outline btn-sm"
                                         @click="cloneGiftcode(gc)"
                                     >
-                                        <span class="mi" style="font-size: 14px">content_copy</span>
+                                        <span class="mi" style="font-size: 14px"
+                                            >content_copy</span
+                                        >
                                         Clone
                                     </button>
                                     <router-link
@@ -161,7 +176,9 @@
                                         }"
                                         class="btn btn-primary btn-sm"
                                     >
-                                        <span class="mi" style="font-size: 14px">edit</span>
+                                        <span class="mi" style="font-size: 14px"
+                                            >edit</span
+                                        >
                                         Sửa
                                     </router-link>
                                 </div>
@@ -202,10 +219,16 @@
                         {{ p }}
                     </button>
                 </template>
-                <button :disabled="page >= totalPages" @click="goToPage(page + 1)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(page + 1)"
+                >
                     &raquo;
                 </button>
-                <button :disabled="page >= totalPages" @click="goToPage(totalPages)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(totalPages)"
+                >
                     Cuối
                 </button>
                 <div class="pagination-jump">
@@ -257,7 +280,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -284,7 +313,10 @@ export default {
         normalizePage(page) {
             const value = Number(page);
             if (!Number.isFinite(value)) return 1;
-            return Math.min(Math.max(1, Math.trunc(value)), this.totalPages || 1);
+            return Math.min(
+                Math.max(1, Math.trunc(value)),
+                this.totalPages || 1,
+            );
         },
         goToPage(page) {
             const target = this.normalizePage(page);
@@ -328,6 +360,10 @@ export default {
             if (!gc?.expired) return false;
             const date = new Date(String(gc.expired).replace(" ", "T"));
             return !Number.isNaN(date.getTime()) && date.getTime() < Date.now();
+        },
+        isHidden(gc) {
+            // DB rule: active = 1 -> hidden, active = 0 -> visible
+            return Number(gc?.active) === 1;
         },
         async loadPage(p) {
             this.loading = true;
@@ -399,13 +435,16 @@ export default {
                 const token = document
                     .querySelector('meta[name="csrf-token"]')
                     ?.getAttribute("content");
-                const res = await fetch(`/admin/api/giftcodes/${row.id}/clone`, {
-                    method: "POST",
-                    headers: {
-                        "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRF-TOKEN": token,
+                const res = await fetch(
+                    `/admin/api/giftcodes/${row.id}/clone`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": token,
+                        },
                     },
-                });
+                );
                 const data = await res.json();
                 if (data.ok && data.id) {
                     this.$router.push({

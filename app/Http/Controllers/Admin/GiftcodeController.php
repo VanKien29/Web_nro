@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class GiftcodeController extends Controller
@@ -14,14 +16,22 @@ class GiftcodeController extends Controller
     public function searchItems(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
-        $query = DB::connection('game')->table('item_template')
-            ->select('id', 'NAME as name', 'icon_id');
+        $query = $this->webItemIndexReady()
+            ? DB::table('game_item_indexes')->select('id', 'name', 'icon_id')
+            : DB::connection('game')->table('item_template')->select('id', 'NAME as name', 'icon_id');
 
         if ($q !== '') {
             if (is_numeric($q)) {
                 $query->where('id', (int) $q);
             } else {
-                $query->where('NAME', 'like', "%{$q}%");
+                if ($this->webItemIndexReady()) {
+                    $query->where(function ($builder) use ($q) {
+                        $builder->where('name', 'like', "%{$q}%")
+                            ->orWhere('normalized_name', 'like', '%' . mb_strtolower($q) . '%');
+                    });
+                } else {
+                    $query->where('NAME', 'like', "%{$q}%");
+                }
             }
         }
 
@@ -35,14 +45,22 @@ class GiftcodeController extends Controller
         $page = max((int) $request->query('page', 1), 1);
         $paginate = $request->boolean('paginate') || $request->has('page') || $search !== '';
 
-        $query = DB::connection('game')->table('item_option_template')
-            ->select('id', 'NAME as name');
+        $query = $this->webOptionIndexReady()
+            ? DB::table('game_item_option_indexes')->select('id', 'name')
+            : DB::connection('game')->table('item_option_template')->select('id', 'NAME as name');
 
         if ($search !== '') {
             if (is_numeric($search)) {
                 $query->where('id', (int) $search);
             } else {
-                $query->where('NAME', 'like', "%{$search}%");
+                if ($this->webOptionIndexReady()) {
+                    $query->where(function ($builder) use ($search) {
+                        $builder->where('name', 'like', "%{$search}%")
+                            ->orWhere('normalized_name', 'like', '%' . mb_strtolower($search) . '%');
+                    });
+                } else {
+                    $query->where('NAME', 'like', "%{$search}%");
+                }
             }
         }
 
@@ -63,7 +81,9 @@ class GiftcodeController extends Controller
             ]);
         }
 
-        $options = $query->orderBy('id')->get();
+        $options = Cache::remember('admin:item_option_template:all:v1', now()->addMinutes(30), function () use ($query) {
+            return $query->orderBy('id')->get();
+        });
         return response()->json($options);
     }
 
@@ -219,5 +239,39 @@ class GiftcodeController extends Controller
         $s = preg_replace('/([\[\{])\s*,/', '$1', $s);
         $s = preg_replace('/,\s*,/', ',', $s);
         return $s;
+    }
+
+    private function webItemIndexReady(): bool
+    {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $ready = Schema::hasTable('game_item_indexes')
+                && DB::table('game_item_indexes')->exists();
+        } catch (\Throwable $e) {
+            $ready = false;
+        }
+
+        return $ready;
+    }
+
+    private function webOptionIndexReady(): bool
+    {
+        static $ready = null;
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $ready = Schema::hasTable('game_item_option_indexes')
+                && DB::table('game_item_option_indexes')->exists();
+        } catch (\Throwable $e) {
+            $ready = false;
+        }
+
+        return $ready;
     }
 }
