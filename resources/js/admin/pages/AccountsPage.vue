@@ -39,6 +39,9 @@
         </div>
 
         <div class="card">
+            <div v-if="loadError" class="alert alert-error" style="margin: 16px">
+                {{ loadError }}
+            </div>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -323,6 +326,7 @@ export default {
             totalPages: 1,
             loading: false,
             editing: null,
+            loadError: "",
         };
     },
     computed: {
@@ -391,6 +395,7 @@ export default {
         },
         async loadPage(p) {
             this.loading = true;
+            this.loadError = "";
             this.page = this.normalizePage(p);
             this.pageInput = String(this.page);
             try {
@@ -406,13 +411,18 @@ export default {
                         },
                     },
                 );
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
                 const data = await res.json();
                 this.accounts = data.data || [];
                 this.totalPages = data.total_pages || 1;
                 this.page = this.normalizePage(data.page || this.page);
                 this.pageInput = String(this.page);
             } catch {
-                //
+                this.accounts = [];
+                this.totalPages = 1;
+                this.loadError = "Không tải được danh sách tài khoản.";
             } finally {
                 this.loading = false;
             }
