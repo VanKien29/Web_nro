@@ -174,15 +174,7 @@
                                     class="item-result"
                                     @click="addItem(item)"
                                 >
-                                    <img
-                                        v-if="hasImageId(item.icon_id)"
-                                        :src="iconSrc(item.icon_id)"
-                                        loading="lazy"
-                                        decoding="async"
-                                        @error="
-                                            $event.target.style.display = 'none'
-                                        "
-                                    />
+                                    <AdminIcon :icon-id="item.icon_id" />
                                     <div class="item-result-info">
                                         <div class="item-result-name">
                                             {{ item.name }}
@@ -217,12 +209,7 @@
                                 class="quick-pill"
                                 @click="addItem(it)"
                             >
-                                <img
-                                    :src="iconBase + it.icon_id + '.png'"
-                                    loading="lazy"
-                                    decoding="async"
-                                    @error="$event.target.style.display = 'none'"
-                                />
+                                <AdminIcon :icon-id="it.icon_id" />
                                 <span>{{ it.name }}</span>
                             </button>
                         </div>
@@ -250,19 +237,7 @@
                                     >
                                         <td class="td-idx">{{ idx + 1 }}</td>
                                         <td class="td-icon">
-                                            <img
-                                                :src="
-                                                    iconBase +
-                                                    item.icon_id +
-                                                    '.png'
-                                                "
-                                                loading="lazy"
-                                                decoding="async"
-                                                @error="
-                                                    $event.target.style.visibility =
-                                                        'hidden'
-                                                "
-                                            />
+                                            <AdminIcon :icon-id="item.icon_id" />
                                         </td>
                                         <td class="td-name">
                                             <div class="t-name">
@@ -481,16 +456,9 @@
                             >
                                 <div class="item-card-top">
                                     <div class="item-card-head">
-                                        <img
-                                            v-if="hasImageId(item.icon_id)"
+                                        <AdminIcon
                                             class="item-card-icon"
-                                            :src="iconSrc(item.icon_id)"
-                                            loading="lazy"
-                                            decoding="async"
-                                            @error="
-                                                $event.target.style.visibility =
-                                                    'hidden'
-                                            "
+                                            :icon-id="item.icon_id"
                                         />
                                         <div class="item-card-title">
                                             <div class="item-card-name">
@@ -838,12 +806,7 @@
                         class="picker-item"
                         @click="pickItemFromPicker(row)"
                     >
-                        <img
-                            :src="iconBase + row.icon_id + '.png'"
-                            loading="lazy"
-                            decoding="async"
-                            @error="$event.target.style.display = 'none'"
-                        />
+                        <AdminIcon :icon-id="row.icon_id" />
                         <div class="picker-item-info">
                             <div class="picker-item-name">{{ row.name }}</div>
                             <div class="picker-item-meta">
@@ -979,7 +942,6 @@ export default {
             error: "",
             success: "",
             saving: false,
-            iconBase: "/assets/frontend/home/v1/images/x4/",
             searchTimeout: null,
             quickItemsKey: "admin_quick_items",
             optionsCacheKey: "admin_item_options_v1",
@@ -1280,18 +1242,6 @@ export default {
             return o.name.includes("#")
                 ? o.name.replace("#", param)
                 : o.name + ": " + param;
-        },
-        hasImageId(value) {
-            return (
-                value !== null &&
-                value !== undefined &&
-                value !== "" &&
-                Number.isInteger(Number(value)) &&
-                Number(value) >= 0
-            );
-        },
-        iconSrc(iconId) {
-            return `${this.iconBase}${iconId}.png`;
         },
         filteredOptions(search) {
             if (!search || !search.trim()) return this.allOptions.slice(0, 30);

@@ -70,14 +70,9 @@
                             <tr>
                                 <td>{{ item.id }}</td>
                                 <td>
-                                    <img
-                                        :src="iconUrl(item.icon_id)"
+                                    <AdminIcon
+                                        :icon-id="item.icon_id"
                                         class="item-icon"
-                                        loading="lazy"
-                                        decoding="async"
-                                        @error="
-                                            $event.target.style.display = 'none'
-                                        "
                                     />
                                 </td>
                                 <td>
@@ -228,19 +223,11 @@
                                                         "
                                                         class="layer-card"
                                                     >
-                                                        <img
-                                                            :src="
-                                                                iconUrl(
-                                                                    layer.icon_id,
-                                                                )
+                                                        <AdminIcon
+                                                            :icon-id="
+                                                                layer.icon_id
                                                             "
                                                             class="layer-icon"
-                                                            loading="lazy"
-                                                            decoding="async"
-                                                            @error="
-                                                                $event.target.style.display =
-                                                                    'none'
-                                                            "
                                                         />
                                                         <div class="layer-info">
                                                             <div
@@ -366,9 +353,6 @@ export default {
         this.loadPage(1);
     },
     methods: {
-        iconUrl(iconId) {
-            return `/assets/frontend/home/v1/images/x4/${iconId}.png`;
-        },
         buildPaginationItems(current, total) {
             if (total <= 7) {
                 return Array.from({ length: total }, (_, index) => index + 1);

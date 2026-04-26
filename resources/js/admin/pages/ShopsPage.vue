@@ -12,6 +12,28 @@
                     <span class="current">Shop</span>
                 </nav>
             </div>
+            <div class="page-actions">
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    :disabled="runtimeLoading"
+                    @click="reloadRuntimeShop"
+                >
+                    <span class="mi" style="font-size: 16px">sync</span>
+                    {{
+                        runtimeLoading
+                            ? "Đang cập nhật..."
+                            : "Cập nhật shop trong game"
+                    }}
+                </button>
+            </div>
+        </div>
+
+        <div v-if="runtimeError" class="alert alert-error">
+            {{ runtimeError }}
+        </div>
+        <div v-if="runtimeMessage" class="alert alert-success">
+            {{ runtimeMessage }}
         </div>
 
         <!-- Search bar -->
@@ -53,18 +75,10 @@
                                 <td>{{ shop.id }}</td>
                                 <td>
                                     <div class="npc-cell">
-                                        <img
+                                        <AdminIcon
                                             v-if="shop.npc_avatar"
                                             class="npc-avatar"
-                                            :src="
-                                                iconBase +
-                                                shop.npc_avatar +
-                                                '.png'
-                                            "
-                                            @error="
-                                                $event.target.style.display =
-                                                    'none'
-                                            "
+                                            :icon-id="shop.npc_avatar"
                                         />
                                         <span class="npc-id">{{
                                             shop.npc_id
@@ -177,8 +191,10 @@ export default {
             shops: [],
             search: "",
             loading: false,
+            runtimeLoading: false,
+            runtimeMessage: "",
+            runtimeError: "",
             expandedShops: {},
-            iconBase: "/assets/frontend/home/v1/images/x4/",
         };
     },
     created() {
@@ -194,6 +210,34 @@ export default {
                 ...this.expandedShops,
                 [id]: !this.expandedShops[id],
             };
+        },
+        async reloadRuntimeShop() {
+            this.runtimeLoading = true;
+            this.runtimeMessage = "";
+            this.runtimeError = "";
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch("/admin/api/runtime/shop/reload", {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": token,
+                    },
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Reload shop thất bại");
+                }
+                this.runtimeMessage =
+                    data.message || "Đã cập nhật shop trong game.";
+            } catch (e) {
+                this.runtimeError =
+                    e?.message || "Không gọi được game runtime API.";
+            } finally {
+                this.runtimeLoading = false;
+            }
         },
         async loadShops() {
             this.loading = true;
@@ -225,6 +269,11 @@ export default {
     margin-bottom: 24px;
     gap: 16px;
     flex-wrap: wrap;
+}
+.page-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 .page-title {
     font-size: 20px;

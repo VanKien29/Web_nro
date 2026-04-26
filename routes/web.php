@@ -114,6 +114,9 @@ Route::prefix('admin')->group(function () {
         // Admin logs
         Route::get('/api/admin-logs', [\App\Http\Controllers\Api\AdminController::class, 'adminLogsList']);
 
+        // Game runtime commands
+        Route::post('/api/runtime/shop/reload', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'reloadShop']);
+
         // Milestone reward tables
         Route::get('/api/milestones/{type}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesList']);
         Route::get('/api/milestones/{type}/{id}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesGet']);

@@ -1160,10 +1160,12 @@ class AdminController extends Controller
             ->offset(($page - 1) * $limit)
             ->limit($limit)
             ->get();
+        $itemIcons = $this->itemIconMapForDetails($giftcodes->pluck('detail')->all());
 
         return response()->json([
             'ok' => true,
             'data' => $giftcodes,
+            'item_icons' => $itemIcons,
             'total' => $total,
             'page' => $page,
             'limit' => $limit,
@@ -1386,11 +1388,13 @@ class AdminController extends Controller
         }
 
         $total = (clone $query)->count();
-        $rows = $query
+        $rawRows = $query
             ->orderBy('id')
             ->offset(($page - 1) * $limit)
             ->limit($limit)
-            ->get()
+            ->get();
+        $itemIcons = $this->itemIconMapForDetails($rawRows->pluck('detail')->all());
+        $rows = $rawRows
             ->map(function ($row) {
                 $detailItems = $this->decodeMilestoneDetail($row->detail ?? null);
                 return [
@@ -1407,6 +1411,7 @@ class AdminController extends Controller
             'type' => $resolved['type'],
             'label' => $resolved['label'],
             'data' => $rows,
+            'item_icons' => $itemIcons,
             'total' => $total,
             'page' => $page,
             'limit' => $limit,
@@ -1642,53 +1647,53 @@ class AdminController extends Controller
                     ->all();
             })
             : Cache::remember('admin:item_type_options:v2', now()->addMinutes(15), function () {
-            $typeRows = DB::connection('game')->table('item_template')
-                ->selectRaw('type as id, COUNT(*) as item_count')
-                ->whereNotNull('type')
-                ->groupBy('type')
-                ->orderBy('type')
-                ->get();
+                $typeRows = DB::connection('game')->table('item_template')
+                    ->selectRaw('type as id, COUNT(*) as item_count')
+                    ->whereNotNull('type')
+                    ->groupBy('type')
+                    ->orderBy('type')
+                    ->get();
 
-            $typeIds = $typeRows->pluck('id')->map(fn ($id) => (int) $id)->values();
+                $typeIds = $typeRows->pluck('id')->map(fn($id) => (int) $id)->values();
 
-            $nameById = DB::connection('game')->table('type_item')
-                ->whereIn('id', $typeIds)
-                ->where('NAME', '<>', '.')
-                ->pluck('NAME', 'id');
+                $nameById = DB::connection('game')->table('type_item')
+                    ->whereIn('id', $typeIds)
+                    ->where('NAME', '<>', '.')
+                    ->pluck('NAME', 'id');
 
-            $nameByIndex = [];
-            $indexRows = DB::connection('game')->table('type_item')
-                ->whereIn('index_body', $typeIds)
-                ->where('index_body', '>=', 0)
-                ->where('NAME', '<>', '.')
-                ->orderBy('id')
-                ->get(['index_body', 'NAME']);
-            foreach ($indexRows as $row) {
-                $idx = (int) $row->index_body;
-                if (!isset($nameByIndex[$idx])) {
-                    $nameByIndex[$idx] = (string) $row->NAME;
+                $nameByIndex = [];
+                $indexRows = DB::connection('game')->table('type_item')
+                    ->whereIn('index_body', $typeIds)
+                    ->where('index_body', '>=', 0)
+                    ->where('NAME', '<>', '.')
+                    ->orderBy('id')
+                    ->get(['index_body', 'NAME']);
+                foreach ($indexRows as $row) {
+                    $idx = (int) $row->index_body;
+                    if (!isset($nameByIndex[$idx])) {
+                        $nameByIndex[$idx] = (string) $row->NAME;
+                    }
                 }
-            }
 
-            $countByType = [];
-            foreach ($typeRows as $row) {
-                $countByType[(int) $row->id] = (int) $row->item_count;
-            }
+                $countByType = [];
+                foreach ($typeRows as $row) {
+                    $countByType[(int) $row->id] = (int) $row->item_count;
+                }
 
-            $options = [];
-            foreach ($typeIds as $typeId) {
-                $name = $nameById[$typeId] ?? ($nameByIndex[$typeId] ?? ('Type ' . $typeId));
-                $options[] = [
-                    'id' => (int) $typeId,
-                    'name' => (string) $name,
-                    'item_count' => (int) ($countByType[$typeId] ?? 0),
-                ];
-            }
+                $options = [];
+                foreach ($typeIds as $typeId) {
+                    $name = $nameById[$typeId] ?? ($nameByIndex[$typeId] ?? ('Type ' . $typeId));
+                    $options[] = [
+                        'id' => (int) $typeId,
+                        'name' => (string) $name,
+                        'item_count' => (int) ($countByType[$typeId] ?? 0),
+                    ];
+                }
 
-            return $options;
+                return $options;
             });
 
-        $types = array_map(fn ($opt) => (int) $opt['id'], $typeOptions);
+        $types = array_map(fn($opt) => (int) $opt['id'], $typeOptions);
 
         return response()->json([
             'ok' => true,
@@ -1712,26 +1717,34 @@ class AdminController extends Controller
         }
 
         $ids = array_map('intval', array_filter(explode(',', $idsParam), 'is_numeric'));
-        if (empty($ids) || count($ids) > 200) {
+        if (empty($ids)) {
             return response()->json([]);
         }
+        $ids = array_values(array_unique(array_slice($ids, 0, 1000)));
 
         sort($ids);
         $cacheKey = 'admin:item_batch:' . md5(implode(',', $ids));
         $items = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($ids) {
+            $items = collect();
             if ($this->webItemIndexReady()) {
-                return DB::table('game_item_indexes')
+                $items = DB::table('game_item_indexes')
                     ->select('id', 'name', 'icon_id')
                     ->whereIn('id', $ids)
                     ->get()
                     ->keyBy('id');
             }
 
-            return DB::connection('game')->table('item_template')
-                ->select('id', 'name as name', 'icon_id')
-                ->whereIn('id', $ids)
-                ->get()
-                ->keyBy('id');
+            $missingIds = array_values(array_diff($ids, $items->keys()->map(fn($id) => (int) $id)->all()));
+            if ($missingIds) {
+                $fallback = DB::connection('game')->table('item_template')
+                    ->select('id', 'name as name', 'icon_id')
+                    ->whereIn('id', $missingIds)
+                    ->get()
+                    ->keyBy('id');
+                $items = $items->union($fallback);
+            }
+
+            return $items;
         });
 
         return response()->json($items);
@@ -1742,13 +1755,13 @@ class AdminController extends Controller
     {
         $options = $this->webOptionIndexReady()
             ? DB::table('game_item_option_indexes')
-                ->select('id', 'name')
-                ->orderBy('id')
-                ->get()
+            ->select('id', 'name')
+            ->orderBy('id')
+            ->get()
             : DB::connection('game')->table('item_option_template')
-                ->selectRaw('id, NAME as name')
-                ->orderBy('id')
-                ->get();
+            ->selectRaw('id, NAME as name')
+            ->orderBy('id')
+            ->get();
 
         return response()->json(['ok' => true, 'options' => $options]);
     }
@@ -1955,6 +1968,39 @@ class AdminController extends Controller
         }
 
         return json_encode($decoded, JSON_UNESCAPED_UNICODE);
+    }
+
+    private function itemIconMapForDetails(iterable $details): array
+    {
+        $ids = [];
+        foreach ($details as $detail) {
+            if (!is_string($detail) || trim($detail) === '') {
+                continue;
+            }
+
+            $decoded = json_decode($this->fixJson($detail), true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+
+            foreach ($decoded as $item) {
+                if (is_array($item) && isset($item['temp_id']) && is_numeric($item['temp_id'])) {
+                    $ids[(int) $item['temp_id']] = true;
+                }
+            }
+        }
+
+        $ids = array_keys($ids);
+        if (!$ids) {
+            return [];
+        }
+
+        return DB::connection('game')
+            ->table('item_template')
+            ->whereIn('id', $ids)
+            ->pluck('icon_id', 'id')
+            ->map(fn($iconId) => $iconId !== null ? (int) $iconId : null)
+            ->all();
     }
 
     private function sanitizeLogState(?array $state): ?array

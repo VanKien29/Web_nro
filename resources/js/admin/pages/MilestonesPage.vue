@@ -68,10 +68,10 @@
                             </td>
                             <td>
                                 <div class="item-icons">
-                                    <img
+                                    <AdminIcon
                                         v-for="(it, idx) in parseDetail(row.detail).slice(0, 6)"
                                         :key="'item-' + row.id + '-' + idx"
-                                        :src="iconUrl(it.temp_id)"
+                                        :icon-id="itemIconId(it.temp_id)"
                                         :title="
                                             'ID: ' +
                                             it.temp_id +
@@ -79,9 +79,6 @@
                                             (it.quantity || 1)
                                         "
                                         class="item-icon-sm"
-                                        @error="
-                                            $event.target.style.display = 'none'
-                                        "
                                     />
                                     <span
                                         v-if="parseDetail(row.detail).length > 6"
@@ -293,28 +290,59 @@ export default {
                 return [];
             }
         },
-        iconUrl(tempId) {
-            const iconId = this.itemIconMap[tempId] || tempId;
-            return `/assets/frontend/home/v1/images/x4/${iconId}.png`;
+        hasResolvedIcon(tempId) {
+            return Object.prototype.hasOwnProperty.call(
+                this.itemIconMap,
+                Number(tempId),
+            );
+        },
+        itemIconId(tempId) {
+            return this.hasResolvedIcon(tempId)
+                ? this.itemIconMap[Number(tempId)]
+                : null;
         },
         async resolveIcons(ids) {
-            const unknownIds = ids.filter((id) => !this.itemIconMap[id]);
+            const unknownIds = ids.filter((id) => !this.hasResolvedIcon(id));
             if (!unknownIds.length) return;
-            try {
-                const res = await fetch(
-                    `/admin/api/items/batch?ids=${unknownIds.join(",")}`,
-                    {
-                        headers: { "X-Requested-With": "XMLHttpRequest" },
-                    },
-                );
-                const data = await res.json();
-                for (const [id, item] of Object.entries(data || {})) {
-                    if (item.icon_id) {
-                        this.itemIconMap[parseInt(id)] = item.icon_id;
+
+            const chunks = [];
+            for (let i = 0; i < unknownIds.length; i += 100) {
+                chunks.push(unknownIds.slice(i, i + 100));
+            }
+
+            for (const chunk of chunks) {
+                try {
+                    const res = await fetch(
+                        `/admin/api/items/batch?ids=${chunk.join(",")}`,
+                        {
+                            headers: {
+                                "X-Requested-With": "XMLHttpRequest",
+                                Accept: "application/json",
+                            },
+                        },
+                    );
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    const returnedIds = new Set(
+                        Object.keys(data || {}).map((id) => Number(id)),
+                    );
+                    const nextMap = { ...this.itemIconMap };
+                    for (const [id, item] of Object.entries(data || {})) {
+                        nextMap[Number(id)] =
+                            item?.icon_id !== undefined && item?.icon_id !== null
+                                ? item.icon_id
+                                : null;
                     }
+                    chunk.forEach((id) => {
+                        const numericId = Number(id);
+                        if (!returnedIds.has(numericId)) {
+                            nextMap[numericId] = null;
+                        }
+                    });
+                    this.itemIconMap = nextMap;
+                } catch {
+                    // Keep these IDs unresolved so a later page refresh/search can retry.
                 }
-            } catch {
-                //
             }
         },
         async loadPage(p) {
@@ -333,6 +361,10 @@ export default {
                     },
                 );
                 const data = await res.json();
+                this.itemIconMap = {
+                    ...this.itemIconMap,
+                    ...(data.item_icons || {}),
+                };
                 this.rows = data.data || [];
                 this.totalPages = data.total_pages || 1;
                 this.page = this.normalizePage(data.page || this.page);

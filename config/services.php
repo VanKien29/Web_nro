@@ -40,6 +40,13 @@ return [
         'topup_secret' => env('TOPUP_SECRET', ''),
     ],
 
+    'game_runtime' => [
+        'base_url' => env('GAME_RUNTIME_URL', 'http://127.0.0.1:19091'),
+        'key' => env('GAME_RUNTIME_KEY', 'web-admin'),
+        'secret' => env('GAME_RUNTIME_SECRET', ''),
+        'timeout' => env('GAME_RUNTIME_TIMEOUT', 5),
+    ],
+
     'recaptcha' => [
         'site_key' => env('RECAPTCHA_SITE_KEY', ''),
         'secret_key' => env('RECAPTCHA_SECRET_KEY', ''),
