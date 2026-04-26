@@ -88,6 +88,12 @@ const routes = [
         meta: { auth: true },
     },
     {
+        path: "/admin/bosses",
+        name: "admin.bosses",
+        component: () => import("./pages/BossesPage.vue"),
+        meta: { auth: true },
+    },
+    {
         path: "/admin/admin-logs",
         name: "admin.logs",
         component: () => import("./pages/AdminLogsPage.vue"),

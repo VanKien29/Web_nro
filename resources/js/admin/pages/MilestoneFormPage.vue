@@ -120,9 +120,9 @@
                             class="item-result"
                             @click="addItem(item)"
                         >
-                            <img
-                                :src="iconBase + item.icon_id + '.png'"
-                                @error="$event.target.style.display = 'none'"
+                            <AdminIcon
+                                class="item-result-icon"
+                                :icon-id="item.icon_id"
                             />
                             <div class="item-result-info">
                                 <div class="item-result-name">{{ item.name }}</div>
@@ -160,9 +160,9 @@
                             <tr v-for="(item, idx) in items" :key="'item-' + idx">
                                 <td class="td-idx">{{ idx + 1 }}</td>
                                 <td class="td-icon">
-                                    <img
-                                        :src="iconBase + item.icon_id + '.png'"
-                                        @error="$event.target.style.visibility = 'hidden'"
+                                    <AdminIcon
+                                        class="table-item-icon"
+                                        :icon-id="item.icon_id"
                                     />
                                 </td>
                                 <td class="td-name">
@@ -384,9 +384,9 @@
                         class="picker-item"
                         @click="pickItemFromPicker(row)"
                     >
-                        <img
-                            :src="iconBase + row.icon_id + '.png'"
-                            @error="$event.target.style.display = 'none'"
+                        <AdminIcon
+                            class="picker-item-icon"
+                            :icon-id="row.icon_id"
                         />
                         <div class="picker-item-info">
                             <div class="picker-item-name">{{ row.name }}</div>
@@ -514,7 +514,6 @@ export default {
             error: "",
             success: "",
             saving: false,
-            iconBase: "/assets/frontend/home/v1/images/x4/",
             searchTimeout: null,
         };
     },
@@ -791,7 +790,7 @@ export default {
             this.items.push({
                 temp_id: item.id,
                 name: item.name,
-                icon_id: item.icon_id,
+                icon_id: item.icon_id ?? null,
                 quantity: 1,
                 options: [],
             });
@@ -915,7 +914,7 @@ export default {
                 this.items = arr.map((it) => ({
                     temp_id: it.temp_id || 0,
                     name: `Item #${it.temp_id || 0}`,
-                    icon_id: it.temp_id || 0,
+                    icon_id: null,
                     quantity: it.quantity || 1,
                     options: (it.options || []).map((o) => {
                         const name = this.optionName(o.id);
@@ -940,7 +939,7 @@ export default {
                     this.items = this.items.map((it) => ({
                         ...it,
                         name: iconData[it.temp_id]?.name || it.name,
-                        icon_id: iconData[it.temp_id]?.icon_id || it.icon_id,
+                        icon_id: iconData[it.temp_id]?.icon_id ?? null,
                     }));
                 }
             } catch {
@@ -1146,7 +1145,7 @@ export default {
 .item-result:hover {
     background: rgba(var(--ds-primary-rgb), 0.08);
 }
-.item-result img {
+.item-result-icon {
     width: 36px;
     height: 36px;
     border-radius: 8px;
@@ -1226,7 +1225,7 @@ export default {
     color: var(--ds-text-muted);
     font-size: 12px;
 }
-.td-icon img {
+.table-item-icon {
     width: 32px;
     height: 32px;
     border-radius: 6px;
@@ -1460,7 +1459,7 @@ export default {
     background: rgba(var(--ds-primary-rgb), 0.08);
     border-color: rgba(var(--ds-primary-rgb), 0.3);
 }
-.picker-item img {
+.picker-item-icon {
     width: 32px;
     height: 32px;
     border-radius: 6px;

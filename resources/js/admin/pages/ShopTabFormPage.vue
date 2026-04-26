@@ -135,15 +135,7 @@
                                     class="item-result"
                                     @click="addItem(item)"
                                 >
-                                    <img
-                                        v-if="hasImageId(item.icon_id)"
-                                        :src="iconSrc(item.icon_id)"
-                                        loading="lazy"
-                                        decoding="async"
-                                        @error="
-                                            $event.target.style.display = 'none'
-                                        "
-                                    />
+                                    <AdminIcon :icon-id="item.icon_id" />
                                     <div class="item-result-info">
                                         <div class="item-result-name">
                                             {{ item.name }}
@@ -197,19 +189,7 @@
                                     >
                                         <td class="td-idx">{{ idx + 1 }}</td>
                                         <td class="td-icon">
-                                            <img
-                                                :src="
-                                                    iconBase +
-                                                    item.icon_id +
-                                                    '.png'
-                                                "
-                                                loading="lazy"
-                                                decoding="async"
-                                                @error="
-                                                    $event.target.style.visibility =
-                                                        'hidden'
-                                                "
-                                            />
+                                            <AdminIcon :icon-id="item.icon_id" />
                                         </td>
                                         <td class="td-name">
                                             <div class="t-name">
@@ -241,28 +221,13 @@
                                         </td>
                                         <td>
                                             <div class="spec-cell">
-                                                <img
-                                                    v-if="
-                                                        item.item_spec &&
-                                                        hasImageId(
-                                                            specIconId(
-                                                                item.item_spec,
-                                                            ),
-                                                        )
-                                                    "
+                                                <AdminIcon
+                                                    v-if="item.item_spec"
                                                     class="spec-icon"
-                                                    :src="
-                                                        iconSrc(
-                                                            specIconId(
-                                                                item.item_spec,
-                                                            ),
+                                                    :icon-id="
+                                                        specIconId(
+                                                            item.item_spec,
                                                         )
-                                                    "
-                                                    loading="lazy"
-                                                    decoding="async"
-                                                    @error="
-                                                        $event.target.style.display =
-                                                            'none'
                                                     "
                                                 />
                                                 <input
@@ -489,16 +454,9 @@
                             >
                                 <div class="item-card-top">
                                     <div class="item-card-head">
-                                        <img
-                                            v-if="hasImageId(item.icon_id)"
+                                        <AdminIcon
                                             class="item-card-icon"
-                                            :src="iconSrc(item.icon_id)"
-                                            loading="lazy"
-                                            decoding="async"
-                                            @error="
-                                                $event.target.style.visibility =
-                                                    'hidden'
-                                            "
+                                            :icon-id="item.icon_id"
                                         />
                                         <div class="item-card-title">
                                             <div class="item-card-name">
@@ -546,28 +504,13 @@
                                         <div class="item-card-field">
                                             <label>Item Spec</label>
                                             <div class="spec-cell">
-                                                <img
-                                                    v-if="
-                                                        item.item_spec &&
-                                                        hasImageId(
-                                                            specIconId(
-                                                                item.item_spec,
-                                                            ),
-                                                        )
-                                                    "
+                                                <AdminIcon
+                                                    v-if="item.item_spec"
                                                     class="spec-icon"
-                                                    :src="
-                                                        iconSrc(
-                                                            specIconId(
-                                                                item.item_spec,
-                                                            ),
+                                                    :icon-id="
+                                                        specIconId(
+                                                            item.item_spec,
                                                         )
-                                                    "
-                                                    loading="lazy"
-                                                    decoding="async"
-                                                    @error="
-                                                        $event.target.style.display =
-                                                            'none'
                                                     "
                                                 />
                                                 <input
@@ -740,6 +683,20 @@
                             <span class="mi" style="font-size: 16px">save</span>
                             {{ saving ? "Đang lưu..." : "Lưu thay đổi" }}
                         </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-block"
+                            :disabled="runtimeLoading"
+                            style="margin-top: 10px"
+                            @click="reloadRuntimeShop"
+                        >
+                            <span class="mi" style="font-size: 16px">sync</span>
+                            {{
+                                runtimeLoading
+                                    ? "Đang cập nhật..."
+                                    : "Cập nhật shop trong game"
+                            }}
+                        </button>
                     </div>
 
                     <!-- Summary card -->
@@ -831,12 +788,7 @@
                         class="picker-item"
                         @click="pickItemFromPicker(row)"
                     >
-                        <img
-                            :src="iconBase + row.icon_id + '.png'"
-                            loading="lazy"
-                            decoding="async"
-                            @error="$event.target.style.display = 'none'"
-                        />
+                        <AdminIcon :icon-id="row.icon_id" />
                         <div class="picker-item-info">
                             <div class="picker-item-name">{{ row.name }}</div>
                             <div class="picker-item-meta">
@@ -966,7 +918,7 @@ export default {
             error: "",
             success: "",
             saving: false,
-            iconBase: "/assets/frontend/home/v1/images/x4/",
+            runtimeLoading: false,
             searchTimeout: null,
             optionsCacheKey: "admin_item_options_v1",
             optionsCacheTtlMs: 1000 * 60 * 30,
@@ -1204,18 +1156,6 @@ export default {
             return o.name.includes("#")
                 ? o.name.replace("#", param)
                 : o.name + ": " + param;
-        },
-        hasImageId(value) {
-            return (
-                value !== null &&
-                value !== undefined &&
-                value !== "" &&
-                Number.isInteger(Number(value)) &&
-                Number(value) >= 0
-            );
-        },
-        iconSrc(iconId) {
-            return `${this.iconBase}${iconId}.png`;
         },
         specIconId(specId) {
             if (!specId || specId <= 0) return specId;
@@ -1562,6 +1502,32 @@ export default {
                 this.error = "Lỗi kết nối";
             } finally {
                 this.saving = false;
+            }
+        },
+        async reloadRuntimeShop() {
+            this.error = "";
+            this.success = "";
+            this.runtimeLoading = true;
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch("/admin/api/runtime/shop/reload", {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": token,
+                    },
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Reload shop thất bại");
+                }
+                this.success = data.message || "Đã cập nhật shop trong game.";
+            } catch (e) {
+                this.error = e?.message || "Không gọi được game runtime API.";
+            } finally {
+                this.runtimeLoading = false;
             }
         },
     },

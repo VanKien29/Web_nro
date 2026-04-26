@@ -105,6 +105,17 @@
                     </div>
                     <div class="nav-item">
                         <router-link
+                            to="/admin/bosses"
+                            class="nav-link"
+                            :class="{ active: $route.name === 'admin.bosses' }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">sports_martial_arts</span>
+                            <span class="text">Boss</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
                             to="/admin/admin-logs"
                             class="nav-link"
                             :class="{ active: $route.name === 'admin.logs' }"
@@ -200,6 +211,9 @@ export default {
             theme: localStorage.getItem("adminTheme") || "dark",
             adminUser: null,
             showUserMenu: false,
+            scrollLockObserver: null,
+            bodyScrollLocked: false,
+            lockedScrollY: 0,
         };
     },
     computed: {
@@ -225,11 +239,33 @@ export default {
         if (this.$route.meta.auth) {
             this.fetchUser();
         }
-        document.addEventListener("click", this.closeMenus);
         this.applyBodyBg();
+    },
+    mounted() {
+        document.addEventListener("click", this.closeMenus);
+        document.addEventListener("wheel", this.preventScrollBleed, {
+            capture: true,
+            passive: false,
+        });
+        this.scrollLockObserver = new MutationObserver(this.updateScrollLock);
+        this.scrollLockObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["class", "style"],
+        });
+        this.updateScrollLock();
     },
     unmounted() {
         document.removeEventListener("click", this.closeMenus);
+        document.removeEventListener("wheel", this.preventScrollBleed, {
+            capture: true,
+        });
+        if (this.scrollLockObserver) {
+            this.scrollLockObserver.disconnect();
+            this.scrollLockObserver = null;
+        }
+        this.unlockBodyScroll();
     },
     methods: {
         closeMenus(e) {
@@ -258,6 +294,66 @@ export default {
         applyBodyBg() {
             document.body.style.background =
                 this.theme === "dark" ? "#0f1418" : "#e7ecef";
+        },
+        updateScrollLock() {
+            const hasFloatingMenu = !!document.querySelector(
+                ".admin-app .modal-overlay, .admin-app .picker-overlay, .admin-app .option-dropdown",
+            );
+            if (hasFloatingMenu) {
+                this.lockBodyScroll();
+            } else {
+                this.unlockBodyScroll();
+            }
+        },
+        lockBodyScroll() {
+            if (this.bodyScrollLocked) return;
+            this.lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            document.documentElement.classList.add("admin-scroll-lock");
+            document.body.classList.add("admin-scroll-lock");
+            document.body.style.top = `-${this.lockedScrollY}px`;
+            this.bodyScrollLocked = true;
+        },
+        unlockBodyScroll() {
+            if (!this.bodyScrollLocked) return;
+            document.documentElement.classList.remove("admin-scroll-lock");
+            document.body.classList.remove("admin-scroll-lock");
+            document.body.style.top = "";
+            window.scrollTo(0, this.lockedScrollY);
+            this.bodyScrollLocked = false;
+        },
+        preventScrollBleed(event) {
+            const boundary = event.target?.closest?.(
+                ".modal-panel, .picker-panel, .option-dropdown, .user-dropdown, .boss-side, .group-grid, .catalog-list",
+            );
+            if (!boundary) return;
+
+            const scrollable = this.closestScrollable(event.target, boundary);
+            if (!scrollable) {
+                event.preventDefault();
+                return;
+            }
+
+            const deltaY = event.deltaY;
+            const atTop = scrollable.scrollTop <= 0;
+            const atBottom = Math.ceil(scrollable.scrollTop + scrollable.clientHeight) >= scrollable.scrollHeight;
+            if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+                event.preventDefault();
+            }
+        },
+        closestScrollable(target, boundary) {
+            let node = target;
+            while (node && node !== document.body) {
+                if (node.nodeType === 1) {
+                    const style = window.getComputedStyle(node);
+                    const canScrollY = /(auto|scroll)/.test(style.overflowY);
+                    if (canScrollY && node.scrollHeight > node.clientHeight + 1) {
+                        return node;
+                    }
+                }
+                if (node === boundary) break;
+                node = node.parentElement;
+            }
+            return boundary.scrollHeight > boundary.clientHeight + 1 ? boundary : null;
         },
         async fetchUser() {
             try {
@@ -364,6 +460,41 @@ export default {
 }
 .admin-app a:not(.btn):hover {
     color: var(--ds-primary-lighter);
+}
+
+html.admin-scroll-lock,
+body.admin-scroll-lock {
+    overflow: hidden !important;
+}
+body.admin-scroll-lock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+}
+.admin-app .modal-overlay,
+.admin-app .picker-overlay {
+    z-index: 3000 !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    padding: 18px !important;
+}
+.admin-app .modal-panel,
+.admin-app .picker-panel {
+    max-height: calc(100dvh - 36px) !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    margin: 0 auto;
+}
+.admin-app .option-dropdown,
+.admin-app .user-dropdown,
+.admin-app .boss-side,
+.admin-app .group-grid,
+.admin-app .catalog-list {
+    overscroll-behavior: contain;
 }
 
 /* Material icon shorthand */
