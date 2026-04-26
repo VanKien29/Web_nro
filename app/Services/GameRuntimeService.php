@@ -12,6 +12,26 @@ class GameRuntimeService
         return $this->post('/internal/runtime/shop/reload', []);
     }
 
+    public function bosses(): array
+    {
+        return $this->request('GET', '/internal/runtime/bosses', []);
+    }
+
+    public function createBoss(array $payload): array
+    {
+        return $this->post('/internal/runtime/bosses/create', $payload);
+    }
+
+    public function bossAction(array $payload): array
+    {
+        return $this->post('/internal/runtime/bosses/action', $payload);
+    }
+
+    public function updateBoss(array $payload): array
+    {
+        return $this->post('/internal/runtime/bosses/update', $payload);
+    }
+
     public function health(): array
     {
         return $this->request('GET', '/internal/runtime/health', []);
