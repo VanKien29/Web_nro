@@ -32,6 +32,16 @@ class GameRuntimeService
         return $this->post('/internal/runtime/bosses/update', $payload);
     }
 
+    public function bossConfigs(): array
+    {
+        return $this->request('GET', '/internal/runtime/bosses/configs', []);
+    }
+
+    public function saveBossConfig(array $payload): array
+    {
+        return $this->post('/internal/runtime/bosses/configs', $payload);
+    }
+
     public function health(): array
     {
         return $this->request('GET', '/internal/runtime/health', []);

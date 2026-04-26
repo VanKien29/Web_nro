@@ -115,15 +115,26 @@
                                 <span class="mi summary-icon">expand_more</span>
                                 <span class="summary-avatars">
                                     <span
-                                        v-for="member in bucket.members.slice(0, 4)"
-                                        :key="'avatar-' + member.manager + '-' + member.index"
+                                        v-for="member in bucket.members.slice(
+                                            0,
+                                            4,
+                                        )"
+                                        :key="
+                                            'avatar-' +
+                                            member.manager +
+                                            '-' +
+                                            member.index
+                                        "
                                         class="boss-avatar mini-avatar"
                                         :title="avatarTitle(member)"
                                     >
                                         <img
                                             v-if="member.avatar_id"
                                             :src="iconSrc(member.avatar_id)"
-                                            :alt="member.name || member.template_name"
+                                            :alt="
+                                                member.name ||
+                                                member.template_name
+                                            "
                                             loading="lazy"
                                             decoding="async"
                                         />
@@ -134,7 +145,9 @@
                                     <small>
                                         {{ bucket.members.length }} boss
                                         <template v-if="bucket.phaseCount > 1"
-                                            >· {{ bucket.phaseCount }} phase</template
+                                            >·
+                                            {{ bucket.phaseCount }}
+                                            phase</template
                                         >
                                         ·
                                         {{
@@ -152,7 +165,9 @@
                                                 ? 'badge-success'
                                                 : 'badge-danger'
                                         "
-                                        >{{ bucket.enabled ? "Bật" : "Tắt" }}</span
+                                        >{{
+                                            bucket.enabled ? "Bật" : "Tắt"
+                                        }}</span
                                     >
                                 </span>
                             </summary>
@@ -171,18 +186,26 @@
                                             <img
                                                 v-if="boss.avatar_id"
                                                 :src="iconSrc(boss.avatar_id)"
-                                                :alt="boss.name || boss.template_name"
+                                                :alt="
+                                                    boss.name ||
+                                                    boss.template_name
+                                                "
                                                 loading="lazy"
                                                 decoding="async"
                                             />
                                         </div>
                                         <div class="boss-copy">
                                             <div class="boss-name">
-                                                {{ boss.name || boss.template_name }}
+                                                {{
+                                                    boss.name ||
+                                                    boss.template_name
+                                                }}
                                             </div>
                                             <div class="boss-meta">
                                                 ID {{ boss.boss_id }} ·
-                                                {{ boss.manager }} #{{ boss.index }}
+                                                {{ boss.manager }} #{{
+                                                    boss.index
+                                                }}
                                                 <span
                                                     v-if="boss.custom"
                                                     class="chip chip-warning"
@@ -192,7 +215,8 @@
                                                     v-if="boss.group_size > 1"
                                                     class="chip"
                                                     >{{
-                                                        boss.group_role === "parent"
+                                                        boss.group_role ===
+                                                        "parent"
                                                             ? "Nhóm chính"
                                                             : "Nhóm"
                                                     }}:
@@ -200,42 +224,76 @@
                                                 >
                                             </div>
                                             <div
-                                                v-if="bossMechanics(boss).length"
+                                                v-if="
+                                                    bossMechanics(boss).length
+                                                "
                                                 class="mechanic-chips"
                                             >
                                                 <span
-                                                    v-for="item in bossMechanics(boss)"
+                                                    v-for="item in bossMechanics(
+                                                        boss,
+                                                    )"
                                                     :key="item"
                                                     class="mechanic-chip"
                                                     >{{ item }}</span
                                                 >
                                             </div>
                                             <div
-                                                v-if="skillSummary(boss.skill_temp)"
+                                                v-if="
+                                                    skillSummary(
+                                                        boss.skill_temp,
+                                                    )
+                                                "
                                                 class="boss-skill-summary"
                                             >
-                                                {{ skillSummary(boss.skill_temp) }}
+                                                {{
+                                                    skillSummary(
+                                                        boss.skill_temp,
+                                                    )
+                                                }}
                                             </div>
                                             <div
-                                                v-if="bossLevels(boss).length > 1"
+                                                v-if="
+                                                    bossLevels(boss).length > 1
+                                                "
                                                 class="phase-strip"
                                             >
                                                 <button
-                                                    v-for="level in bossLevels(boss)"
-                                                    :key="'phase-' + boss.manager + '-' + boss.index + '-' + level.level_index"
+                                                    v-for="level in bossLevels(
+                                                        boss,
+                                                    )"
+                                                    :key="
+                                                        'phase-' +
+                                                        boss.manager +
+                                                        '-' +
+                                                        boss.index +
+                                                        '-' +
+                                                        level.level_index
+                                                    "
                                                     type="button"
                                                     class="phase-chip"
                                                     :class="{
                                                         active:
-                                                            Number(level.level_index) ===
-                                                            Number(boss.current_level),
+                                                            Number(
+                                                                level.level_index,
+                                                            ) ===
+                                                            Number(
+                                                                boss.current_level,
+                                                            ),
                                                     }"
                                                     :title="phaseTitle(level)"
                                                     @click.stop="
-                                                        openEdit(boss, level.level_index)
+                                                        openEdit(
+                                                            boss,
+                                                            level.level_index,
+                                                        )
                                                     "
                                                 >
-                                                    P{{ Number(level.level_index) + 1 }}
+                                                    P{{
+                                                        Number(
+                                                            level.level_index,
+                                                        ) + 1
+                                                    }}
                                                     {{ level.name }}
                                                 </button>
                                             </div>
@@ -245,12 +303,19 @@
                                     <div class="boss-list-metrics">
                                         <div>
                                             <span>HP</span>
-                                            <strong>{{ number(boss.hp) }}</strong>
-                                            <small>Max {{ number(boss.hp_max) }}</small>
+                                            <strong>{{
+                                                number(boss.hp)
+                                            }}</strong>
+                                            <small
+                                                >Max
+                                                {{ number(boss.hp_max) }}</small
+                                            >
                                         </div>
                                         <div>
                                             <span>Dame</span>
-                                            <strong>{{ number(boss.dame) }}</strong>
+                                            <strong>{{
+                                                number(boss.dame)
+                                            }}</strong>
                                             <small>{{ boss.status }}</small>
                                         </div>
                                         <div>
@@ -298,7 +363,9 @@
                                         </button>
                                         <button
                                             class="icon-action"
-                                            :title="boss.enabled ? 'Tắt' : 'Bật'"
+                                            :title="
+                                                boss.enabled ? 'Tắt' : 'Bật'
+                                            "
                                             @click="
                                                 runAction(
                                                     boss,
@@ -340,11 +407,15 @@
                                     @click="
                                         runGroupAction(
                                             bucket,
-                                            bucket.enabled ? 'disable' : 'enable',
+                                            bucket.enabled
+                                                ? 'disable'
+                                                : 'enable',
                                         )
                                     "
                                 >
-                                    {{ bucket.enabled ? "Tắt nhóm" : "Bật nhóm" }}
+                                    {{
+                                        bucket.enabled ? "Tắt nhóm" : "Bật nhóm"
+                                    }}
                                 </button>
                                 <button
                                     class="btn btn-danger btn-xs"
@@ -354,7 +425,10 @@
                                 </button>
                             </div>
                         </details>
-                        <div v-if="!bossBuckets.length && !loading" class="empty-cell">
+                        <div
+                            v-if="!bossBuckets.length && !loading"
+                            class="empty-cell"
+                        >
                             Không có boss phù hợp.
                         </div>
                     </div>
@@ -736,7 +810,13 @@
             </aside>
         </div>
 
-        <div v-if="editing" class="modal-overlay" @click.self="editing = null">
+        <div
+            v-if="editing"
+            class="modal-overlay"
+            @click.self="editing = null"
+            @wheel.stop
+            @touchmove.stop
+        >
             <div class="modal-panel">
                 <div class="modal-head">
                     <div class="modal-title-row">
@@ -786,9 +866,7 @@
                     <div>
                         <span>Avatar</span
                         ><strong>{{
-                            editingAvatarId
-                                ? `#${editingAvatarId}`
-                                : "Chưa có"
+                            editingAvatarId ? `#${editingAvatarId}` : "Chưa có"
                         }}</strong>
                     </div>
                     <div>
@@ -820,7 +898,9 @@
                     <div>
                         <span>Class xử lý</span
                         ><strong>{{
-                            editing.class_simple_name || editing.class_name || "-"
+                            editing.class_simple_name ||
+                            editing.class_name ||
+                            "-"
                         }}</strong>
                     </div>
                     <div>
@@ -860,23 +940,22 @@
                                 >P{{ Number(level.level_index) + 1 }} ·
                                 {{ level.name }}</strong
                             >
-                             <small
-                                 >{{ number(level.hp_max) }} HP ·
-                                 {{ number(level.dame) }} dame ·
-                                 {{ level.type_appear }}
-                                 <template
-                                     v-if="
-                                         Array.isArray(
-                                             level.bosses_appear_together,
-                                         ) &&
-                                         level.bosses_appear_together.length
-                                     "
-                                     >· gọi
-                                     {{
-                                         level.bosses_appear_together.join(", ")
-                                     }}</template
-                                 ></small
-                             >
+                            <small
+                                >{{ number(level.hp_max) }} HP ·
+                                {{ number(level.dame) }} dame ·
+                                {{ level.type_appear }}
+                                <template
+                                    v-if="
+                                        Array.isArray(
+                                            level.bosses_appear_together,
+                                        ) && level.bosses_appear_together.length
+                                    "
+                                    >· gọi
+                                    {{
+                                        level.bosses_appear_together.join(", ")
+                                    }}</template
+                                ></small
+                            >
                         </span>
                     </button>
                 </div>
@@ -915,6 +994,29 @@
                             <option :value="1">Namek</option>
                             <option :value="2">Xayda</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type appear</label>
+                        <select
+                            v-model="editForm.type_appear"
+                            class="form-input"
+                        >
+                            <option
+                                v-for="type in appearTypes"
+                                :key="type"
+                                :value="type"
+                            >
+                                {{ type }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Boss gọi kèm</label
+                        ><input
+                            v-model="editForm.bosses_appear_together"
+                            class="form-input"
+                            placeholder="VD: -23,-24,-25"
+                        />
                     </div>
                     <div class="form-group">
                         <label class="form-label">HP hiện tại</label
@@ -1048,6 +1150,66 @@
                             rows="3"
                         ></textarea>
                     </div>
+                    <div class="spawn-config-card full">
+                        <div class="spawn-config-head">
+                            <div>
+                                <span class="section-label"
+                                    >Cấu hình spawn</span
+                                >
+                                <strong>{{
+                                    editingDisplayName || "Boss đang chọn"
+                                }}</strong>
+                                <small>
+                                    Boss ID {{ configForm.boss_id || "-" }} ·
+                                    Phase
+                                    {{
+                                        Number(configForm.level_index || 0) + 1
+                                    }}
+                                    · {{ configCountText }}
+                                </small>
+                            </div>
+                            <button
+                                class="btn btn-primary btn-sm"
+                                :disabled="saving"
+                                @click="saveBossConfig"
+                            >
+                                <span class="mi" style="font-size: 16px"
+                                    >save</span
+                                >
+                                Lưu spawn
+                            </button>
+                        </div>
+                        <div class="spawn-config-grid">
+                            <div class="form-group">
+                                <label class="form-label">Số lượng</label>
+                                <input
+                                    v-model.number="configForm.count"
+                                    class="form-input"
+                                    type="number"
+                                    min="1"
+                                    max="50"
+                                />
+                            </div>
+                            <label class="toggle-row compact-toggle"
+                                ><input
+                                    v-model="configForm.auto_spawn"
+                                    type="checkbox"
+                                /><span>Tự spawn khi restart</span></label
+                            >
+                            <label class="toggle-row compact-toggle"
+                                ><input
+                                    v-model="configForm.apply_now"
+                                    type="checkbox"
+                                /><span>Áp dụng ngay</span></label
+                            >
+                            <label class="toggle-row compact-toggle"
+                                ><input
+                                    v-model="configForm.active"
+                                    type="checkbox"
+                                /><span>Bật rule</span></label
+                            >
+                        </div>
+                    </div>
                 </div>
 
                 <label class="toggle-row"
@@ -1078,6 +1240,11 @@ export default {
         return {
             bosses: [],
             catalog: [],
+            bossConfigs: {
+                template: [],
+                spawn: [],
+                runtime: [],
+            },
             skillOptions: [],
             loading: false,
             saving: false,
@@ -1106,6 +1273,17 @@ export default {
             },
             customSkillRows: [{ id: 0, level: 1, cooldown: 1000 }],
             customMembers: [],
+            configForm: {
+                section: "spawn",
+                boss_id: "",
+                level_index: -1,
+                rule_key: "",
+                manager_key: "main",
+                active: true,
+                count: 1,
+                auto_spawn: true,
+                apply_now: false,
+            },
             editing: null,
             editForm: {},
             statuses: [
@@ -1118,6 +1296,12 @@ export default {
                 "CHAT_E",
                 "LEAVE_MAP",
                 "AFK",
+            ],
+            appearTypes: [
+                "DEFAULT_APPEAR",
+                "APPEAR_WITH_ANOTHER",
+                "ANOTHER_LEVEL",
+                "CALL_BY_ANOTHER",
             ],
         };
     },
@@ -1135,6 +1319,10 @@ export default {
         },
         customCount() {
             return this.visibleBosses.filter((boss) => boss.custom).length;
+        },
+        configCountText() {
+            const spawn = this.bossConfigs.spawn?.length || 0;
+            return `${spawn} rule spawn`;
         },
         filteredBosses() {
             const q = this.search.trim().toLowerCase();
@@ -1174,9 +1362,7 @@ export default {
         totalPages() {
             return Math.max(
                 1,
-                Math.ceil(
-                    this.bossBuckets.length / Number(this.perPage || 50),
-                ),
+                Math.ceil(this.bossBuckets.length / Number(this.perPage || 50)),
             );
         },
         currentPage() {
@@ -1282,7 +1468,8 @@ export default {
         bossBuckets() {
             const buckets = new Map();
             for (const boss of this.displayedBosses) {
-                const isGroup = boss.group_key && Number(boss.group_size || 0) > 1;
+                const isGroup =
+                    boss.group_key && Number(boss.group_size || 0) > 1;
                 const key = isGroup
                     ? `group:${boss.group_key}`
                     : `same:${boss.manager}:${boss.boss_id}:${this.normalizedBossText(boss.template_name || boss.name)}`;
@@ -1291,10 +1478,15 @@ export default {
                         key,
                         kind: isGroup ? "group" : "same",
                         name: isGroup
-                            ? (boss.group_name || boss.name || boss.template_name)
-                            : (boss.template_name || boss.name || `Boss ${boss.boss_id}`),
-                        parent_manager: boss.group_parent_manager || boss.manager,
-                        parent_index: Number.isInteger(Number(boss.group_parent_index))
+                            ? boss.group_name || boss.name || boss.template_name
+                            : boss.template_name ||
+                              boss.name ||
+                              `Boss ${boss.boss_id}`,
+                        parent_manager:
+                            boss.group_parent_manager || boss.manager,
+                        parent_index: Number.isInteger(
+                            Number(boss.group_parent_index),
+                        )
                             ? Number(boss.group_parent_index)
                             : boss.index,
                         members: [],
@@ -1305,11 +1497,15 @@ export default {
                 const bucket = buckets.get(key);
                 bucket.members.push(boss);
                 bucket.enabled = bucket.enabled || !!boss.enabled;
-                bucket.phaseCount = Math.max(bucket.phaseCount, this.bossLevels(boss).length);
+                bucket.phaseCount = Math.max(
+                    bucket.phaseCount,
+                    this.bossLevels(boss).length,
+                );
             }
             return Array.from(buckets.values()).sort((a, b) => {
                 if (a.kind !== b.kind) return a.kind === "group" ? -1 : 1;
-                if (b.members.length !== a.members.length) return b.members.length - a.members.length;
+                if (b.members.length !== a.members.length)
+                    return b.members.length - a.members.length;
                 return a.name.localeCompare(b.name, "vi");
             });
         },
@@ -1318,10 +1514,19 @@ export default {
             return this.bossLevelData(this.editing, this.editForm.level_index);
         },
         editingAvatarId() {
-            return this.editingLevelData?.avatar_id || this.editing?.avatar_id || null;
+            return (
+                this.editingLevelData?.avatar_id ||
+                this.editing?.avatar_id ||
+                null
+            );
         },
         editingDisplayName() {
-            return this.editingLevelData?.name || this.editing?.name || this.editing?.template_name || "";
+            return (
+                this.editingLevelData?.name ||
+                this.editing?.name ||
+                this.editing?.template_name ||
+                ""
+            );
         },
     },
     watch: {
@@ -1337,9 +1542,15 @@ export default {
         perPage() {
             this.resetPagination();
         },
+        editing(value) {
+            this.setPageScrollLocked(!!value);
+        },
     },
     created() {
         this.loadBosses();
+    },
+    beforeUnmount() {
+        this.setPageScrollLocked(false);
     },
     methods: {
         number(value) {
@@ -1367,6 +1578,22 @@ export default {
             const outfit = Array.isArray(boss?.outfit) ? boss.outfit : [];
             return `Avatar ${boss?.avatar_id ?? "-"} | Outfit ${outfit.join(", ")}`;
         },
+        setPageScrollLocked(locked) {
+            if (typeof document === "undefined") return;
+            const body = document.body;
+            if (!body) return;
+            if (locked) {
+                if (this._previousBodyOverflow === undefined) {
+                    this._previousBodyOverflow = body.style.overflow;
+                }
+                body.style.overflow = "hidden";
+                return;
+            }
+            if (this._previousBodyOverflow !== undefined) {
+                body.style.overflow = this._previousBodyOverflow;
+                this._previousBodyOverflow = undefined;
+            }
+        },
         normalizedBossText(value) {
             return String(value || "")
                 .trim()
@@ -1386,6 +1613,7 @@ export default {
                 "mabu",
                 "tau pay pay",
                 "taupaypay",
+                "be na",
             ].some((keyword) => {
                 return (
                     name === keyword ||
@@ -1674,6 +1902,7 @@ export default {
                 this.bosses = data.data?.bosses || [];
                 this.catalog = data.data?.catalog || [];
                 this.skillOptions = data.data?.skill_options || [];
+                await this.loadBossConfigs(true);
                 this.customSkillRows.forEach((row) =>
                     this.applySkillDefaults(row),
                 );
@@ -1682,6 +1911,27 @@ export default {
                 this.error = e?.message || "Không tải được boss";
             } finally {
                 this.loading = false;
+            }
+        },
+        async loadBossConfigs(silent = false) {
+            try {
+                const res = await fetch("/admin/api/runtime/boss-configs", {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok)
+                    throw new Error(
+                        data.message || "Không tải được cấu hình boss",
+                    );
+                this.bossConfigs = {
+                    template: data.data?.template || [],
+                    spawn: data.data?.spawn || [],
+                    runtime: data.data?.runtime || [],
+                };
+            } catch (e) {
+                if (!silent) {
+                    this.error = e?.message || "Không tải được cấu hình boss";
+                }
             }
         },
         async postJson(url, method, payload) {
@@ -1721,6 +1971,30 @@ export default {
                     ),
                 "Đã tạo custom boss",
                 "Tạo custom boss thất bại",
+            );
+        },
+        async saveBossConfig() {
+            const payload = {
+                ...this.configForm,
+                section: "spawn",
+                count: Math.max(
+                    1,
+                    Math.min(50, Number(this.configForm.count || 1)),
+                ),
+            };
+            if (!Number(payload.boss_id)) {
+                this.error = "Cần mở một boss trước khi lưu cấu hình spawn.";
+                return;
+            }
+            await this.persistAction(
+                () =>
+                    this.postJson(
+                        "/admin/api/runtime/boss-configs",
+                        "POST",
+                        payload,
+                    ),
+                "Đã lưu cấu hình boss",
+                "Lưu cấu hình boss thất bại",
             );
         },
         async runAction(boss, action, scope = "single") {
@@ -1763,11 +2037,37 @@ export default {
                 const data = await action();
                 this.success = data.message || successMessage;
                 await this.loadBosses();
+                this.refreshEditingReference();
             } catch (e) {
                 this.error = e?.message || failMessage;
             } finally {
                 this.saving = false;
             }
+        },
+        refreshEditingReference() {
+            if (!this.editing) return;
+            const updated = this.bosses.find(
+                (boss) =>
+                    boss.manager === this.editing.manager &&
+                    Number(boss.index) === Number(this.editing.index),
+            );
+            if (!updated) return;
+            this.editing = updated;
+        },
+        spawnRuleForBoss(bossId, managerKey = "main") {
+            const id = Number(bossId);
+            const manager = String(managerKey || "main");
+            return (
+                this.bossConfigs.spawn.find(
+                    (rule) =>
+                        Number(rule.boss_id) === id &&
+                        String(rule.manager_key || "main") === manager,
+                ) ||
+                this.bossConfigs.spawn.find(
+                    (rule) => Number(rule.boss_id) === id,
+                ) ||
+                null
+            );
         },
         openEdit(boss, levelIndex = null) {
             this.editing = boss;
@@ -1785,20 +2085,46 @@ export default {
                 index: boss.index,
                 level_index: Number(level.level_index ?? targetIndex),
                 enabled: !!boss.enabled,
-                name: isCurrentLevel ? boss.name || level.name || "" : level.name || "",
-                template_name: level.name || boss.template_name || boss.name || "",
+                name: isCurrentLevel
+                    ? boss.name || level.name || ""
+                    : level.name || "",
+                template_name:
+                    level.name || boss.template_name || boss.name || "",
                 gender: Number(level.gender ?? boss.gender ?? 2),
-                hp: isCurrentLevel ? boss.hp || level.hp_max || 1 : level.hp_max || 1,
+                hp: isCurrentLevel
+                    ? boss.hp || level.hp_max || 1
+                    : level.hp_max || 1,
                 hp_max: level.hp_max || boss.hp_max || 1,
                 dame: level.dame || boss.dame || 1,
                 seconds_rest: level.seconds_rest ?? boss.seconds_rest ?? 0,
                 status: boss.status || "REST",
+                type_appear:
+                    level.type_appear || boss.type_appear || "DEFAULT_APPEAR",
+                bosses_appear_together: this.csv(
+                    level.bosses_appear_together || [],
+                ),
                 outfit: this.csv(outfit),
                 map_join: this.csv(level.map_join),
                 skill_rows: this.skillRowsFromArray(level.skill_temp),
                 text_s: this.lines(level.text_s),
                 text_m: this.lines(level.text_m),
                 text_e: this.lines(level.text_e),
+            };
+            const managerKey = boss.manager || "main";
+            const spawnRule = this.spawnRuleForBoss(boss.boss_id, managerKey);
+            this.configForm = {
+                ...this.configForm,
+                section: "spawn",
+                boss_id: Number(boss.boss_id || 0),
+                level_index: Number(level.level_index ?? targetIndex),
+                rule_key:
+                    spawnRule?.rule_key ||
+                    `spawn:${managerKey}:${Number(boss.boss_id || 0)}`,
+                manager_key: managerKey,
+                active: spawnRule?.active ?? true,
+                count: Number(spawnRule?.count || 1),
+                auto_spawn: spawnRule?.auto_spawn ?? true,
+                apply_now: false,
             };
         },
         switchEditLevel(levelIndex) {
@@ -2051,7 +2377,7 @@ export default {
     cursor: pointer;
 }
 .boss-menu-member:hover {
-    border-color: rgba(var(--ds-primary-rgb), .55);
+    border-color: rgba(var(--ds-primary-rgb), 0.55);
 }
 .boss-menu-member strong,
 .boss-menu-member small {
@@ -2351,8 +2677,8 @@ export default {
     cursor: pointer;
 }
 .phase-chip.active {
-    border-color: rgba(var(--ds-primary-rgb), .7);
-    background: rgba(var(--ds-primary-rgb), .16);
+    border-color: rgba(var(--ds-primary-rgb), 0.7);
+    background: rgba(var(--ds-primary-rgb), 0.16);
     color: var(--ds-primary);
 }
 .chip {
@@ -2564,6 +2890,72 @@ export default {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.spawn-config-card {
+    border: 1px solid rgba(var(--ds-primary-rgb), 0.22);
+    border-radius: 10px;
+    background: rgba(var(--ds-primary-rgb), 0.06);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.spawn-config-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.spawn-config-head > div {
+    min-width: 0;
+}
+.spawn-config-head .btn {
+    flex: 0 0 auto;
+}
+.spawn-config-head strong,
+.spawn-config-head small,
+.section-label {
+    display: block;
+}
+.section-label {
+    color: var(--ds-primary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+.spawn-config-head strong {
+    color: var(--ds-text-emphasis);
+}
+.spawn-config-head small {
+    color: var(--ds-text-muted);
+    font-size: 12px;
+    margin-top: 3px;
+}
+.spawn-config-grid {
+    display: grid;
+    grid-template-columns: minmax(140px, 180px) repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+.spawn-config-grid .toggle-row {
+    align-self: stretch;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    background: var(--ds-surface-2);
+    font-weight: 700;
+    line-height: 1.2;
+}
+.spawn-config-grid .toggle-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.compact-toggle {
+    margin: 0;
+}
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -2659,8 +3051,8 @@ export default {
     cursor: pointer;
 }
 .phase-edit-btn.active {
-    border-color: rgba(var(--ds-primary-rgb), .75);
-    background: rgba(var(--ds-primary-rgb), .13);
+    border-color: rgba(var(--ds-primary-rgb), 0.75);
+    background: rgba(var(--ds-primary-rgb), 0.13);
 }
 .phase-edit-btn strong,
 .phase-edit-btn small {
@@ -2681,6 +3073,9 @@ export default {
 }
 .edit-grid .wide {
     grid-column: span 2;
+}
+.edit-grid .full {
+    grid-column: 1 / -1;
 }
 .form-row-2 {
     display: grid;
@@ -2730,10 +3125,17 @@ export default {
     .detail-grid,
     .form-row-2,
     .form-row-3,
+    .spawn-config-grid,
     .skill-row {
         grid-template-columns: 1fr;
     }
+    .spawn-config-head {
+        flex-direction: column;
+    }
     .edit-grid .wide {
+        grid-column: span 1;
+    }
+    .edit-grid .full {
         grid-column: span 1;
     }
     .group-card {

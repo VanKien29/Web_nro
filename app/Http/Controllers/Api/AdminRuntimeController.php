@@ -64,6 +64,8 @@ class AdminRuntimeController extends Controller
             'map_join',
             'seconds_rest',
             'skill_temp',
+            'type_appear',
+            'bosses_appear_together',
             'text_s',
             'text_m',
             'text_e',
@@ -103,6 +105,8 @@ class AdminRuntimeController extends Controller
             'seconds_rest',
             'map_join',
             'skill_temp',
+            'type_appear',
+            'bosses_appear_together',
             'text_s',
             'text_m',
             'text_e',
@@ -120,6 +124,48 @@ class AdminRuntimeController extends Controller
             }
         }
         return $this->runtimeResponse('boss.update', fn() => $runtime->updateBoss($payload));
+    }
+
+    public function bossConfigs(GameRuntimeService $runtime): JsonResponse
+    {
+        return $this->runtimeResponse('boss.config.list', fn() => $runtime->bossConfigs());
+    }
+
+    public function saveBossConfig(Request $request, GameRuntimeService $runtime): JsonResponse
+    {
+        $payload = $request->only([
+            'section',
+            'boss_id',
+            'level_index',
+            'active',
+            'name',
+            'template_name',
+            'gender',
+            'outfit',
+            'hp_max',
+            'dame',
+            'seconds_rest',
+            'map_join',
+            'skill_temp',
+            'type_appear',
+            'bosses_appear_together',
+            'text_s',
+            'text_m',
+            'text_e',
+            'rule_key',
+            'manager_key',
+            'count',
+            'auto_spawn',
+            'apply_now',
+        ]);
+
+        foreach (['boss_id', 'level_index', 'gender', 'hp_max', 'dame', 'seconds_rest', 'count'] as $field) {
+            if (isset($payload[$field]) && $payload[$field] !== '') {
+                $payload[$field] = (int) $payload[$field];
+            }
+        }
+
+        return $this->runtimeResponse('boss.config.save.' . ($payload['section'] ?? 'unknown'), fn() => $runtime->saveBossConfig($payload));
     }
 
     private function runtimeResponse(string $action, callable $callback): JsonResponse
@@ -198,17 +244,21 @@ class AdminRuntimeController extends Controller
 
         $avatarByHead = [];
         if (!empty($headIds)) {
-            $rows = DB::connection('game')->table('head_avatar')
-                ->whereIn('head_id', array_keys($headIds))
-                ->orderBy('head_id')
-                ->orderBy('avatar_id')
-                ->get(['head_id', 'avatar_id']);
+            try {
+                $rows = DB::connection('game')->table('head_avatar')
+                    ->whereIn('head_id', array_keys($headIds))
+                    ->orderBy('head_id')
+                    ->orderBy('avatar_id')
+                    ->get(['head_id', 'avatar_id']);
 
-            foreach ($rows as $row) {
-                $headId = (int) $row->head_id;
-                if (!isset($avatarByHead[$headId])) {
-                    $avatarByHead[$headId] = (int) $row->avatar_id;
+                foreach ($rows as $row) {
+                    $headId = (int) $row->head_id;
+                    if (!isset($avatarByHead[$headId])) {
+                        $avatarByHead[$headId] = (int) $row->avatar_id;
+                    }
                 }
+            } catch (\Throwable) {
+                $avatarByHead = [];
             }
         }
 

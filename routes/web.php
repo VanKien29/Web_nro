@@ -120,6 +120,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/api/runtime/bosses', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'createBoss']);
         Route::post('/api/runtime/bosses/action', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'bossAction']);
         Route::put('/api/runtime/bosses', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'updateBoss']);
+        Route::get('/api/runtime/boss-configs', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'bossConfigs']);
+        Route::post('/api/runtime/boss-configs', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'saveBossConfig']);
 
         // Milestone reward tables
         Route::get('/api/milestones/{type}', [\App\Http\Controllers\Api\AdminController::class, 'milestonesList']);
