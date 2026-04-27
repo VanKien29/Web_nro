@@ -31,6 +31,9 @@
 
         <div v-if="error" class="alert alert-error">{{ error }}</div>
         <div v-if="success" class="alert alert-success">{{ success }}</div>
+        <div v-if="loadingAccount" class="muted-line">
+            Đang tải dữ liệu tài khoản...
+        </div>
 
         <form @submit.prevent="save">
             <div class="form-layout">
@@ -50,24 +53,79 @@
                         <template v-else-if="activity">
                             <div class="hub-summary-grid">
                                 <div class="hub-summary-card">
-                                    <span class="hub-summary-label">Tạo lúc</span>
-                                    <strong>{{ formatDateTime(activity.overview.create_time) }}</strong>
-                                    <small>IP: {{ activity.overview.ip_address || "—" }}</small>
+                                    <span class="hub-summary-label"
+                                        >Tạo lúc</span
+                                    >
+                                    <strong>{{
+                                        formatDateTime(
+                                            activity.overview.create_time,
+                                        )
+                                    }}</strong>
+                                    <small
+                                        >IP:
+                                        {{
+                                            activity.overview.ip_address || "—"
+                                        }}</small
+                                    >
                                 </div>
                                 <div class="hub-summary-card">
-                                    <span class="hub-summary-label">Đăng nhập cuối</span>
-                                    <strong>{{ formatDateTime(activity.overview.last_time_login) }}</strong>
-                                    <small>Logout: {{ formatDateTime(activity.overview.last_time_logout) }}</small>
+                                    <span class="hub-summary-label"
+                                        >Đăng nhập cuối</span
+                                    >
+                                    <strong>{{
+                                        formatDateTime(
+                                            activity.overview.last_time_login,
+                                        )
+                                    }}</strong>
+                                    <small
+                                        >Logout:
+                                        {{
+                                            formatDateTime(
+                                                activity.overview
+                                                    .last_time_logout,
+                                            )
+                                        }}</small
+                                    >
                                 </div>
                                 <div class="hub-summary-card">
-                                    <span class="hub-summary-label">Tổng nạp</span>
-                                    <strong>{{ fmt(activity.topup_summary.total_amount) }}đ</strong>
-                                    <small>{{ fmt(activity.topup_summary.total_count) }} giao dịch</small>
+                                    <span class="hub-summary-label"
+                                        >Tổng nạp</span
+                                    >
+                                    <strong
+                                        >{{
+                                            fmt(
+                                                activity.topup_summary
+                                                    .total_amount,
+                                            )
+                                        }}đ</strong
+                                    >
+                                    <small
+                                        >{{
+                                            fmt(
+                                                activity.topup_summary
+                                                    .total_count,
+                                            )
+                                        }}
+                                        giao dịch</small
+                                    >
                                 </div>
                                 <div class="hub-summary-card">
-                                    <span class="hub-summary-label">Bảo mật</span>
-                                    <strong>{{ activity.overview.mkc2 ? "Đã đặt MKC2" : "Chưa có MKC2" }}</strong>
-                                    <small>Gmail: {{ activity.overview.gmail || activity.overview.email || "—" }}</small>
+                                    <span class="hub-summary-label"
+                                        >Bảo mật</span
+                                    >
+                                    <strong>{{
+                                        activity.overview.mkc2
+                                            ? "Đã đặt MKC2"
+                                            : "Chưa có MKC2"
+                                    }}</strong>
+                                    <small
+                                        >Gmail:
+                                        {{
+                                            activity.overview.gmail ||
+                                            activity.overview.email ||
+                                            "—"
+                                        }}</small
+                                    >
                                 </div>
                             </div>
 
@@ -75,7 +133,9 @@
                                 <button
                                     type="button"
                                     class="detail-tab-btn"
-                                    :class="{ active: activeDetailTab === 'overview' }"
+                                    :class="{
+                                        active: activeDetailTab === 'overview',
+                                    }"
                                     @click="activeDetailTab = 'overview'"
                                 >
                                     Tổng quan
@@ -83,7 +143,9 @@
                                 <button
                                     type="button"
                                     class="detail-tab-btn"
-                                    :class="{ active: activeDetailTab === 'topup' }"
+                                    :class="{
+                                        active: activeDetailTab === 'topup',
+                                    }"
                                     @click="activeDetailTab = 'topup'"
                                 >
                                     Lịch sử nạp
@@ -91,94 +153,213 @@
                                 <button
                                     type="button"
                                     class="detail-tab-btn"
-                                    :class="{ active: activeDetailTab === 'logs' }"
+                                    :class="{
+                                        active: activeDetailTab === 'logs',
+                                    }"
                                     @click="activeDetailTab = 'logs'"
                                 >
                                     Nhật ký admin
                                 </button>
                             </div>
 
-                            <div v-if="activeDetailTab === 'overview'" class="detail-panel">
+                            <div
+                                v-if="activeDetailTab === 'overview'"
+                                class="detail-panel"
+                            >
                                 <div class="detail-grid">
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Email</span>
-                                        <span class="detail-field-value">{{ activity.overview.email || "—" }}</span>
+                                        <span class="detail-field-label"
+                                            >Email</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            activity.overview.email || "—"
+                                        }}</span>
                                     </div>
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Gmail</span>
-                                        <span class="detail-field-value">{{ activity.overview.gmail || "—" }}</span>
+                                        <span class="detail-field-label"
+                                            >Gmail</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            activity.overview.gmail || "—"
+                                        }}</span>
                                     </div>
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Lượt quay</span>
-                                        <span class="detail-field-value">{{ fmt(activity.overview.luotquay) }}</span>
+                                        <span class="detail-field-label"
+                                            >Lượt quay</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            fmt(activity.overview.luotquay)
+                                        }}</span>
                                     </div>
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Vàng tài khoản</span>
-                                        <span class="detail-field-value">{{ fmt(activity.overview.vang) }}</span>
+                                        <span class="detail-field-label"
+                                            >Vàng tài khoản</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            fmt(activity.overview.vang)
+                                        }}</span>
                                     </div>
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Event point</span>
-                                        <span class="detail-field-value">{{ fmt(activity.overview.event_point) }}</span>
+                                        <span class="detail-field-label"
+                                            >Event point</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            fmt(activity.overview.event_point)
+                                        }}</span>
                                     </div>
                                     <div class="detail-field">
-                                        <span class="detail-field-label">Cập nhật gần nhất</span>
-                                        <span class="detail-field-value">{{ formatDateTime(activity.overview.update_time) }}</span>
+                                        <span class="detail-field-label"
+                                            >Cập nhật gần nhất</span
+                                        >
+                                        <span class="detail-field-value">{{
+                                            formatDateTime(
+                                                activity.overview.update_time,
+                                            )
+                                        }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div v-if="activeDetailTab === 'topup'" class="detail-panel detail-stack">
+                            <div
+                                v-if="activeDetailTab === 'topup'"
+                                class="detail-panel detail-stack"
+                            >
                                 <div class="mini-summary-row">
                                     <div class="mini-summary-box">
                                         <span>Gần nhất</span>
-                                        <strong>{{ formatDateTime(activity.topup_summary.last_topup_at) }}</strong>
+                                        <strong>{{
+                                            formatDateTime(
+                                                activity.topup_summary
+                                                    .last_topup_at,
+                                            )
+                                        }}</strong>
                                     </div>
                                     <div class="mini-summary-box">
                                         <span>Tổng giao dịch</span>
-                                        <strong>{{ fmt(activity.topup_summary.total_count) }}</strong>
+                                        <strong>{{
+                                            fmt(
+                                                activity.topup_summary
+                                                    .total_count,
+                                            )
+                                        }}</strong>
                                     </div>
                                     <div class="mini-summary-box">
                                         <span>Tổng nạp</span>
-                                        <strong>{{ fmt(activity.topup_summary.total_amount) }}đ</strong>
+                                        <strong
+                                            >{{
+                                                fmt(
+                                                    activity.topup_summary
+                                                        .total_amount,
+                                                )
+                                            }}đ</strong
+                                        >
                                     </div>
                                 </div>
 
                                 <div class="detail-subsection">
-                                    <div class="detail-subtitle">Topup transactions</div>
-                                    <div v-if="!activity.topups.length" class="muted-line">Chưa có giao dịch topup.</div>
+                                    <div class="detail-subtitle">
+                                        Topup transactions
+                                    </div>
+                                    <div
+                                        v-if="!activity.topups.length"
+                                        class="muted-line"
+                                    >
+                                        Chưa có giao dịch topup.
+                                    </div>
                                     <div v-else class="activity-list">
-                                        <div v-for="row in activity.topups" :key="'topup-' + row.id" class="activity-row">
+                                        <div
+                                            v-for="row in activity.topups"
+                                            :key="'topup-' + row.id"
+                                            class="activity-row"
+                                        >
                                             <div>
-                                                <div class="activity-title">{{ fmt(row.amount) }}đ - {{ row.source || row.currency || "Khác" }}</div>
-                                                <div class="activity-sub">{{ row.trans_id }}<span v-if="row.note"> | {{ row.note }}</span></div>
+                                                <div class="activity-title">
+                                                    {{ fmt(row.amount) }}đ -
+                                                    {{
+                                                        row.source ||
+                                                        row.currency ||
+                                                        "Khác"
+                                                    }}
+                                                </div>
+                                                <div class="activity-sub">
+                                                    {{ row.trans_id
+                                                    }}<span v-if="row.note">
+                                                        | {{ row.note }}</span
+                                                    >
+                                                </div>
                                             </div>
-                                            <div class="activity-time">{{ formatDateTime(row.created_at) }}</div>
+                                            <div class="activity-time">
+                                                {{
+                                                    formatDateTime(
+                                                        row.created_at,
+                                                    )
+                                                }}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="detail-subsection">
-                                    <div class="detail-subtitle">Log nạp thẻ</div>
-                                    <div v-if="!activity.card_logs.length" class="muted-line">Chưa có log thẻ.</div>
+                                    <div class="detail-subtitle">
+                                        Log nạp thẻ
+                                    </div>
+                                    <div
+                                        v-if="!activity.card_logs.length"
+                                        class="muted-line"
+                                    >
+                                        Chưa có log thẻ.
+                                    </div>
                                     <div v-else class="activity-list">
-                                        <div v-for="row in activity.card_logs" :key="'card-' + row.id" class="activity-row">
+                                        <div
+                                            v-for="row in activity.card_logs"
+                                            :key="'card-' + row.id"
+                                            class="activity-row"
+                                        >
                                             <div>
                                                 <div class="activity-title">
-                                                    {{ row.type }} - {{ fmt(row.amount) }}đ
-                                                    <span class="badge" :class="row.status ? 'badge-success' : 'badge-warning'">
-                                                        {{ row.status ? "Thành công" : "Chờ xử lý" }}
+                                                    {{ row.type }} -
+                                                    {{ fmt(row.amount) }}đ
+                                                    <span
+                                                        class="badge"
+                                                        :class="
+                                                            row.status
+                                                                ? 'badge-success'
+                                                                : 'badge-warning'
+                                                        "
+                                                    >
+                                                        {{
+                                                            row.status
+                                                                ? "Thành công"
+                                                                : "Chờ xử lý"
+                                                        }}
                                                     </span>
                                                 </div>
-                                                <div class="activity-sub">{{ row.trans_id }} | Seri: {{ row.seri }} | Pin: {{ row.pin }}</div>
+                                                <div class="activity-sub">
+                                                    {{ row.trans_id }} | Seri:
+                                                    {{ row.seri }} | Pin:
+                                                    {{ row.pin }}
+                                                </div>
                                             </div>
-                                            <div class="activity-time">{{ formatDateTime(row.created_at) }}</div>
+                                            <div class="activity-time">
+                                                {{
+                                                    formatDateTime(
+                                                        row.created_at,
+                                                    )
+                                                }}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div v-if="activeDetailTab === 'logs'" class="detail-panel">
-                                <div v-if="!activity.admin_logs.length" class="muted-line">
+                            <div
+                                v-if="activeDetailTab === 'logs'"
+                                class="detail-panel"
+                            >
+                                <div
+                                    v-if="!activity.admin_logs.length"
+                                    class="muted-line"
+                                >
                                     Chưa có nhật ký admin cho tài khoản này.
                                 </div>
                                 <div v-else class="activity-list">
@@ -189,27 +370,60 @@
                                     >
                                         <div class="activity-row-head">
                                             <div>
-                                                <div class="activity-title">{{ row.summary || "Không có mô tả" }}</div>
+                                                <div class="activity-title">
+                                                    {{
+                                                        row.summary ||
+                                                        "Không có mô tả"
+                                                    }}
+                                                </div>
                                                 <div class="activity-sub">
-                                                    {{ row.admin_username || "admin" }} - {{ formatDateTime(row.created_at) }}
+                                                    {{
+                                                        row.admin_username ||
+                                                        "admin"
+                                                    }}
+                                                    -
+                                                    {{
+                                                        formatDateTime(
+                                                            row.created_at,
+                                                        )
+                                                    }}
                                                 </div>
                                             </div>
                                             <button
                                                 type="button"
                                                 class="btn btn-outline btn-xs"
-                                                @click="toggleLogExpanded(row.id)"
+                                                @click="
+                                                    toggleLogExpanded(row.id)
+                                                "
                                             >
-                                                {{ isLogExpanded(row.id) ? "Thu gọn" : "Chi tiết" }}
+                                                {{
+                                                    isLogExpanded(row.id)
+                                                        ? "Thu gọn"
+                                                        : "Chi tiết"
+                                                }}
                                             </button>
                                         </div>
-                                        <div v-if="isLogExpanded(row.id)" class="log-state-grid">
+                                        <div
+                                            v-if="isLogExpanded(row.id)"
+                                            class="log-state-grid"
+                                        >
                                             <div class="log-state-box">
-                                                <div class="log-state-title">Trước</div>
-                                                <pre>{{ formatState(row.before_state) }}</pre>
+                                                <div class="log-state-title">
+                                                    Trước
+                                                </div>
+                                                <pre>{{
+                                                    formatState(
+                                                        row.before_state,
+                                                    )
+                                                }}</pre>
                                             </div>
                                             <div class="log-state-box">
-                                                <div class="log-state-title">Sau</div>
-                                                <pre>{{ formatState(row.after_state) }}</pre>
+                                                <div class="log-state-title">
+                                                    Sau
+                                                </div>
+                                                <pre>{{
+                                                    formatState(row.after_state)
+                                                }}</pre>
                                             </div>
                                         </div>
                                     </div>
@@ -509,8 +723,7 @@
                                                 "
                                                 class="player-row-note"
                                             >
-                                                Dữ liệu lớn chỉ tải khi bấm
-                                                xem.
+                                                Dữ liệu lớn chỉ tải khi bấm xem.
                                             </div>
                                             <template
                                                 v-else-if="
@@ -530,9 +743,7 @@
                                                         v-for="item in sectionParsedItems(
                                                             field.name,
                                                         )"
-                                                        :key="
-                                                            `${field.name}-${item.index}`
-                                                        "
+                                                        :key="`${field.name}-${item.index}`"
                                                     >
                                                         <span
                                                             class="parsed-label"
@@ -689,6 +900,7 @@ export default {
             activityError: "",
             activeDetailTab: "overview",
             expandedLogs: {},
+            loadingAccount: false,
         };
     },
     computed: {
@@ -741,12 +953,59 @@ export default {
                 }));
         },
     },
+    watch: {
+        "$route.fullPath"() {
+            this.handleRouteChange();
+        },
+    },
     created() {
-        if (this.isEdit) {
-            this.loadAccount();
-        }
+        this.handleRouteChange();
     },
     methods: {
+        createDefaultForm() {
+            return {
+                username: "",
+                password: "",
+                cash: 0,
+                danap: 0,
+                coin: 0,
+                diem_da_nhan: 0,
+                diem_danh: 0,
+                is_admin: "0",
+                active: "1",
+                ban: "0",
+            };
+        },
+        resetAccountState() {
+            this.playerInfo = null;
+            this.playerFull = null;
+            this.playerFullLoading = false;
+            this.playerFullError = "";
+            this.showPlayerFull = false;
+            this.expandedFields = {};
+            this.playerSectionCache = {};
+            this.playerSectionLoading = {};
+            this.playerSectionErrors = {};
+            this.activity = null;
+            this.activityLoading = false;
+            this.activityError = "";
+            this.activeDetailTab = "overview";
+            this.expandedLogs = {};
+        },
+        handleRouteChange() {
+            this.error = "";
+            this.success = "";
+            this.form.password = "";
+
+            if (!this.isEdit) {
+                this.loadingAccount = false;
+                this.form = this.createDefaultForm();
+                this.resetAccountState();
+                return;
+            }
+
+            this.loadAccount();
+        },
         fmt(n) {
             return Number(n || 0).toLocaleString("vi-VN");
         },
@@ -897,7 +1156,11 @@ export default {
             }
         },
         async loadPlayerSection(name, force = false) {
-            if (!force && (this.isPlayerSectionLoaded(name) || this.isPlayerSectionLoading(name))) {
+            if (
+                !force &&
+                (this.isPlayerSectionLoaded(name) ||
+                    this.isPlayerSectionLoading(name))
+            ) {
                 return;
             }
 
@@ -930,8 +1193,7 @@ export default {
             } catch (error) {
                 this.playerSectionErrors = {
                     ...this.playerSectionErrors,
-                    [name]:
-                        error?.message || "Không tải được dữ liệu mục này",
+                    [name]: error?.message || "Không tải được dữ liệu mục này",
                 };
             } finally {
                 this.playerSectionLoading = {
@@ -965,6 +1227,9 @@ export default {
             }
         },
         async loadAccount() {
+            this.loadingAccount = true;
+            this.error = "";
+            this.resetAccountState();
             try {
                 const res = await fetch(
                     `/admin/api/accounts/${this.$route.params.id}`,
@@ -972,34 +1237,37 @@ export default {
                         headers: { "X-Requested-With": "XMLHttpRequest" },
                     },
                 );
-                const data = await res.json();
-                if (data.ok) {
-                    const a = data.data;
-                    this.form.username = a.username;
-                    this.form.cash = a.cash || 0;
-                    this.form.danap = a.danap || 0;
-                    this.form.coin = a.coin || 0;
-                    this.form.diem_da_nhan = a.diem_da_nhan || 0;
-                    this.form.diem_danh = a.diem_danh || 0;
-                    this.form.is_admin = a.is_admin ? "1" : "0";
-                    this.form.active = a.active ? "1" : "0";
-                    this.form.ban = a.ban ? "1" : "0";
-                    this.playerInfo = a.player || null;
-                    await this.loadAccountActivity();
-                    if (this.playerInfo) {
-                        this.showPlayerFull = false;
-                        this.playerFull = null;
-                        this.playerSectionCache = {};
-                        this.playerSectionLoading = {};
-                        this.playerSectionErrors = {};
-                        this.expandedFields = {};
-                    } else {
-                        this.showPlayerFull = false;
-                        this.playerFull = null;
-                    }
+                let data;
+                try {
+                    data = await res.json();
+                } catch {
+                    throw new Error("API trả về dữ liệu không hợp lệ");
                 }
-            } catch {
-                this.error = "Không thể tải dữ liệu";
+
+                if (!res.ok || !data?.ok || !data?.data) {
+                    throw new Error(
+                        data?.message || "Không thể tải dữ liệu tài khoản",
+                    );
+                }
+
+                const a = data.data;
+                this.form.username = a.username || "";
+                this.form.password = "";
+                this.form.cash = Number(a.cash || 0);
+                this.form.danap = Number(a.danap || 0);
+                this.form.coin = Number(a.coin || 0);
+                this.form.diem_da_nhan = Number(a.diem_da_nhan || 0);
+                this.form.diem_danh = Number(a.diem_danh || 0);
+                this.form.is_admin = Number(a.is_admin) ? "1" : "0";
+                this.form.active = Number(a.active) ? "1" : "0";
+                this.form.ban = Number(a.ban) ? "1" : "0";
+                this.playerInfo = a.player || null;
+
+                await this.loadAccountActivity();
+            } catch (error) {
+                this.error = error?.message || "Không thể tải dữ liệu";
+            } finally {
+                this.loadingAccount = false;
             }
         },
         async save() {

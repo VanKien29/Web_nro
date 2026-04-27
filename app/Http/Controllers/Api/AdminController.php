@@ -425,36 +425,15 @@ class AdminController extends Controller
     public function accountsGet(int $id): JsonResponse
     {
         $account = Account::query()
-            ->select([
-                'id',
-                'username',
-                'email',
-                'ip_address',
-                'create_time',
-                'update_time',
-                'last_time_login',
-                'last_time_logout',
-                'ban',
-                'is_admin',
-                'active',
-                'cash',
-                'danap',
-                'coin',
-                'diem_da_nhan',
-                'gmail',
-                'mkc2',
-                'luotquay',
-                'vang',
-                'event_point',
-                'lastDiemDanh',
-            ])
-            ->selectRaw('`DiemDanh` as diem_danh')
-            ->with(['player:id,account_id,name,gender,head,power,data_task'])
+            ->with('player')
             ->find($id);
 
         if (!$account) {
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
+
+        $diemDanh = $account->DiemDanh ?? $account->diem_danh ?? 0;
+        $player = $account->player;
 
         return response()->json([
             'ok' => true,
@@ -476,19 +455,19 @@ class AdminController extends Controller
                 'danap' => (int) ($account->danap ?? 0),
                 'coin' => (int) ($account->coin ?? 0),
                 'diem_da_nhan' => (int) ($account->diem_da_nhan ?? 0),
-                'diem_danh' => (int) ($account->diem_danh ?? 0),
+                'diem_danh' => (int) $diemDanh,
                 'luotquay' => (int) ($account->luotquay ?? 0),
                 'vang' => (int) ($account->vang ?? 0),
                 'event_point' => (int) ($account->event_point ?? 0),
                 'last_diem_danh' => $account->lastDiemDanh,
-                'player' => $account->player
+                'player' => $player
                     ? [
-                        'id' => (int) $account->player->id,
-                        'name' => $account->player->name,
-                        'gender' => (int) ($account->player->gender ?? 0),
-                        'head' => (int) ($account->player->head ?? 0),
-                        'power' => (int) ($account->player->power ?? 0),
-                        'task' => $this->buildTaskSummary($account->player->data_task),
+                        'id' => (int) $player->id,
+                        'name' => $player->name,
+                        'gender' => (int) ($player->gender ?? 0),
+                        'head' => (int) ($player->head ?? 0),
+                        'power' => (int) ($player->power ?? 0),
+                        'task' => $this->buildTaskSummary($player->data_task ?? null),
                     ]
                     : null,
             ],
@@ -499,32 +478,13 @@ class AdminController extends Controller
     public function accountsActivity(int $id): JsonResponse
     {
         $account = Account::query()
-            ->select([
-                'id',
-                'username',
-                'email',
-                'gmail',
-                'ip_address',
-                'create_time',
-                'update_time',
-                'last_time_login',
-                'last_time_logout',
-                'active',
-                'ban',
-                'cash',
-                'danap',
-                'coin',
-                'vang',
-                'event_point',
-                'luotquay',
-                'mkc2',
-            ])
-            ->selectRaw('`DiemDanh` as diem_danh')
             ->find($id);
 
         if (!$account) {
             return response()->json(['ok' => false, 'message' => 'Tài khoản không tồn tại'], 404);
         }
+
+        $diemDanh = $account->DiemDanh ?? $account->diem_danh ?? 0;
 
         $game = DB::connection('game');
         $topups = $game->table('topup_transactions')
@@ -595,7 +555,7 @@ class AdminController extends Controller
                     'vang' => (int) ($account->vang ?? 0),
                     'event_point' => (int) ($account->event_point ?? 0),
                     'luotquay' => (int) ($account->luotquay ?? 0),
-                    'diem_danh' => (int) ($account->diem_danh ?? 0),
+                    'diem_danh' => (int) $diemDanh,
                     'mkc2' => $account->mkc2,
                 ],
                 'topup_summary' => [
@@ -619,19 +579,24 @@ class AdminController extends Controller
         }
 
         $game = DB::connection('game');
+        $playerColumns = [
+            'id',
+            'account_id',
+            'name',
+            'gender',
+            'head',
+            'data_point',
+            'data_inventory',
+            'data_location',
+            'data_task',
+        ];
+
+        if (Schema::connection('game')->hasColumn('player', 'power')) {
+            $playerColumns[] = 'power';
+        }
+
         $player = $game->table('player')
-            ->select([
-                'id',
-                'account_id',
-                'name',
-                'gender',
-                'head',
-                'power',
-                'data_point',
-                'data_inventory',
-                'data_location',
-                'data_task',
-            ])
+            ->select($playerColumns)
             ->where('account_id', $id)
             ->first();
 

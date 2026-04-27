@@ -1,25 +1,31 @@
 <template>
     <div class="dashboard-page">
-        <header class="page-top">
+        <header class="dash-top">
             <div>
                 <h2 class="page-title">Dashboard</h2>
                 <nav class="breadcrumb">
                     <router-link :to="{ name: 'admin.dashboard' }"
                         >Trang chủ</router-link
                     >
-                    <span class="sep">/</span>
+                    <span>/</span>
                     <span class="current">Dashboard</span>
                 </nav>
             </div>
-            <div class="page-meta">
-                <span class="meta-pill">
-                    <span class="mi">monitoring</span>
-                    Bảng điều hành quản trị
-                </span>
-                <span class="meta-pill muted">
+
+            <div class="top-actions">
+                <button
+                    type="button"
+                    class="ghost-chip"
+                    :disabled="loading"
+                    @click="load"
+                >
+                    <span class="mi">refresh</span>
+                    Làm mới
+                </button>
+                <div class="ghost-chip muted">
                     <span class="mi">schedule</span>
-                    Dữ liệu realtime theo database
-                </span>
+                    Database realtime
+                </div>
             </div>
         </header>
 
@@ -27,70 +33,117 @@
             <span class="mi">error</span>
             {{ error }}
         </div>
-
-        <section class="hero-panel">
-            <div class="hero-copy">
-                <div class="eyebrow">TỔNG QUAN VẬN HÀNH</div>
-                <h3>Nhìn nhanh tình trạng server, nạp, giftcode và shop</h3>
+        <!-- 
+        <section class="ops-hero">
+            <div class="hero-main">
+                <div class="hero-kicker">TRUNG TÂM ĐIỀU HÀNH</div>
+                <h3>Bảng theo dõi vận hành game và quản trị dữ liệu</h3>
                 <p>
-                    Một nơi để theo dõi dòng tiền, tăng trưởng tài khoản và các
-                    bảng dữ liệu quan trọng của game mà không phải chuyển trang
-                    liên tục.
+                    Tập trung doanh thu, tài khoản, giftcode, shop và các bảng
+                    hệ thống quan trọng vào một màn duy nhất để theo dõi nhanh,
+                    sửa nhanh và phát hiện bất thường sớm.
                 </p>
+
+                <div class="hero-strip">
+                    <div class="hero-strip-item">
+                        <span>Tài khoản / Nhân vật</span>
+                        <strong
+                            >{{ fmt(stats.accounts) }} /
+                            {{ fmt(stats.players) }}</strong
+                        >
+                    </div>
+                    <div class="hero-strip-item">
+                        <span>Nạp tháng này</span>
+                        <strong>{{ fmtCurrency(stats.month_revenue) }}</strong>
+                    </div>
+                    <div class="hero-strip-item">
+                        <span>Tỉ lệ giftcode đang bật</span>
+                        <strong>{{ giftcodeRate }}%</strong>
+                    </div>
+                </div>
             </div>
 
-            <div class="hero-metrics">
-                <div class="hero-metric">
-                    <span class="hero-label">Doanh thu tháng</span>
-                    <strong>{{ fmtCurrency(stats.month_revenue) }}</strong>
-                    <span class="hero-note"
-                        >{{ fmt(stats.month_topups) }} giao dịch</span
-                    >
+            <div class="hero-side">
+                <div class="hero-health">
+                    <div class="health-ring">
+                        <svg viewBox="0 0 120 120">
+                            <circle
+                                class="health-ring-base"
+                                cx="60"
+                                cy="60"
+                                r="46"
+                            />
+                            <circle
+                                class="health-ring-value"
+                                cx="60"
+                                cy="60"
+                                r="46"
+                                :stroke-dasharray="healthRingDasharray"
+                            />
+                        </svg>
+                        <div class="health-center">
+                            <strong>{{ healthScore }}</strong>
+                            <span>/ 100</span>
+                        </div>
+                    </div>
+                    <div class="health-copy">
+                        <div class="health-title">Chỉ số vận hành</div>
+                        <p>
+                            Điểm tổng hợp theo doanh thu tháng, giftcode đang
+                            bật và tần suất giao dịch hiện tại.
+                        </p>
+                    </div>
                 </div>
-                <div class="hero-metric">
-                    <span class="hero-label">Doanh thu hôm nay</span>
-                    <strong>{{ fmtCurrency(stats.today_revenue) }}</strong>
-                    <span class="hero-note"
-                        >{{ fmt(stats.today_topups) }} giao dịch</span
-                    >
-                </div>
-                <div class="hero-metric">
-                    <span class="hero-label">Giftcode đang bật</span>
-                    <strong>{{ fmt(stats.giftcodes_active) }}</strong>
-                    <span class="hero-note"
-                        >trên {{ fmt(stats.giftcodes) }} giftcode</span
-                    >
+
+                <div class="signal-list">
+                    <div class="signal-row">
+                        <span class="signal-label">Doanh thu hôm nay</span>
+                        <strong>{{ fmtCurrency(stats.today_revenue) }}</strong>
+                        <small>{{ fmt(stats.today_topups) }} giao dịch</small>
+                    </div>
+                    <div class="signal-row">
+                        <span class="signal-label">Giftcode</span>
+                        <strong>{{ fmt(stats.giftcodes_active) }} bật</strong>
+                        <small>trên {{ fmt(stats.giftcodes) }} code</small>
+                    </div>
+                    <div class="signal-row">
+                        <span class="signal-label">Shop / Tab / Item</span>
+                        <strong
+                            >{{ fmt(stats.shops) }} /
+                            {{ fmt(stats.shop_tabs) }} /
+                            {{ fmt(stats.items) }}</strong
+                        >
+                        <small>nguồn dữ liệu vận hành</small>
+                    </div>
                 </div>
             </div>
-        </section>
+        </section> -->
 
-        <section class="metric-grid">
+        <section class="kpi-grid">
             <article
-                v-for="card in statCards"
+                v-for="card in kpiCards"
                 :key="card.key"
-                class="metric-card"
+                class="kpi-card"
+                :class="card.tone"
             >
-                <div class="metric-icon" :class="card.color">
-                    <span class="mi">{{ card.icon }}</span>
+                <div class="kpi-head">
+                    <span class="kpi-icon">
+                        <span class="mi">{{ card.icon }}</span>
+                    </span>
+                    <span class="kpi-label">{{ card.title }}</span>
                 </div>
-                <div class="metric-content">
-                    <div class="metric-title">{{ card.title }}</div>
-                    <div class="metric-value">{{ card.value }}</div>
-                    <div class="metric-note">{{ card.subtitle }}</div>
-                </div>
+                <strong class="kpi-value">{{ card.value }}</strong>
+                <small class="kpi-note">{{ card.note }}</small>
             </article>
         </section>
 
         <section class="dashboard-grid">
-            <article class="panel revenue-panel">
+            <article class="panel panel-xl revenue-panel">
                 <div class="panel-head">
                     <div>
                         <div class="panel-kicker">DOANH THU</div>
-                        <h3>Biểu đồ doanh thu</h3>
-                        <p>
-                            Theo dõi xu hướng nạp gần đây theo mốc thời gian bạn
-                            quan tâm.
-                        </p>
+                        <h3>Xu hướng dòng tiền</h3>
+                        <p>Theo dõi biến động nạp theo ngày và mốc gần nhất.</p>
                     </div>
                     <div class="range-switch">
                         <button
@@ -112,20 +165,20 @@
                     </div>
                 </div>
 
-                <div class="revenue-summary">
-                    <div class="summary-box">
+                <div class="mini-kpi-row">
+                    <div class="mini-kpi">
                         <span>Tổng doanh thu</span>
                         <strong>{{ fmtCurrency(chartTotal) }}</strong>
                     </div>
-                    <div class="summary-box">
+                    <div class="mini-kpi">
                         <span>Trung bình / ngày</span>
                         <strong>{{ fmtCurrency(chartAverage) }}</strong>
                     </div>
-                    <div class="summary-box">
+                    <div class="mini-kpi">
                         <span>Tổng giao dịch</span>
                         <strong>{{ fmt(chartCountTotal) }}</strong>
                     </div>
-                    <div class="summary-box">
+                    <div class="mini-kpi">
                         <span>Đỉnh cao nhất</span>
                         <strong>{{ fmtCurrency(chartPeak) }}</strong>
                     </div>
@@ -133,11 +186,9 @@
 
                 <div class="chart-shell">
                     <div class="chart-yaxis">
-                        <span
-                            v-for="label in yAxisLabels"
-                            :key="label"
-                            >{{ fmtCurrency(label) }}</span
-                        >
+                        <span v-for="label in yAxisLabels" :key="label">
+                            {{ fmtCurrency(label) }}
+                        </span>
                     </div>
 
                     <div class="chart-canvas">
@@ -164,11 +215,11 @@
                                 >
                                     <stop
                                         offset="0%"
-                                        stop-color="rgba(75, 158, 139, 0.34)"
+                                        stop-color="rgba(77, 191, 170, 0.34)"
                                     />
                                     <stop
                                         offset="100%"
-                                        stop-color="rgba(75, 158, 139, 0.02)"
+                                        stop-color="rgba(77, 191, 170, 0.02)"
                                     />
                                 </linearGradient>
                             </defs>
@@ -211,15 +262,15 @@
                 </div>
             </article>
 
-            <article class="panel source-panel">
+            <article class="panel panel-lg source-panel">
                 <div class="panel-head compact">
                     <div>
                         <div class="panel-kicker">NGUỒN NẠP</div>
-                        <h3>Cơ cấu doanh thu</h3>
+                        <h3>Cơ cấu doanh thu 30 ngày</h3>
                     </div>
                 </div>
 
-                <div class="source-chart-layout">
+                <div class="source-layout">
                     <div class="source-donut-wrap">
                         <svg
                             class="source-donut"
@@ -244,83 +295,99 @@
                                 :stroke-dashoffset="segment.dashoffset"
                             />
                         </svg>
-                        <div class="source-donut-center">
-                            <span class="source-donut-label">Tổng 30 ngày</span>
-                            <strong>{{ fmtCurrency(sourceRevenueTotal) }}</strong>
-                            <span class="source-donut-note">{{
-                                fmt(sourceRevenueCount)
-                            }}
-                                giao dịch</span>
+                        <div class="source-center">
+                            <span>Tổng 30 ngày</span>
+                            <strong>{{
+                                fmtCurrency(sourceRevenueTotal)
+                            }}</strong>
+                            <small
+                                >{{ fmt(sourceRevenueCount) }} giao dịch</small
+                            >
                         </div>
                     </div>
 
-                    <div class="source-legend">
+                    <div class="source-list">
                         <div
-                            v-for="(row, index) in sourceChartData"
-                            :key="row.source"
-                            class="source-legend-row"
+                            v-for="row in sourceChartData"
+                            :key="row.key"
+                            class="source-row"
                         >
-                            <div class="source-legend-left">
+                            <div class="source-left">
                                 <span
-                                    class="source-legend-dot"
+                                    class="source-dot"
                                     :style="{ background: row.color }"
                                 ></span>
                                 <div>
-                                    <div class="source-legend-title">
-                                        {{ row.source }}
-                                    </div>
-                                    <div class="source-legend-subtitle">
-                                        {{ row.count }} giao dịch
-                                    </div>
+                                    <strong>{{ row.source }}</strong>
+                                    <small
+                                        >{{ fmt(row.count) }} giao dịch</small
+                                    >
                                 </div>
                             </div>
-                            <div class="source-legend-right">
+                            <div class="source-right">
                                 <strong>{{ row.percent }}%</strong>
-                                <span>{{ fmtCurrency(row.total) }}</span>
+                                <small>{{ fmtCurrency(row.total) }}</small>
                             </div>
                         </div>
-
-                        <div
-                            v-if="!sourceRevenue.length"
-                            class="source-legend-empty"
-                        >
-                            Chưa có giao dịch nguồn nạp, biểu đồ đang hiển thị
-                            trạng thái nền.
-                        </div>
                     </div>
                 </div>
             </article>
 
-            <article class="panel system-panel">
+            <!-- <article class="panel panel-md command-panel">
                 <div class="panel-head compact">
                     <div>
-                        <div class="panel-kicker">HỆ THỐNG</div>
-                        <h3>Tổng quan dữ liệu</h3>
+                        <div class="panel-kicker">LỆNH NHANH</div>
+                        <h3>Tín hiệu quản trị</h3>
                     </div>
                 </div>
+                <div class="signal-stack">
+                    <div class="signal-box">
+                        <span>Mốc thưởng</span>
+                        <strong>{{ fmt(stats.milestones) }}</strong>
+                        <small>4 bảng thưởng đang quản lý</small>
+                    </div>
+                    <div class="signal-box">
+                        <span>Topup trung bình</span>
+                        <strong>{{ fmtCurrency(avgTopupValue) }}</strong>
+                        <small>giá trị / giao dịch tháng này</small>
+                    </div>
+                    <div class="signal-box">
+                        <span>Mật độ shop</span>
+                        <strong>{{ shopDensity }}</strong>
+                        <small>tab / shop đang có</small>
+                    </div>
+                </div>
+            </article> -->
+            <article class="panel panel-md milestone-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <div class="panel-kicker">MỐC THƯỞNG</div>
+                        <h3>Phân bố theo bảng</h3>
+                    </div>
+                    <span class="panel-badge">{{ fmt(stats.milestones) }}</span>
+                </div>
 
-                <div class="system-list">
+                <div class="milestone-list">
                     <div
-                        v-for="row in tables.system_summary"
-                        :key="row.label"
-                        class="system-row"
+                        v-for="row in tables.milestone_breakdown"
+                        :key="row.table"
+                        class="milestone-row"
                     >
-                        <div>
-                            <div class="system-label">{{ row.label }}</div>
-                            <div class="system-hint">{{ row.hint }}</div>
+                        <div class="milestone-name">{{ row.label }}</div>
+                        <div class="milestone-count">
+                            {{ fmt(row.count) }}
                         </div>
-                        <div class="system-value">
-                            {{
-                                typeof row.count === "number"
-                                    ? fmt(row.count)
-                                    : row.count
-                            }}
-                        </div>
+                    </div>
+
+                    <div
+                        v-if="!tables.milestone_breakdown.length"
+                        class="panel-empty"
+                    >
+                        Chưa có dữ liệu mốc thưởng
                     </div>
                 </div>
             </article>
-
-            <article class="panel table-panel recent-panel">
+            <article class="panel panel-lg table-panel transaction-panel">
                 <div class="panel-head compact">
                     <div>
                         <div class="panel-kicker">GIAO DỊCH</div>
@@ -363,13 +430,15 @@
                 </div>
             </article>
 
-            <article class="panel table-panel topup-panel">
+            <article class="panel panel-md leaderboard-panel">
                 <div class="panel-head compact">
                     <div>
                         <div class="panel-kicker">XẾP HẠNG</div>
                         <h3>Top nạp</h3>
                     </div>
-                    <span class="panel-badge">{{ tables.top_users.length }}</span>
+                    <span class="panel-badge">{{
+                        tables.top_users.length
+                    }}</span>
                 </div>
 
                 <div class="leader-list">
@@ -400,91 +469,75 @@
                 </div>
             </article>
 
-            <article class="panel table-panel account-panel">
+            <article class="panel panel-md account-panel">
                 <div class="panel-head compact">
                     <div>
                         <div class="panel-kicker">TÀI KHOẢN</div>
-                        <h3>Tài khoản mới / gần đây</h3>
+                        <h3>Tạo mới gần đây</h3>
                     </div>
                     <span class="panel-badge">{{
                         tables.recent_accounts.length
                     }}</span>
                 </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Nhân vật</th>
-                                <th>Trạng thái</th>
-                                <th>Tạo lúc</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="row in tables.recent_accounts"
-                                :key="row.id"
-                            >
-                                <td class="cell-strong">{{ row.username }}</td>
-                                <td>{{ row.player_name || "-" }}</td>
-                                <td>
-                                    <span
-                                        class="state-dot"
-                                        :class="{
-                                            danger: row.ban,
-                                            success: !row.ban && row.active,
-                                            muted: !row.ban && !row.active,
-                                        }"
-                                    ></span>
-                                    {{
-                                        row.ban
-                                            ? "Bị khóa"
-                                            : row.active
-                                              ? "Đang bật"
-                                              : "Chưa bật"
-                                    }}
-                                </td>
-                                <td class="cell-muted">
-                                    {{ row.create_time || "-" }}
-                                </td>
-                            </tr>
-                            <tr v-if="!tables.recent_accounts.length">
-                                <td colspan="4" class="empty-cell">
-                                    Chưa có dữ liệu
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="account-list">
+                    <div
+                        v-for="row in tables.recent_accounts"
+                        :key="row.id"
+                        class="account-row"
+                    >
+                        <div>
+                            <strong>{{ row.username }}</strong>
+                            <small>{{
+                                row.player_name || "Chưa có nhân vật"
+                            }}</small>
+                        </div>
+                        <div class="account-right">
+                            <span
+                                class="state-dot"
+                                :class="{
+                                    danger: row.ban,
+                                    success: !row.ban && row.active,
+                                    muted: !row.ban && !row.active,
+                                }"
+                            ></span>
+                            <small>{{ row.create_time || "-" }}</small>
+                        </div>
+                    </div>
+                    <div
+                        v-if="!tables.recent_accounts.length"
+                        class="panel-empty"
+                    >
+                        Chưa có dữ liệu
+                    </div>
                 </div>
             </article>
 
-            <article class="panel table-panel milestone-panel">
+            <article class="panel panel-md system-panel">
                 <div class="panel-head compact">
                     <div>
-                        <div class="panel-kicker">MỐC THƯỞNG</div>
-                        <h3>Phân bố theo bảng</h3>
+                        <div class="panel-kicker">HỆ THỐNG</div>
+                        <h3>Tổng quan bảng dữ liệu</h3>
                     </div>
-                    <span class="panel-badge">{{ fmt(stats.milestones) }}</span>
                 </div>
 
-                <div class="milestone-list">
+                <div class="system-list">
                     <div
-                        v-for="row in tables.milestone_breakdown"
-                        :key="row.table"
-                        class="milestone-row"
+                        v-for="row in tables.system_summary"
+                        :key="row.label"
+                        class="system-row"
                     >
-                        <div class="milestone-name">{{ row.label }}</div>
-                        <div class="milestone-count">
-                            {{ fmt(row.count) }}
+                        <div>
+                            <div class="system-label">{{ row.label }}</div>
+                            <div class="system-hint">{{ row.hint }}</div>
                         </div>
-                    </div>
-
-                    <div
-                        v-if="!tables.milestone_breakdown.length"
-                        class="panel-empty"
-                    >
-                        Chưa có dữ liệu mốc thưởng
+                        <div class="system-value">
+                            {{
+                                typeof row.count === "number"
+                                    ? fmt(row.count)
+                                    : row.count
+                            }}
+                        </div>
                     </div>
                 </div>
             </article>
@@ -529,55 +582,55 @@ export default {
         };
     },
     computed: {
-        statCards() {
+        kpiCards() {
             return [
                 {
                     key: "accounts",
                     title: "Tài khoản",
                     value: this.fmt(this.stats.accounts),
-                    subtitle: `${this.fmt(this.stats.players)} nhân vật`,
+                    note: `${this.fmt(this.stats.players)} nhân vật`,
                     icon: "people",
-                    color: "primary",
+                    tone: "tone-primary",
                 },
                 {
                     key: "topups",
                     title: "Giao dịch nạp",
                     value: this.fmt(this.stats.topups),
-                    subtitle: `${this.fmt(this.stats.today_topups)} hôm nay`,
+                    note: `${this.fmt(this.stats.today_topups)} hôm nay`,
                     icon: "receipt_long",
-                    color: "info",
-                },
-                {
-                    key: "items",
-                    title: "Vật phẩm",
-                    value: this.fmt(this.stats.items),
-                    subtitle: `${this.fmt(this.stats.shops)} shop / ${this.fmt(this.stats.shop_tabs)} tab`,
-                    icon: "inventory_2",
-                    color: "primary",
+                    tone: "tone-info",
                 },
                 {
                     key: "giftcodes",
                     title: "Giftcode",
                     value: this.fmt(this.stats.giftcodes),
-                    subtitle: `${this.fmt(this.stats.giftcodes_active)} đang bật`,
-                    icon: "card_giftcard",
-                    color: "warning",
+                    note: `${this.fmt(this.stats.giftcodes_active)} đang bật`,
+                    icon: "redeem",
+                    tone: "tone-warning",
                 },
                 {
-                    key: "milestones",
-                    title: "Mốc thưởng",
-                    value: this.fmt(this.stats.milestones),
-                    subtitle: "4 bảng quản trị",
-                    icon: "emoji_events",
-                    color: "warning",
+                    key: "items",
+                    title: "Vật phẩm",
+                    value: this.fmt(this.stats.items),
+                    note: `${this.fmt(this.stats.shops)} shop / ${this.fmt(this.stats.shop_tabs)} tab`,
+                    icon: "inventory_2",
+                    tone: "tone-primary",
+                },
+                {
+                    key: "month",
+                    title: "Doanh thu tháng",
+                    value: this.fmtCurrency(this.stats.month_revenue),
+                    note: `${this.fmt(this.stats.month_topups)} giao dịch`,
+                    icon: "payments",
+                    tone: "tone-success",
                 },
                 {
                     key: "today",
                     title: "Doanh thu hôm nay",
                     value: this.fmtCurrency(this.stats.today_revenue),
-                    subtitle: `${this.fmtCurrency(this.stats.month_revenue)} tháng này`,
-                    icon: "payments",
-                    color: "success",
+                    note: `TB ${this.fmtCurrency(this.avgTopupValue)}/giao dịch`,
+                    icon: "trending_up",
+                    tone: "tone-success",
                 },
             ];
         },
@@ -598,12 +651,12 @@ export default {
         },
         sourceChartData() {
             const palette = [
-                "#4b9e8b",
-                "#4aa8b4",
-                "#d5a042",
-                "#58ac74",
-                "#d05c5c",
-                "#8b78d6",
+                "#4dbfaa",
+                "#47a8c6",
+                "#d6a24c",
+                "#6ac26b",
+                "#d66868",
+                "#8a77db",
             ];
             const total = this.sourceRevenueTotal;
             if (!this.sourceRevenue.length) {
@@ -614,11 +667,10 @@ export default {
                         total: 0,
                         count: 0,
                         percent: 100,
-                        color: "rgba(94, 116, 136, 0.65)",
+                        color: "rgba(111, 129, 148, 0.45)",
                     },
                 ];
             }
-
             return this.sourceRevenue.map((item, index) => {
                 const amount = Number(item.total || 0);
                 return {
@@ -643,7 +695,6 @@ export default {
         sourceChartSegments() {
             const circumference = this.sourceChartCircumference;
             let progress = 0;
-
             return this.sourceChartData.map((item) => {
                 const fraction = Math.max(
                     0,
@@ -666,7 +717,9 @@ export default {
                 : this.charts.revenue_30d || [];
         },
         hasChartData() {
-            return this.activeSeries.some((item) => Number(item.total || 0) > 0);
+            return this.activeSeries.some(
+                (item) => Number(item.total || 0) > 0,
+            );
         },
         chartTotal() {
             return this.activeSeries.reduce(
@@ -704,7 +757,6 @@ export default {
         chartPoints() {
             const list = this.activeSeries;
             if (!list.length) return [];
-
             const width = 860;
             const height = 320;
             const left = 10;
@@ -713,16 +765,13 @@ export default {
             const bottom = 26;
             const usableWidth = width - left - right;
             const usableHeight = height - top - bottom;
-
             return list.map((item, index) => {
                 const x =
-                    left +
-                    (usableWidth * index) / Math.max(1, list.length - 1);
+                    left + (usableWidth * index) / Math.max(1, list.length - 1);
                 const y =
                     top +
                     usableHeight -
                     (Number(item.total || 0) / this.chartMax) * usableHeight;
-
                 return {
                     key: item.date || `${this.chartRange}-${index}`,
                     x,
@@ -758,21 +807,69 @@ export default {
         xAxisLabels() {
             const list = this.activeSeries;
             if (!list.length) return [];
-
             const indexes =
                 this.chartRange === "7d"
                     ? list.map((_, index) => index)
                     : [0, 7, 14, 21, list.length - 1];
-
             const uniqueIndexes = [...new Set(indexes)].filter(
                 (index) => index >= 0 && index < list.length,
             );
-
             return uniqueIndexes.map((index) => ({
                 key: `${this.chartRange}-${index}`,
                 text: list[index]?.label || "-",
                 left: `${(index / Math.max(1, list.length - 1)) * 100}%`,
             }));
+        },
+        giftcodeRate() {
+            if (!Number(this.stats.giftcodes)) return 0;
+            return Number(
+                (
+                    (Number(this.stats.giftcodes_active) /
+                        Number(this.stats.giftcodes)) *
+                    100
+                ).toFixed(1),
+            );
+        },
+        avgTopupValue() {
+            if (!Number(this.stats.month_topups)) return 0;
+            return Math.round(
+                Number(this.stats.month_revenue || 0) /
+                    Number(this.stats.month_topups || 1),
+            );
+        },
+        shopDensity() {
+            if (!Number(this.stats.shops)) return "0.0";
+            return (
+                Number(this.stats.shop_tabs || 0) /
+                Number(this.stats.shops || 1)
+            ).toFixed(1);
+        },
+        healthScore() {
+            const revenueScore = Math.min(
+                40,
+                Math.round(Number(this.stats.month_revenue || 0) / 1000000),
+            );
+            const activityScore = Math.min(
+                30,
+                Math.round(Number(this.stats.month_topups || 0) / 2),
+            );
+            const giftcodeScore = Math.min(
+                20,
+                Math.round(Number(this.giftcodeRate || 0) / 5),
+            );
+            const systemScore = Number(this.stats.shops || 0) > 0 ? 10 : 0;
+            return Math.max(
+                0,
+                Math.min(
+                    100,
+                    revenueScore + activityScore + giftcodeScore + systemScore,
+                ),
+            );
+        },
+        healthRingDasharray() {
+            const circumference = 2 * Math.PI * 46;
+            const filled = (this.healthScore / 100) * circumference;
+            return `${filled} ${Math.max(circumference - filled, 0)}`;
         },
     },
     created() {
@@ -816,60 +913,57 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    --dash-panel-bg: #151f28;
-    --dash-panel-soft: #111921;
-    --dash-panel-soft-2: rgba(9, 13, 17, 0.26);
-    --dash-hero-bg:
-        linear-gradient(
-            140deg,
-            rgba(var(--ds-primary-rgb), 0.18),
-            rgba(var(--ds-info-rgb), 0.06)
+    --dash-bg: #151f28;
+    --dash-bg-soft: #101820;
+    --dash-bg-strong: #0c1319;
+    --dash-hero:
+        radial-gradient(
+            circle at top left,
+            rgba(78, 184, 160, 0.16),
+            transparent 28%
         ),
-        #16212a;
-    --dash-border: rgba(var(--ds-primary-rgb), 0.08);
-    --dash-border-strong: rgba(var(--ds-primary-rgb), 0.16);
-    --dash-border-hover: rgba(var(--ds-primary-rgb), 0.26);
-    --dash-grid-line: rgba(255, 255, 255, 0.06);
-    --dash-track: rgba(255, 255, 255, 0.04);
-    --dash-ring-base: rgba(255, 255, 255, 0.06);
-    --dash-overlay: rgba(11, 17, 23, 0.72);
-    --dash-dot-stroke: rgba(15, 20, 24, 0.9);
+        radial-gradient(
+            circle at right,
+            rgba(74, 142, 196, 0.12),
+            transparent 24%
+        ),
+        linear-gradient(180deg, #16222b 0%, #111b22 100%);
+    --dash-border: rgba(110, 150, 182, 0.12);
+    --dash-border-strong: rgba(86, 199, 173, 0.18);
+    --dash-grid: rgba(255, 255, 255, 0.06);
+    --dash-shadow: 0 22px 46px -24px rgba(0, 0, 0, 0.62);
+    --dash-track: rgba(255, 255, 255, 0.05);
+    --dash-muted-bg: rgba(255, 255, 255, 0.03);
 }
 
 .admin-app.theme-light .dashboard-page {
-    --dash-panel-bg: #f1f4f6;
-    --dash-panel-soft: #e8edf1;
-    --dash-panel-soft-2: rgba(232, 237, 241, 0.94);
-    --dash-hero-bg:
-        linear-gradient(
-            140deg,
-            rgba(var(--ds-primary-rgb), 0.1),
-            rgba(var(--ds-info-rgb), 0.04)
+    --dash-bg: #eef2f5;
+    --dash-bg-soft: #f8fafb;
+    --dash-bg-strong: #e5ebef;
+    --dash-hero:
+        radial-gradient(
+            circle at top left,
+            rgba(78, 184, 160, 0.1),
+            transparent 28%
         ),
-        #eef2f5;
-    --dash-border: rgba(86, 105, 123, 0.16);
-    --dash-border-strong: rgba(var(--ds-primary-rgb), 0.16);
-    --dash-border-hover: rgba(var(--ds-primary-rgb), 0.22);
-    --dash-grid-line: rgba(86, 105, 123, 0.14);
-    --dash-track: rgba(86, 105, 123, 0.1);
-    --dash-ring-base: rgba(86, 105, 123, 0.16);
-    --dash-overlay: rgba(241, 244, 246, 0.94);
-    --dash-dot-stroke: rgba(241, 244, 246, 0.96);
-}
-
-.dashboard-page .page-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+        radial-gradient(
+            circle at right,
+            rgba(74, 142, 196, 0.08),
+            transparent 24%
+        ),
+        linear-gradient(180deg, #edf2f5 0%, #e7edf1 100%);
+    --dash-border: rgba(95, 117, 136, 0.14);
+    --dash-border-strong: rgba(86, 199, 173, 0.14);
+    --dash-grid: rgba(95, 117, 136, 0.12);
+    --dash-shadow: 0 18px 36px -28px rgba(23, 37, 49, 0.24);
+    --dash-track: rgba(95, 117, 136, 0.08);
+    --dash-muted-bg: rgba(95, 117, 136, 0.04);
 }
 
 .dashboard-page .page-title {
-    font-size: 20px;
-    font-weight: 700;
+    margin: 0 0 4px;
+    font-size: 22px;
     color: var(--ds-text-emphasis);
-    margin-bottom: 4px;
 }
 
 .dashboard-page .breadcrumb {
@@ -877,675 +971,356 @@ export default {
     align-items: center;
     gap: 8px;
     font-size: 13px;
+    color: var(--ds-text-muted);
 }
 
 .dashboard-page .breadcrumb a {
     color: var(--ds-text-muted);
 }
 
-.dashboard-page .breadcrumb a:hover {
-    color: var(--ds-primary);
-}
-
-.dashboard-page .breadcrumb .sep {
-    color: var(--ds-gray-300);
-}
-
 .dashboard-page .breadcrumb .current {
     color: var(--ds-text);
 }
 
-.dashboard-page .page-meta {
+.dash-top {
     display: flex;
-    gap: 8px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
     flex-wrap: wrap;
-    justify-content: flex-end;
 }
 
-.dashboard-page .meta-pill {
-    display: inline-flex;
+.top-actions {
+    display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ghost-chip {
     min-height: 38px;
     padding: 0 14px;
     border-radius: 999px;
-    border: 1px solid rgba(var(--ds-primary-rgb), 0.18);
-    background: rgba(var(--ds-primary-rgb), 0.08);
+    border: 1px solid var(--dash-border);
+    background: var(--dash-bg-soft);
     color: var(--ds-text-emphasis);
-    font-size: 13px;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
 }
 
-.dashboard-page .meta-pill.muted {
-    border-color: var(--ds-border);
-    background: var(--ds-gray-100);
+.ghost-chip.muted {
     color: var(--ds-text-muted);
 }
 
-.dashboard-page .hero-panel {
-    display: grid;
-    grid-template-columns: minmax(320px, 1.5fr) minmax(320px, 1fr);
-    gap: 20px;
-    padding: 26px 28px;
-    border-radius: 20px;
-    background: var(--dash-hero-bg);
-    border: 1px solid var(--dash-border-strong);
-    box-shadow: var(--ds-shadow-xl);
-    transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-}
-
-.dashboard-page .hero-panel:hover,
-.dashboard-page .metric-card:hover,
-.dashboard-page .panel:hover {
-    transform: translateY(-2px);
-    border-color: var(--dash-border-hover);
-    box-shadow:
-        0 0 0 1px rgba(var(--ds-primary-rgb), 0.05),
-        0 18px 38px -18px rgba(0, 0, 0, 0.45);
-}
-
-.dashboard-page .eyebrow,
-.dashboard-page .panel-kicker {
-    font-size: 11px;
+.alert {
+    border-radius: 12px;
+    padding: 12px 14px;
     font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alert-error {
+    background: rgba(var(--ds-danger-rgb), 0.12);
+    color: var(--ds-danger);
+    border: 1px solid rgba(var(--ds-danger-rgb), 0.22);
+}
+
+.ops-hero,
+.panel,
+.kpi-card {
+    border: 1px solid var(--dash-border);
+    box-shadow: var(--dash-shadow);
+}
+
+.ops-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(360px, 0.85fr);
+    gap: 18px;
+    background: var(--dash-hero);
+    border-radius: 24px;
+    padding: 24px;
+}
+
+.hero-kicker,
+.panel-kicker {
+    font-size: 11px;
     letter-spacing: 0.12em;
     color: var(--ds-primary-lighter);
+    font-weight: 800;
     margin-bottom: 10px;
 }
 
-.dashboard-page .hero-copy h3 {
-    font-size: 24px;
-    line-height: 1.25;
+.hero-main h3 {
+    margin: 0 0 10px;
+    font-size: 28px;
+    line-height: 1.2;
     color: var(--ds-text-emphasis);
-    margin-bottom: 10px;
+    max-width: 760px;
 }
 
-.dashboard-page .hero-copy p {
-    max-width: 720px;
+.hero-main p,
+.panel-head p,
+.health-copy p {
+    margin: 0;
     color: var(--ds-text-muted);
     line-height: 1.6;
 }
 
-.dashboard-page .hero-metrics {
+.hero-strip {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+    gap: 12px;
+    margin-top: 18px;
 }
 
-.dashboard-page .hero-metric {
-    min-height: 124px;
-    padding: 18px;
-    border-radius: 16px;
-    background: var(--dash-panel-soft-2);
+.hero-strip-item,
+.signal-row,
+.mini-kpi,
+.signal-box,
+.leader-row,
+.account-row,
+.system-row,
+.milestone-row,
+.source-row {
     border: 1px solid var(--dash-border);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+}
+
+.hero-strip-item {
+    padding: 14px 16px;
+}
+
+.hero-strip-item span,
+.signal-label,
+.mini-kpi span,
+.signal-box span {
+    display: block;
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+
+.hero-strip-item strong,
+.signal-row strong,
+.mini-kpi strong,
+.signal-box strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--ds-text-emphasis);
+    font-size: 20px;
+}
+
+.hero-side {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-}
-
-.dashboard-page .hero-label {
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .hero-metric strong {
-    display: block;
-    margin-top: 8px;
-    font-size: 24px;
-    color: var(--ds-text-emphasis);
-}
-
-.dashboard-page .hero-note {
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .metric-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-}
-
-.dashboard-page .metric-card {
-    display: flex;
-    align-items: center;
     gap: 14px;
-    min-height: 118px;
-    padding: 18px 20px;
-    border-radius: 18px;
-    background: var(--dash-panel-bg);
-    border: 1px solid var(--dash-border);
-    box-shadow: var(--ds-shadow-xl);
-    transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
 }
 
-.dashboard-page .metric-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.dashboard-page .metric-icon.primary {
-    background: rgba(var(--ds-primary-rgb), 0.14);
-    color: var(--ds-primary);
-}
-
-.dashboard-page .metric-icon.info {
-    background: rgba(var(--ds-info-rgb), 0.14);
-    color: var(--ds-info);
-}
-
-.dashboard-page .metric-icon.success {
-    background: rgba(var(--ds-success-rgb), 0.14);
-    color: var(--ds-success);
-}
-
-.dashboard-page .metric-icon.warning {
-    background: rgba(var(--ds-warning-rgb), 0.14);
-    color: var(--ds-warning);
-}
-
-.dashboard-page .metric-content {
-    min-width: 0;
-}
-
-.dashboard-page .metric-title {
-    font-size: 12px;
-    color: var(--ds-text-muted);
-    margin-bottom: 4px;
-}
-
-.dashboard-page .metric-value {
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.15;
-    color: var(--ds-text-emphasis);
-}
-
-.dashboard-page .metric-note {
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .dashboard-grid {
+.hero-health {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 20px;
-}
-
-.dashboard-page .panel {
-    padding: 22px;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    padding: 18px;
     border-radius: 20px;
-    background: var(--dash-panel-bg);
-    border: 1px solid var(--dash-border);
-    box-shadow: var(--ds-shadow-xl);
-    transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
+    background: rgba(8, 14, 18, 0.16);
+    border: 1px solid var(--dash-border-strong);
 }
 
-.dashboard-page .revenue-panel {
-    grid-column: span 8;
+.admin-app.theme-light .hero-health {
+    background: rgba(255, 255, 255, 0.44);
 }
 
-.dashboard-page .source-panel,
-.dashboard-page .system-panel {
-    grid-column: span 4;
-}
-
-.dashboard-page .source-chart-layout {
-    display: grid;
-    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
-    gap: 18px;
-    align-items: center;
-}
-
-.dashboard-page .source-donut-wrap {
+.health-ring {
     position: relative;
-    width: 220px;
-    height: 220px;
-    margin: 0 auto;
+    width: 120px;
+    height: 120px;
 }
 
-.dashboard-page .source-donut {
-    width: 220px;
-    height: 220px;
-    display: block;
+.health-ring svg {
+    width: 120px;
+    height: 120px;
     transform: rotate(-90deg);
 }
 
-.dashboard-page .source-donut-base,
-.dashboard-page .source-donut-segment {
+.health-ring-base,
+.health-ring-value {
     fill: none;
-    stroke-width: 18;
+    stroke-width: 10;
 }
 
-.dashboard-page .source-donut-base {
-    stroke: var(--dash-ring-base);
+.health-ring-base {
+    stroke: var(--dash-track);
 }
 
-.dashboard-page .source-donut-segment {
-    stroke-linecap: butt;
-    transition:
-        stroke-dasharray 0.25s ease,
-        stroke-dashoffset 0.25s ease;
+.health-ring-value {
+    stroke: var(--ds-primary);
+    stroke-linecap: round;
 }
 
-.dashboard-page .source-donut-center {
+.health-center {
     position: absolute;
     inset: 0;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    pointer-events: none;
-}
-
-.dashboard-page .source-donut-label {
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .source-donut-center strong {
-    margin-top: 6px;
-    font-size: 26px;
-    line-height: 1.1;
+    gap: 4px;
     color: var(--ds-text-emphasis);
 }
 
-.dashboard-page .source-donut-note {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--ds-text-muted);
+.health-center strong {
+    font-size: 30px;
 }
 
-.dashboard-page .source-legend {
+.health-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ds-text-emphasis);
+    margin-bottom: 8px;
+}
+
+.signal-list,
+.signal-stack,
+.system-list,
+.leader-list,
+.milestone-list,
+.account-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.dashboard-page .source-legend-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: var(--dash-panel-soft);
-    border: 1px solid var(--dash-border);
+.signal-row {
+    padding: 14px 16px;
 }
 
-.dashboard-page .source-legend-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-
-.dashboard-page .source-legend-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.dashboard-page .source-legend-title {
-    color: var(--ds-text-emphasis);
-    font-weight: 600;
-}
-
-.dashboard-page .source-legend-subtitle {
+.signal-row small,
+.signal-box small,
+.leader-meta,
+.system-hint,
+.account-row small,
+.source-row small {
+    display: block;
     margin-top: 4px;
+    color: var(--ds-text-muted);
     font-size: 12px;
-    color: var(--ds-text-muted);
 }
 
-.dashboard-page .source-legend-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-}
-
-.dashboard-page .source-legend-right strong {
-    color: var(--ds-text-emphasis);
-    font-size: 16px;
-}
-
-.dashboard-page .source-legend-right span {
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .source-legend-empty {
-    padding: 10px 4px 0;
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .recent-panel {
-    grid-column: span 6;
-}
-
-.dashboard-page .topup-panel {
-    grid-column: span 3;
-}
-
-.dashboard-page .account-panel {
-    grid-column: span 6;
-}
-
-.dashboard-page .milestone-panel {
-    grid-column: span 3;
-}
-
-.dashboard-page .panel-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 18px;
-}
-
-.dashboard-page .panel-head.compact {
-    margin-bottom: 16px;
-}
-
-.dashboard-page .panel-head h3 {
-    font-size: 18px;
-    color: var(--ds-text-emphasis);
-    margin-bottom: 4px;
-}
-
-.dashboard-page .panel-head p {
-    font-size: 13px;
-    color: var(--ds-text-muted);
-    line-height: 1.55;
-}
-
-.dashboard-page .range-switch {
-    display: inline-flex;
-    padding: 4px;
-    gap: 4px;
-    border-radius: 12px;
-    background: var(--ds-gray-100);
-    border: 1px solid var(--ds-border);
-}
-
-.dashboard-page .range-btn {
-    min-width: 84px;
-    height: 34px;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: var(--ds-text-muted);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-        background 0.2s ease,
-        color 0.2s ease,
-        transform 0.2s ease;
-}
-
-.dashboard-page .range-btn:hover {
-    color: var(--ds-text-emphasis);
-}
-
-.dashboard-page .range-btn.active {
-    background: rgba(var(--ds-primary-rgb), 0.18);
-    color: var(--ds-text-emphasis);
-}
-
-.dashboard-page .revenue-summary {
+.kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 18px;
-}
-
-.dashboard-page .summary-box {
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: var(--dash-panel-soft);
-    border: 1px solid var(--dash-border);
-}
-
-.dashboard-page .summary-box span {
-    display: block;
-    font-size: 12px;
-    color: var(--ds-text-muted);
-    margin-bottom: 8px;
-}
-
-.dashboard-page .summary-box strong {
-    font-size: 20px;
-    color: var(--ds-text-emphasis);
-}
-
-.dashboard-page .chart-shell {
-    min-height: 368px;
-    position: relative;
-    display: flex;
-    align-items: stretch;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 14px;
-    padding: 14px 0 2px;
 }
 
-.dashboard-page .chart-yaxis {
-    width: 96px;
-    padding: 6px 0 26px;
+.kpi-card {
+    background: var(--dash-bg);
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.kpi-head {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 12px;
-    color: var(--ds-text-muted);
-}
-
-.dashboard-page .chart-canvas {
-    position: relative;
-    flex: 1;
-    min-height: 320px;
-    border-radius: 16px;
-    border: 1px solid var(--dash-border);
-    background:
-        linear-gradient(
-            180deg,
-            rgba(var(--ds-primary-rgb), 0.06),
-            rgba(var(--ds-primary-rgb), 0.01)
-        ),
-        var(--dash-panel-soft);
-    overflow: hidden;
-}
-
-.dashboard-page .chart-grid-lines {
-    position: absolute;
-    inset: 0 0 28px 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 18px 0 8px;
-    pointer-events: none;
-}
-
-.dashboard-page .grid-line {
-    border-top: 1px dashed var(--dash-grid-line);
-}
-
-.dashboard-page .chart-svg {
-    display: block;
-    width: 100%;
-    height: 320px;
-}
-
-.dashboard-page .chart-line {
-    stroke: var(--ds-primary);
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.dashboard-page .chart-dot {
-    fill: var(--ds-primary);
-    stroke: var(--dash-dot-stroke);
-    stroke-width: 2;
-}
-
-.dashboard-page .chart-line-empty {
-    stroke: rgba(var(--ds-primary-rgb), 0.55);
-}
-
-.dashboard-page .chart-dot-empty {
-    fill: rgba(var(--ds-primary-rgb), 0.78);
-}
-
-.dashboard-page .chart-area-empty {
-    opacity: 0.45;
-}
-
-.dashboard-page .chart-xaxis {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 8px;
-    height: 20px;
-    pointer-events: none;
-}
-
-.dashboard-page .chart-xaxis span {
-    position: absolute;
-    transform: translateX(-50%);
-    font-size: 12px;
-    color: var(--ds-text-muted);
-    white-space: nowrap;
-}
-
-.dashboard-page .chart-overlay-note {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    min-height: 28px;
-    padding: 0 10px;
-    border-radius: 999px;
-    display: inline-flex;
     align-items: center;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ds-text-muted);
-    background: var(--dash-overlay);
-    border: 1px solid var(--dash-border);
+    gap: 10px;
+    margin-bottom: 14px;
 }
 
-.dashboard-page .rank-list,
-.dashboard-page .leader-list,
-.dashboard-page .milestone-list,
-.dashboard-page .system-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.dashboard-page .rank-item,
-.dashboard-page .system-row,
-.dashboard-page .leader-row,
-.dashboard-page .milestone-row {
-    padding: 14px 16px;
+.kpi-icon {
+    width: 42px;
+    height: 42px;
     border-radius: 14px;
-    background: var(--dash-panel-soft);
-    border: 1px solid var(--dash-border);
-}
-
-.dashboard-page .rank-top,
-.dashboard-page .leader-row,
-.dashboard-page .milestone-row,
-.dashboard-page .system-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.dashboard-page .rank-title-wrap,
-.dashboard-page .leader-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-
-.dashboard-page .rank-index,
-.dashboard-page .leader-index {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background: rgba(var(--ds-primary-rgb), 0.16);
-    color: var(--ds-text-emphasis);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
-    flex-shrink: 0;
 }
 
-.dashboard-page .rank-title,
-.dashboard-page .leader-name,
-.dashboard-page .system-label,
-.dashboard-page .milestone-name {
-    color: var(--ds-text-emphasis);
-    font-weight: 600;
-}
-
-.dashboard-page .rank-subtitle,
-.dashboard-page .leader-meta,
-.dashboard-page .system-hint {
-    margin-top: 4px;
+.kpi-label {
     font-size: 12px;
     color: var(--ds-text-muted);
-}
-
-.dashboard-page .rank-value,
-.dashboard-page .leader-total,
-.dashboard-page .system-value,
-.dashboard-page .milestone-count {
-    color: var(--ds-text-emphasis);
     font-weight: 700;
 }
 
-.dashboard-page .rank-track {
-    margin-top: 10px;
-    height: 8px;
-    border-radius: 999px;
-    overflow: hidden;
-    background: var(--dash-track);
+.kpi-value {
+    display: block;
+    color: var(--ds-text-emphasis);
+    font-size: 28px;
+    line-height: 1.15;
 }
 
-.dashboard-page .rank-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(
-        90deg,
-        rgba(var(--ds-primary-rgb), 0.95),
-        rgba(var(--ds-info-rgb), 0.95)
-    );
+.kpi-note {
+    display: block;
+    margin-top: 8px;
+    color: var(--ds-text-muted);
+    font-size: 12px;
 }
 
-.dashboard-page .panel-badge {
+.tone-primary .kpi-icon {
+    background: rgba(var(--ds-primary-rgb), 0.14);
+    color: var(--ds-primary);
+}
+
+.tone-info .kpi-icon {
+    background: rgba(var(--ds-info-rgb), 0.14);
+    color: var(--ds-info);
+}
+
+.tone-warning .kpi-icon {
+    background: rgba(var(--ds-warning-rgb), 0.14);
+    color: var(--ds-warning);
+}
+
+.tone-success .kpi-icon {
+    background: rgba(var(--ds-success-rgb), 0.14);
+    color: var(--ds-success);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.panel {
+    background: var(--dash-bg);
+    border-radius: 22px;
+    padding: 22px;
+}
+
+.panel-xl {
+    grid-column: span 8;
+}
+
+.panel-lg {
+    grid-column: span 4;
+}
+
+.panel-md {
+    grid-column: span 4;
+}
+
+.transaction-panel {
+    grid-column: span 8;
+}
+
+.panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.panel-head h3 {
+    margin: 0 0 6px;
+    color: var(--ds-text-emphasis);
+    font-size: 20px;
+}
+
+.panel-badge {
     min-width: 34px;
     height: 34px;
     padding: 0 10px;
@@ -1559,24 +1334,312 @@ export default {
     font-weight: 700;
 }
 
-.dashboard-page .panel-empty,
-.dashboard-page .empty-cell {
-    text-align: center;
-    color: var(--ds-text-muted);
-    padding: 24px;
+.range-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--dash-bg-strong);
+    border: 1px solid var(--dash-border);
 }
 
-.dashboard-page .table-wrap {
+.range-btn {
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ds-text-muted);
+    font-weight: 700;
+}
+
+.range-btn.active {
+    background: rgba(var(--ds-primary-rgb), 0.18);
+    color: var(--ds-text-emphasis);
+}
+
+.mini-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.mini-kpi {
+    padding: 14px 16px;
+}
+
+.chart-shell {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.chart-yaxis {
+    width: 96px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px 0 28px;
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+
+.chart-canvas {
+    position: relative;
+    flex: 1;
+    min-height: 320px;
+    border-radius: 18px;
+    border: 1px solid var(--dash-border);
+    background: linear-gradient(
+        180deg,
+        rgba(var(--ds-primary-rgb), 0.03),
+        rgba(var(--ds-primary-rgb), 0.01)
+    );
+    overflow: hidden;
+}
+
+.chart-grid-lines {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+}
+
+.grid-line {
+    border-top: 1px dashed var(--dash-grid);
+}
+
+.chart-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.chart-line {
+    stroke: #4dbfaa;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.chart-dot {
+    fill: #4dbfaa;
+    stroke: var(--dash-bg);
+    stroke-width: 2;
+}
+
+.chart-line-empty {
+    stroke: rgba(77, 191, 170, 0.58);
+}
+
+.chart-dot-empty {
+    fill: rgba(77, 191, 170, 0.68);
+}
+
+.chart-area-empty {
+    opacity: 0.42;
+}
+
+.chart-xaxis {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 8px;
+    height: 20px;
+}
+
+.chart-xaxis span {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--ds-text-muted);
+    white-space: nowrap;
+}
+
+.chart-overlay-note {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(8, 13, 17, 0.64);
+    border: 1px solid var(--dash-border);
+    color: var(--ds-text-muted);
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.admin-app.theme-light .chart-overlay-note {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.source-layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+}
+
+.source-donut-wrap {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto;
+}
+
+.source-donut {
+    width: 220px;
+    height: 220px;
+    transform: rotate(-90deg);
+}
+
+.source-donut-base,
+.source-donut-segment {
+    fill: none;
+    stroke-width: 18;
+}
+
+.source-donut-base {
+    stroke: var(--dash-track);
+}
+
+.source-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.source-center span,
+.source-center small {
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+
+.source-center strong {
+    margin: 6px 0;
+    color: var(--ds-text-emphasis);
+    font-size: 22px;
+}
+
+.source-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.source-row,
+.signal-box,
+.leader-row,
+.account-row,
+.system-row,
+.milestone-row {
+    padding: 14px 16px;
+}
+
+.source-row,
+.leader-row,
+.account-row,
+.system-row,
+.milestone-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.source-left,
+.leader-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.source-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.source-left strong,
+.leader-name,
+.system-label,
+.milestone-name,
+.account-row strong {
+    color: var(--ds-text-emphasis);
+}
+
+.source-right,
+.leader-total,
+.system-value,
+.milestone-count {
+    text-align: right;
+}
+
+.source-right strong,
+.leader-total,
+.system-value,
+.milestone-count {
+    color: var(--ds-text-emphasis);
+    font-weight: 700;
+}
+
+.leader-index {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(var(--ds-primary-rgb), 0.16);
+    color: var(--ds-text-emphasis);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.account-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--ds-gray-400);
+}
+
+.state-dot.success {
+    background: var(--ds-success);
+}
+
+.state-dot.danger {
+    background: var(--ds-danger);
+}
+
+.state-dot.muted {
+    background: var(--ds-gray-400);
+}
+
+.table-wrap {
     overflow-x: auto;
 }
 
 .dashboard-page table {
     width: 100%;
     border-collapse: collapse;
-}
-
-.dashboard-page thead {
-    background: transparent;
 }
 
 .dashboard-page th {
@@ -1590,7 +1653,7 @@ export default {
 
 .dashboard-page td {
     padding: 14px 0;
-    border-bottom: 1px dashed var(--dash-grid-line);
+    border-bottom: 1px dashed var(--dash-grid);
     color: var(--ds-text);
     font-size: 14px;
 }
@@ -1604,116 +1667,95 @@ export default {
     padding-left: 14px;
 }
 
-.dashboard-page .cell-strong {
+.cell-strong {
     color: var(--ds-text-emphasis);
-    font-weight: 600;
+    font-weight: 700;
 }
 
-.dashboard-page .cell-muted {
+.cell-muted {
     color: var(--ds-text-muted);
 }
 
-.dashboard-page .state-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 8px;
-    vertical-align: middle;
-    background: var(--ds-gray-400);
+.panel-empty,
+.empty-cell {
+    text-align: center;
+    color: var(--ds-text-muted);
+    padding: 24px;
 }
 
-.dashboard-page .state-dot.success {
-    background: var(--ds-success);
-}
+@media (max-width: 1480px) {
+    .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 
-.dashboard-page .state-dot.danger {
-    background: var(--ds-danger);
-}
-
-.dashboard-page .state-dot.muted {
-    background: var(--ds-gray-400);
-}
-
-@media (max-width: 1400px) {
-    .dashboard-page .revenue-panel {
+    .panel-xl,
+    .transaction-panel {
         grid-column: span 12;
     }
 
-    .dashboard-page .source-panel,
-    .dashboard-page .system-panel,
-    .dashboard-page .recent-panel,
-    .dashboard-page .topup-panel,
-    .dashboard-page .account-panel,
-    .dashboard-page .milestone-panel {
+    .panel-lg,
+    .panel-md {
         grid-column: span 6;
     }
 }
 
-@media (max-width: 1100px) {
-    .dashboard-page .hero-panel {
+@media (max-width: 1180px) {
+    .ops-hero {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-page .hero-metrics {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    .source-layout {
+        grid-template-columns: 1fr;
     }
 
-    .dashboard-page .revenue-summary {
+    .hero-strip,
+    .mini-kpi-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .dashboard-page .source-chart-layout {
-        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 900px) {
-    .dashboard-page .source-panel,
-    .dashboard-page .system-panel,
-    .dashboard-page .recent-panel,
-    .dashboard-page .topup-panel,
-    .dashboard-page .account-panel,
-    .dashboard-page .milestone-panel {
+    .panel-lg,
+    .panel-md {
         grid-column: span 12;
     }
 
-    .dashboard-page .hero-metrics {
-        grid-template-columns: 1fr;
-    }
-
-    .dashboard-page .chart-shell {
+    .chart-shell {
         flex-direction: column;
     }
 
-    .dashboard-page .chart-yaxis {
+    .chart-yaxis {
         width: 100%;
-        padding: 0;
         flex-direction: row;
         justify-content: space-between;
+        padding: 0;
     }
 }
 
-@media (max-width: 700px) {
-    .dashboard-page .page-meta {
-        width: 100%;
-        justify-content: flex-start;
-    }
-
-    .dashboard-page .revenue-summary {
+@media (max-width: 720px) {
+    .kpi-grid,
+    .hero-strip,
+    .mini-kpi-row {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-page .metric-value {
-        font-size: 24px;
+    .hero-health {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
     }
 
-    .dashboard-page .hero-copy h3 {
-        font-size: 20px;
+    .top-actions {
+        width: 100%;
     }
 
-    .dashboard-page .panel {
+    .panel,
+    .ops-hero {
         padding: 18px;
+    }
+
+    .hero-main h3 {
+        font-size: 22px;
     }
 }
 </style>
