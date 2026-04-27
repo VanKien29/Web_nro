@@ -252,6 +252,20 @@ body * {
     background: rgba(255, 255, 255, 0.8);
     border-radius: 1px;
     transition: all 0.3s;
+    position: relative;
+    transform-origin: center;
+}
+
+.game-header__toggle span.open:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.game-header__toggle span.open:nth-child(2) {
+    opacity: 0;
+}
+
+.game-header__toggle span.open:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
 }
 
 /* Responsive */
@@ -285,24 +299,26 @@ body * {
 
     .game-nav {
         position: fixed;
-        top: 68px;
+        top: 0;
         left: 0;
-        right: 0;
+        bottom: 0;
+        width: 280px;
         margin-left: 0;
-        background: rgba(6, 15, 43, 0.96);
+        background: rgba(6, 15, 43, 0.98);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         flex-direction: column;
-        padding: 12px 16px 16px;
-        gap: 2px;
-        transform: translateY(-120%);
+        padding: 80px 16px 20px;
+        gap: 8px;
+        transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        z-index: 999;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 2000;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
     }
 
     .game-nav--open {
-        transform: translateY(0);
+        transform: translateX(0);
     }
 
     .game-nav__locator {

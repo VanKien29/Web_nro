@@ -1005,6 +1005,14 @@ export default {
             );
         },
     },
+    watch: {
+        "$route.params.id"() {
+            this.items = [];
+            if (this.isEdit) {
+                this.loadGiftcode();
+            }
+        },
+    },
     created() {
         this.loadQuickItems();
         this.loadOptions();
@@ -1385,6 +1393,8 @@ export default {
         },
         async loadGiftcode() {
             try {
+                this.items = [];
+                this.error = "";
                 const res = await fetch(
                     `/admin/api/giftcodes/${this.$route.params.id}`,
                     { headers: { "X-Requested-With": "XMLHttpRequest" } },

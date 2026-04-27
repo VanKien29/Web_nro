@@ -1688,29 +1688,20 @@ class AdminController extends Controller
         $ids = array_values(array_unique(array_slice($ids, 0, 1000)));
 
         sort($ids);
-        $cacheKey = 'admin:item_batch:' . md5(implode(',', $ids));
-        $items = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($ids) {
-            $items = collect();
-            if ($this->webItemIndexReady()) {
-                $items = DB::table('game_item_indexes')
-                    ->select('id', 'name', 'icon_id')
-                    ->whereIn('id', $ids)
-                    ->get()
-                    ->keyBy('id');
-            }
-
-            $missingIds = array_values(array_diff($ids, $items->keys()->map(fn($id) => (int) $id)->all()));
-            if ($missingIds) {
-                $fallback = DB::connection('game')->table('item_template')
-                    ->select('id', 'name as name', 'icon_id')
-                    ->whereIn('id', $missingIds)
-                    ->get()
-                    ->keyBy('id');
-                $items = $items->union($fallback);
-            }
-
-            return $items;
-        });
+        $items = DB::connection('game')->table('item_template')
+            ->selectRaw('id, NAME as name, TYPE as type, icon_id')
+            ->whereIn('id', $ids)
+            ->get()
+            ->mapWithKeys(function ($item) {
+                return [
+                    (int) $item->id => [
+                        'id' => (int) $item->id,
+                        'name' => (string) ($item->name ?? ''),
+                        'type' => isset($item->type) ? (int) $item->type : null,
+                        'icon_id' => isset($item->icon_id) ? (int) $item->icon_id : null,
+                    ],
+                ];
+            });
 
         return response()->json($items);
     }

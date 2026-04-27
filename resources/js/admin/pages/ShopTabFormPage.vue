@@ -981,6 +981,11 @@ export default {
             );
         },
     },
+    watch: {
+        tabId() {
+            this.loadTab();
+        },
+    },
     created() {
         this.loadOptions();
         this.loadTab();
@@ -1235,6 +1240,13 @@ export default {
             if (resolved) {
                 opt.id = resolved.id;
                 opt.search = `${resolved.name} (ID: ${resolved.id})`;
+            } else if (!resolved && /^\d+$/.test(opt.search)) {
+                const numeric = Number(opt.search);
+                const found = this.allOptions.find(o => Number(o.id) === numeric);
+                if (found) {
+                   opt.id = found.id;
+                   opt.search = `${found.name} (ID: ${found.id})`;
+                }
             } else if (opt.id && (!opt.search || !opt.search.trim())) {
                 const name = this.optionName(opt.id);
                 opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
@@ -1322,6 +1334,9 @@ export default {
         },
         async loadTab() {
             try {
+                this.items = [];
+                this.specIconMap = {};
+                this.error = "";
                 const res = await fetch(`/admin/api/shops/tab/${this.tabId}`, {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 });
@@ -1462,11 +1477,14 @@ export default {
                     is_sell: item.is_sell !== false,
                     item_spec: parseInt(item.item_spec) || 0,
                     options: item.options
-                        .filter((o) => !o._pending)
-                        .map((o) => ({
-                            id: parseInt(o.id) || 0,
-                            param: parseInt(o.param) || 0,
-                        })),
+                        .map((o) => {
+                            if (o._pending) this.normalizeOptionInput(o);
+                            return {
+                                id: parseInt(o.id) || 0,
+                                param: parseInt(o.param) || 0,
+                            };
+                        })
+                        .filter((o) => o.id > 0),
                 })),
             );
         },

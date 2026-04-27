@@ -596,6 +596,11 @@ export default {
                 this.items = [];
             }
         },
+        "$route.params.id"() {
+            if (this.isEdit) {
+                this.loadRecord();
+            }
+        },
     },
     created() {
         this.ensureType();
@@ -939,7 +944,7 @@ export default {
                     this.items = this.items.map((it) => ({
                         ...it,
                         name: iconData[it.temp_id]?.name || it.name,
-                        icon_id: iconData[it.temp_id]?.icon_id ?? null,
+                        icon_id: iconData[it.temp_id]?.icon_id ?? it.icon_id,
                     }));
                 }
             } catch {
