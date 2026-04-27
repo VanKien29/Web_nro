@@ -179,10 +179,6 @@
                                 Sửa cấu hình vẫn được lưu DB nhưng runtime hiện
                                 tại ưu tiên số khu theo code.
                             </p>
-                            <p class="panel-note">
-                                Dame % sửa theo mob template, nên tất cả map
-                                dùng cùng template sẽ đổi theo.
-                            </p>
                         </div>
                         <div class="head-actions">
                             <button class="btn btn-outline" @click="addMob">
@@ -257,7 +253,9 @@
                                         : "Chưa có waypoint"
                                 }}
                             </p>
-                            <small class="subpanel-action">Bấm để xem và sửa</small>
+                            <small class="subpanel-action"
+                                >Bấm để xem và sửa</small
+                            >
                         </button>
 
                         <button
@@ -269,7 +267,10 @@
                                 <h4>NPCs</h4>
                                 <span>{{ npcRows.length }}</span>
                             </div>
-                            <div v-if="npcRows.length" class="subpanel-avatar-stack">
+                            <div
+                                v-if="npcRows.length"
+                                class="subpanel-avatar-stack"
+                            >
                                 <img
                                     v-for="npc in npcRows.slice(0, 4)"
                                     :key="`npc-avatar-${npc.local_id}`"
@@ -284,7 +285,9 @@
                                         : "Chưa có NPC"
                                 }}
                             </p>
-                            <small class="subpanel-action">Bấm để xem và sửa</small>
+                            <small class="subpanel-action"
+                                >Bấm để xem và sửa</small
+                            >
                         </button>
 
                         <button
@@ -303,27 +306,36 @@
                                         : "Chưa có rule drop map"
                                 }}
                             </p>
-                            <small class="subpanel-action">Bấm để xem và sửa</small>
+                            <small class="subpanel-action"
+                                >Bấm để xem và sửa</small
+                            >
                         </button>
 
                         <div class="subpanel">
                             <div class="subpanel-head">
                                 <h4>Item cố định</h4>
-                                <span>{{ selectedMap.fixed_items?.length || 0 }}</span>
+                                <span>{{
+                                    selectedMap.fixed_items?.length || 0
+                                }}</span>
                             </div>
                             <div
                                 v-if="selectedMap.fixed_items?.length"
                                 class="subpanel-list"
                             >
                                 <div
-                                    v-for="(item, idx) in selectedMap.fixed_items"
+                                    v-for="(
+                                        item, idx
+                                    ) in selectedMap.fixed_items"
                                     :key="`fixed-item-${idx}`"
                                     class="subpanel-row"
                                 >
-                                    <strong>{{ item.id }} - {{ item.name || "Item" }}</strong>
+                                    <strong
+                                        >{{ item.id }} -
+                                        {{ item.name || "Item" }}</strong
+                                    >
                                     <small>
-                                        SL {{ item.quantity }} · X {{ item.x }} ·
-                                        Y {{ item.y }} · Mỗi khu
+                                        SL {{ item.quantity }} · X
+                                        {{ item.x }} · Y {{ item.y }} · Mỗi khu
                                     </small>
                                 </div>
                             </div>
@@ -554,7 +566,9 @@
                         class="editor-card"
                     >
                         <div class="editor-card-head">
-                            <strong>{{ waypoint.name || `Waypoint ${index + 1}` }}</strong>
+                            <strong>{{
+                                waypoint.name || `Waypoint ${index + 1}`
+                            }}</strong>
                             <button
                                 class="icon-action danger"
                                 @click="removeWaypoint(index)"
@@ -563,25 +577,86 @@
                             </button>
                         </div>
                         <div class="editor-row-2">
-                            <input v-model="waypoint.name" class="form-input" placeholder="Tên hiển thị" />
-                            <button class="picker-lite-button" @click="cycleWaypointTarget(index)">
+                            <input
+                                v-model="waypoint.name"
+                                class="form-input"
+                                placeholder="Tên hiển thị"
+                            />
+                            <button
+                                class="picker-lite-button"
+                                @click="cycleWaypointTarget(index)"
+                            >
                                 Sang map: {{ mapOptionName(waypoint.go_map) }}
                             </button>
                         </div>
                         <div class="editor-row-4">
-                            <input v-model.number="waypoint.min_x" class="form-input" type="number" min="0" placeholder="Min X" />
-                            <input v-model.number="waypoint.min_y" class="form-input" type="number" min="0" placeholder="Min Y" />
-                            <input v-model.number="waypoint.max_x" class="form-input" type="number" min="0" placeholder="Max X" />
-                            <input v-model.number="waypoint.max_y" class="form-input" type="number" min="0" placeholder="Max Y" />
+                            <input
+                                v-model.number="waypoint.min_x"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Min X"
+                            />
+                            <input
+                                v-model.number="waypoint.min_y"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Min Y"
+                            />
+                            <input
+                                v-model.number="waypoint.max_x"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Max X"
+                            />
+                            <input
+                                v-model.number="waypoint.max_y"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Max Y"
+                            />
                         </div>
                         <div class="editor-row-3">
-                            <input v-model.number="waypoint.go_map" class="form-input" type="number" min="0" placeholder="Map đích" />
-                            <input v-model.number="waypoint.go_x" class="form-input" type="number" min="0" placeholder="Go X" />
-                            <input v-model.number="waypoint.go_y" class="form-input" type="number" min="0" placeholder="Go Y" />
+                            <input
+                                v-model.number="waypoint.go_map"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Map đích"
+                            />
+                            <input
+                                v-model.number="waypoint.go_x"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Go X"
+                            />
+                            <input
+                                v-model.number="waypoint.go_y"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Go Y"
+                            />
                         </div>
                         <div class="editor-flags">
-                            <label><input v-model="waypoint.is_enter" type="checkbox" /> Cổng vào</label>
-                            <label><input v-model="waypoint.is_offline" type="checkbox" /> Offline</label>
+                            <label
+                                ><input
+                                    v-model="waypoint.is_enter"
+                                    type="checkbox"
+                                />
+                                Cổng vào</label
+                            >
+                            <label
+                                ><input
+                                    v-model="waypoint.is_offline"
+                                    type="checkbox"
+                                />
+                                Offline</label
+                            >
                         </div>
                     </div>
                 </div>
@@ -619,13 +694,18 @@
                         <div class="editor-card-head">
                             <div class="npc-card-meta">
                                 <img
-                                    v-if="npc.avatar !== null && npc.avatar !== undefined"
+                                    v-if="
+                                        npc.avatar !== null &&
+                                        npc.avatar !== undefined
+                                    "
                                     :src="iconSrc(npc.avatar)"
                                     :alt="npc.name || `NPC ${npc.id}`"
                                     class="npc-avatar"
                                 />
                                 <div>
-                                    <strong>{{ npc.name || `NPC ${npc.id}` }}</strong>
+                                    <strong>{{
+                                        npc.name || `NPC ${npc.id}`
+                                    }}</strong>
                                     <small>ID {{ npc.id }}</small>
                                 </div>
                             </div>
@@ -636,16 +716,33 @@
                                 <span class="mi">delete</span>
                             </button>
                         </div>
-                        <button class="template-picker-button" @click="openNpcPicker(index)">
+                        <button
+                            class="template-picker-button"
+                            @click="openNpcPicker(index)"
+                        >
                             <span>
-                                <strong>{{ npc.name || `NPC ${npc.id}` }}</strong>
+                                <strong>{{
+                                    npc.name || `NPC ${npc.id}`
+                                }}</strong>
                                 <small>Avatar {{ npc.avatar ?? "-" }}</small>
                             </span>
                             <span class="mi">search</span>
                         </button>
                         <div class="editor-row-2">
-                            <input v-model.number="npc.x" class="form-input" type="number" min="0" placeholder="X" />
-                            <input v-model.number="npc.y" class="form-input" type="number" min="0" placeholder="Y" />
+                            <input
+                                v-model.number="npc.x"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="X"
+                            />
+                            <input
+                                v-model.number="npc.y"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Y"
+                            />
                         </div>
                     </div>
                 </div>
@@ -662,7 +759,10 @@
                     <div>
                         <span class="section-label">Item drop map</span>
                         <h3>{{ selectedMap?.name }}</h3>
-                        <p>{{ dropRuleRows.length }} rule cộng thêm sau khi giết mob</p>
+                        <p>
+                            {{ dropRuleRows.length }} rule cộng thêm sau khi
+                            giết mob
+                        </p>
                     </div>
                     <div class="head-actions">
                         <button class="btn btn-outline" @click="addDropRule">
@@ -683,13 +783,20 @@
                         <div class="editor-card-head">
                             <div class="npc-card-meta">
                                 <img
-                                    v-if="rule.icon_id !== null && rule.icon_id !== undefined"
+                                    v-if="
+                                        rule.icon_id !== null &&
+                                        rule.icon_id !== undefined
+                                    "
                                     :src="iconSrc(rule.icon_id)"
-                                    :alt="rule.item_name || `Item ${rule.item_id}`"
+                                    :alt="
+                                        rule.item_name || `Item ${rule.item_id}`
+                                    "
                                     class="npc-avatar"
                                 />
                                 <div>
-                                    <strong>{{ rule.item_name || `Item ${rule.item_id}` }}</strong>
+                                    <strong>{{
+                                        rule.item_name || `Item ${rule.item_id}`
+                                    }}</strong>
                                     <small>ID {{ rule.item_id }}</small>
                                 </div>
                             </div>
@@ -700,32 +807,78 @@
                                 <span class="mi">delete</span>
                             </button>
                         </div>
-                        <button class="template-picker-button" @click="openItemPicker(index)">
+                        <button
+                            class="template-picker-button"
+                            @click="openItemPicker(index)"
+                        >
                             <span>
-                                <strong>{{ rule.item_name || `Item ${rule.item_id}` }}</strong>
+                                <strong>{{
+                                    rule.item_name || `Item ${rule.item_id}`
+                                }}</strong>
                                 <small>{{ rule.mob_name || "Mọi mob" }}</small>
                             </span>
                             <span class="mi">search</span>
                         </button>
                         <div class="editor-row-4">
-                            <input v-model.number="rule.quantity_min" class="form-input" type="number" min="1" placeholder="SL min" />
-                            <input v-model.number="rule.quantity_max" class="form-input" type="number" min="1" placeholder="SL max" />
-                            <input v-model.number="rule.chance_numerator" class="form-input" type="number" min="0" placeholder="Tử số" />
-                            <input v-model.number="rule.chance_denominator" class="form-input" type="number" min="1" placeholder="Mẫu số" />
+                            <input
+                                v-model.number="rule.quantity_min"
+                                class="form-input"
+                                type="number"
+                                min="1"
+                                placeholder="SL min"
+                            />
+                            <input
+                                v-model.number="rule.quantity_max"
+                                class="form-input"
+                                type="number"
+                                min="1"
+                                placeholder="SL max"
+                            />
+                            <input
+                                v-model.number="rule.chance_numerator"
+                                class="form-input"
+                                type="number"
+                                min="0"
+                                placeholder="Tử số"
+                            />
+                            <input
+                                v-model.number="rule.chance_denominator"
+                                class="form-input"
+                                type="number"
+                                min="1"
+                                placeholder="Mẫu số"
+                            />
                         </div>
                         <div class="editor-row-2">
-                            <input v-model.number="rule.mob_temp_id" class="form-input" type="number" min="-1" placeholder="Mob temp (-1 mọi mob)" />
-                            <input v-model="rule.note" class="form-input" placeholder="Ghi chú" />
+                            <input
+                                v-model.number="rule.mob_temp_id"
+                                class="form-input"
+                                type="number"
+                                min="-1"
+                                placeholder="Mob temp (-1 mọi mob)"
+                            />
+                            <input
+                                v-model="rule.note"
+                                class="form-input"
+                                placeholder="Ghi chú"
+                            />
                         </div>
                         <div class="editor-flags">
-                            <label><input v-model="rule.active" type="checkbox" /> Đang bật</label>
+                            <label
+                                ><input v-model="rule.active" type="checkbox" />
+                                Đang bật</label
+                            >
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div v-if="npcPicker.open" class="picker-overlay" @click.self="closeNpcPicker">
+        <div
+            v-if="npcPicker.open"
+            class="picker-overlay"
+            @click.self="closeNpcPicker"
+        >
             <div class="picker-panel">
                 <div class="picker-head">
                     <div>
@@ -739,7 +892,12 @@
                 <div class="picker-search">
                     <div class="search-input-wrap">
                         <span class="mi search-icon">search</span>
-                        <input v-model="npcPicker.search" class="form-input search-input" placeholder="Tìm ID hoặc tên NPC..." autofocus />
+                        <input
+                            v-model="npcPicker.search"
+                            class="form-input search-input"
+                            placeholder="Tìm ID hoặc tên NPC..."
+                            autofocus
+                        />
                     </div>
                 </div>
                 <div class="picker-list">
@@ -752,7 +910,10 @@
                     >
                         <span class="npc-card-meta">
                             <img
-                                v-if="npc.avatar !== null && npc.avatar !== undefined"
+                                v-if="
+                                    npc.avatar !== null &&
+                                    npc.avatar !== undefined
+                                "
                                 :src="iconSrc(npc.avatar)"
                                 :alt="npc.name"
                                 class="npc-avatar"
@@ -768,7 +929,11 @@
             </div>
         </div>
 
-        <div v-if="itemPicker.open" class="picker-overlay" @click.self="closeItemPicker">
+        <div
+            v-if="itemPicker.open"
+            class="picker-overlay"
+            @click.self="closeItemPicker"
+        >
             <div class="picker-panel">
                 <div class="picker-head">
                     <div>
@@ -782,17 +947,29 @@
                 <div class="picker-search">
                     <div class="search-input-wrap">
                         <span class="mi search-icon">search</span>
-                        <input v-model="itemPicker.search" class="form-input search-input" placeholder="Tìm ID hoặc tên item..." autofocus />
+                        <input
+                            v-model="itemPicker.search"
+                            class="form-input search-input"
+                            placeholder="Tìm ID hoặc tên item..."
+                            autofocus
+                        />
                     </div>
                     <div class="type-filter">
-                        <button type="button" :class="{ active: itemPicker.type === '' }" @click="itemPicker.type = ''">
+                        <button
+                            type="button"
+                            :class="{ active: itemPicker.type === '' }"
+                            @click="itemPicker.type = ''"
+                        >
                             Tất cả TYPE
                         </button>
                         <button
                             v-for="type in itemTypes"
                             :key="type"
                             type="button"
-                            :class="{ active: String(itemPicker.type) === String(type) }"
+                            :class="{
+                                active:
+                                    String(itemPicker.type) === String(type),
+                            }"
                             @click="itemPicker.type = type"
                         >
                             TYPE {{ type }}
@@ -809,7 +986,10 @@
                     >
                         <span class="npc-card-meta">
                             <img
-                                v-if="item.icon_id !== null && item.icon_id !== undefined"
+                                v-if="
+                                    item.icon_id !== null &&
+                                    item.icon_id !== undefined
+                                "
                                 :src="iconSrc(item.icon_id)"
                                 :alt="item.name"
                                 class="npc-avatar"
@@ -950,7 +1130,9 @@ export default {
             });
         },
         itemTypes() {
-            return [...new Set(this.itemTemplates.map((item) => Number(item.type)))]
+            return [
+                ...new Set(this.itemTemplates.map((item) => Number(item.type))),
+            ]
                 .filter((type) => Number.isFinite(type))
                 .sort((a, b) => a - b);
         },
@@ -1085,7 +1267,9 @@ export default {
             };
         },
         mapOptionName(id) {
-            const map = this.mapOptions.find((entry) => Number(entry.id) === Number(id));
+            const map = this.mapOptions.find(
+                (entry) => Number(entry.id) === Number(id),
+            );
             return map ? `${map.id} - ${map.name}` : `Map ${id}`;
         },
         async loadData() {
@@ -1106,7 +1290,9 @@ export default {
                     zones: Number(map.zones || 0),
                     zones_config: Number(map.zones_config || map.zones || 0),
                     zones_forced: !!map.zones_forced,
-                    waypoints: Array.isArray(map.waypoints) ? map.waypoints : [],
+                    waypoints: Array.isArray(map.waypoints)
+                        ? map.waypoints
+                        : [],
                     npcs: Array.isArray(map.npcs) ? map.npcs : [],
                     fixed_items: Array.isArray(map.fixed_items)
                         ? map.fixed_items
@@ -1175,9 +1361,7 @@ export default {
         syncRows() {
             const map = this.selectedMap;
             this.mapMaxPlayer = Number(map?.max_player ?? 12);
-            this.mapZonesConfig = Number(
-                map?.zones_config ?? map?.zones ?? 1,
-            );
+            this.mapZonesConfig = Number(map?.zones_config ?? map?.zones ?? 1);
             this.rows = map ? map.mobs.map((row) => this.localRow(row)) : [];
             this.waypointRows = map
                 ? (map.waypoints || []).map((row) => this.localWaypoint(row))
@@ -1251,7 +1435,11 @@ export default {
             const currentIndex = this.mapOptions.findIndex(
                 (map) => Number(map.id) === Number(row.go_map),
             );
-            const next = this.mapOptions[(currentIndex + 1 + this.mapOptions.length) % this.mapOptions.length];
+            const next =
+                this.mapOptions[
+                    (currentIndex + 1 + this.mapOptions.length) %
+                        this.mapOptions.length
+                ];
             row.go_map = Number(next.id);
         },
         openNpcModal() {
