@@ -94,6 +94,12 @@ const routes = [
         meta: { auth: true },
     },
     {
+        path: "/admin/map-mobs",
+        name: "admin.map_mobs",
+        component: () => import("./pages/MapMobsPage.vue"),
+        meta: { auth: true },
+    },
+    {
         path: "/admin/admin-logs",
         name: "admin.logs",
         component: () => import("./pages/AdminLogsPage.vue"),

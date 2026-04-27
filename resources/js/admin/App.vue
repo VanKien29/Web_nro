@@ -116,6 +116,19 @@
                     </div>
                     <div class="nav-item">
                         <router-link
+                            to="/admin/map-mobs"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name === 'admin.map_mobs',
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">terrain</span>
+                            <span class="text">Map - Mob</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
                             to="/admin/admin-logs"
                             class="nav-link"
                             :class="{ active: $route.name === 'admin.logs' }"

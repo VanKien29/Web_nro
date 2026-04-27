@@ -42,6 +42,16 @@ class GameRuntimeService
         return $this->post('/internal/runtime/bosses/configs', $payload);
     }
 
+    public function mapMobs(): array
+    {
+        return $this->request('GET', '/internal/runtime/map-mobs', []);
+    }
+
+    public function saveMapMobs(array $payload): array
+    {
+        return $this->post('/internal/runtime/map-mobs', $payload);
+    }
+
     public function health(): array
     {
         return $this->request('GET', '/internal/runtime/health', []);
