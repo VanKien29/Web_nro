@@ -28,7 +28,6 @@
     <link rel="stylesheet" href="/assets/css/game.css" />
     <link rel="stylesheet" href="/assets/css/pages.css" />
     <link rel="stylesheet" href="/assets/css/auth.css" />
-
     @vite('resources/js/app.js')
 </head>
 

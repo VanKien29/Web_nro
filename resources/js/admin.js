@@ -1,4 +1,5 @@
 import { createApp } from "vue";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 import AdminApp from "./admin/App.vue";
 import router from "./admin/router";
 import axios from "axios";

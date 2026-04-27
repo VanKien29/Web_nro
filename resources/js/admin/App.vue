@@ -11,8 +11,10 @@
             <aside id="miniSidebar">
                 <div class="brand-logo">
                     <router-link to="/admin" class="brand-link">
-                        <div class="brand-icon">N</div>
-                        <span class="site-logo-text">NRO HDPE</span>
+                        <div class="brand-icon">
+                            <i class="fa-regular fa-house"></i>
+                        </div>
+                        <span class="site-logo-text">Admin Panel</span>
                     </router-link>
                 </div>
                 <nav class="navbar-nav">
@@ -178,10 +180,16 @@
                                 @click="showUserMenu = !showUserMenu"
                             >
                                 <div class="avatar">
-                                    {{
-                                        (adminUser?.username ||
-                                            "A")[0].toUpperCase()
-                                    }}
+                                    <img
+                                        src="/assets/frontend/home/admin_avatar.jpg"
+                                        alt="Admin"
+                                        style="
+                                            width: 100%;
+                                            height: 100%;
+                                            border-radius: 50%;
+                                            object-fit: cover;
+                                        "
+                                    />
                                 </div>
                                 <div class="user-info">
                                     <div class="user-name">
@@ -201,6 +209,12 @@
                                     >
                                     Đăng xuất
                                 </button>
+                                <a href="/" class="dropdown-item">
+                                    <span class="mi" style="font-size: 18px"
+                                        >home</span
+                                    >
+                                    Về trang chủ
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -320,7 +334,8 @@ export default {
         },
         lockBodyScroll() {
             if (this.bodyScrollLocked) return;
-            this.lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            this.lockedScrollY =
+                window.scrollY || document.documentElement.scrollTop || 0;
             document.documentElement.classList.add("admin-scroll-lock");
             document.body.classList.add("admin-scroll-lock");
             document.body.style.top = `-${this.lockedScrollY}px`;
@@ -348,7 +363,9 @@ export default {
 
             const deltaY = event.deltaY;
             const atTop = scrollable.scrollTop <= 0;
-            const atBottom = Math.ceil(scrollable.scrollTop + scrollable.clientHeight) >= scrollable.scrollHeight;
+            const atBottom =
+                Math.ceil(scrollable.scrollTop + scrollable.clientHeight) >=
+                scrollable.scrollHeight;
             if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
                 event.preventDefault();
             }
@@ -359,14 +376,19 @@ export default {
                 if (node.nodeType === 1) {
                     const style = window.getComputedStyle(node);
                     const canScrollY = /(auto|scroll)/.test(style.overflowY);
-                    if (canScrollY && node.scrollHeight > node.clientHeight + 1) {
+                    if (
+                        canScrollY &&
+                        node.scrollHeight > node.clientHeight + 1
+                    ) {
                         return node;
                     }
                 }
                 if (node === boundary) break;
                 node = node.parentElement;
             }
-            return boundary.scrollHeight > boundary.clientHeight + 1 ? boundary : null;
+            return boundary.scrollHeight > boundary.clientHeight + 1
+                ? boundary
+                : null;
         },
         async fetchUser() {
             try {
