@@ -117,8 +117,31 @@
 
         <!-- PAGE CONTENT -->
         <main :class="{ 'inner-page': !isHome }">
-            <router-view />
+            <router-view v-slot="{ Component }">
+                <transition name="page-switch" mode="out-in">
+                    <component :is="Component" />
+                </transition>
+            </router-view>
         </main>
+
+        <transition name="site-loading-fade">
+            <div
+                v-if="isAppLoading"
+                class="site-loading-overlay"
+                role="status"
+                aria-live="polite"
+            >
+                <div class="site-loading-card">
+                    <div class="site-loading-emblem">
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="site-loading-bar">
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+        </transition>
 
         <!-- FOOTER -->
         <footer class="game-footer">
@@ -251,9 +274,15 @@ export default {
             sidebarOpen: false,
             scrolled: false,
             loggedIn: !!localStorage.getItem("token"),
+            bootLoading: true,
+            routeLoading: false,
+            routeLoadingTimer: null,
         };
     },
     computed: {
+        isAppLoading() {
+            return this.bootLoading || this.routeLoading;
+        },
         isLoggedIn() {
             return this.loggedIn;
         },
@@ -287,10 +316,33 @@ export default {
             this.loggedIn = !!localStorage.getItem("token");
         };
         window.addEventListener("auth-changed", this._onAuthChanged);
+
+        this._onRouteLoading = (event) => {
+            const loading = !!event.detail?.loading;
+            window.clearTimeout(this.routeLoadingTimer);
+
+            if (loading) {
+                this.routeLoading = true;
+                return;
+            }
+
+            this.routeLoadingTimer = window.setTimeout(() => {
+                this.routeLoading = false;
+            }, 180);
+        };
+        window.addEventListener("route-loading", this._onRouteLoading);
+
+        this.$nextTick(() => {
+            window.setTimeout(() => {
+                this.bootLoading = false;
+            }, 350);
+        });
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this._onScroll);
         window.removeEventListener("auth-changed", this._onAuthChanged);
+        window.removeEventListener("route-loading", this._onRouteLoading);
+        window.clearTimeout(this.routeLoadingTimer);
     },
     methods: {
         logout() {

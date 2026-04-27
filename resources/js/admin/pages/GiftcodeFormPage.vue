@@ -34,8 +34,8 @@
                     :to="{ name: 'admin.giftcodes' }"
                     class="btn btn-outline"
                 >
-                    <span class="mi" style="font-size: 16px">arrow_back</span> Quay
-                    lại
+                    <span class="mi" style="font-size: 16px">arrow_back</span>
+                    Quay lại
                 </router-link>
             </div>
         </div>
@@ -237,7 +237,9 @@
                                     >
                                         <td class="td-idx">{{ idx + 1 }}</td>
                                         <td class="td-icon">
-                                            <AdminIcon :icon-id="item.icon_id" />
+                                            <AdminIcon
+                                                :icon-id="item.icon_id"
+                                            />
                                         </td>
                                         <td class="td-name">
                                             <div class="t-name">
@@ -265,7 +267,9 @@
                                                     )"
                                                     :key="oi"
                                                     class="t-opt-pill"
-                                                    @click="editOption(item, opt)"
+                                                    @click="
+                                                        editOption(item, opt)
+                                                    "
                                                     title="Bấm để sửa option"
                                                 >
                                                     {{
@@ -297,7 +301,9 @@
                                                     "
                                                     type="button"
                                                     class="t-opt-add"
-                                                    @click="addPendingOption(item)"
+                                                    @click="
+                                                        addPendingOption(item)
+                                                    "
                                                     title="Thêm option"
                                                 >
                                                     <span
@@ -414,7 +420,11 @@
                                                 <button
                                                     type="button"
                                                     class="t-opt-cancel"
-                                                    @click="cancelPendingOption(item)"
+                                                    @click="
+                                                        cancelPendingOption(
+                                                            item,
+                                                        )
+                                                    "
                                                     title="Hủy"
                                                 >
                                                     <span
@@ -763,6 +773,7 @@
                         v-model="itemPicker.search"
                         class="form-input"
                         placeholder="Tìm theo ID hoặc tên..."
+                        @input="debouncedLoadItemPicker"
                         @keyup.enter="loadItemPicker(1)"
                     />
                     <select
@@ -779,6 +790,17 @@
                             {{ t.name }} (TYPE {{ t.id }})
                         </option>
                     </select>
+                    <select
+                        v-model="itemPicker.gender"
+                        class="form-input"
+                        @change="loadItemPicker(1)"
+                    >
+                        <option value="">Tất cả hệ</option>
+                        <option value="0">Trái Đất</option>
+                        <option value="1">Namek</option>
+                        <option value="2">Xayda</option>
+                        <option value="3">Chung/Tất cả</option>
+                    </select>
                     <button
                         type="button"
                         class="btn btn-primary btn-sm"
@@ -790,7 +812,7 @@
 
                 <div class="picker-list">
                     <div v-if="itemPicker.loading" class="picker-empty">
-                        Đang tải dữ liệu...
+                        <span class="admin-loading-spinner"></span>
                     </div>
                     <div
                         v-else-if="!itemPicker.rows.length"
@@ -811,6 +833,7 @@
                             <div class="picker-item-name">{{ row.name }}</div>
                             <div class="picker-item-meta">
                                 ID: {{ row.id }} | {{ itemTypeLabel(row.type) }}
+                                | {{ itemGenderLabel(row.gender) }}
                             </div>
                         </div>
                         <span class="mi" style="font-size: 18px">add</span>
@@ -863,9 +886,7 @@
                         <button
                             type="button"
                             class="btn btn-outline btn-xs"
-                            :disabled="
-                                itemPicker.page >= itemPicker.totalPages
-                            "
+                            :disabled="itemPicker.page >= itemPicker.totalPages"
                             @click="goToItemPickerPage(itemPicker.page + 1)"
                         >
                             Sau
@@ -873,9 +894,7 @@
                         <button
                             type="button"
                             class="btn btn-outline btn-xs"
-                            :disabled="
-                                itemPicker.page >= itemPicker.totalPages
-                            "
+                            :disabled="itemPicker.page >= itemPicker.totalPages"
                             @click="goToItemPickerPage(itemPicker.totalPages)"
                         >
                             Cuối
@@ -930,6 +949,7 @@ export default {
                 typeOptions: [],
                 search: "",
                 type: "",
+                gender: "",
                 page: 1,
                 pageInput: "1",
                 totalPages: 1,
@@ -943,6 +963,7 @@ export default {
             success: "",
             saving: false,
             searchTimeout: null,
+            itemPickerSearchTimer: null,
             quickItemsKey: "admin_quick_items",
             optionsCacheKey: "admin_item_options_v1",
             optionsCacheTtlMs: 1000 * 60 * 30,
@@ -1023,6 +1044,8 @@ export default {
     },
     unmounted() {
         document.removeEventListener("click", this.closeResults);
+        window.clearTimeout(this.searchTimeout);
+        window.clearTimeout(this.itemPickerSearchTimer);
     },
     methods: {
         closeResults(e) {
@@ -1045,6 +1068,18 @@ export default {
             s = s.replace(/([\[\{])\s*,/g, "$1");
             s = s.replace(/,\s*,/g, ",");
             return s;
+        },
+        async readJsonResponse(res, fallbackMessage = "Không thể tải dữ liệu") {
+            const contentType = res.headers.get("content-type") || "";
+            if (!res.ok) {
+                throw new Error(`${fallbackMessage} (${res.status})`);
+            }
+            if (!contentType.includes("application/json")) {
+                throw new Error(
+                    "Phiên đăng nhập hết hạn hoặc API trả về sai định dạng",
+                );
+            }
+            return res.json();
         },
         toDateTimeLocal(value) {
             if (!value) return "";
@@ -1077,7 +1112,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -1111,7 +1152,10 @@ export default {
         },
         goToItemPickerPage(page) {
             const target = this.normalizePickerPage(page);
-            if (target === this.itemPicker.page && this.itemPicker.rows.length) {
+            if (
+                target === this.itemPicker.page &&
+                this.itemPicker.rows.length
+            ) {
                 this.itemPicker.pageInput = String(target);
                 return;
             }
@@ -1124,7 +1168,9 @@ export default {
             try {
                 const raw = localStorage.getItem(this.quickItemsKey);
                 const parsed = raw ? JSON.parse(raw) : [];
-                this.quickItems = Array.isArray(parsed) ? parsed.slice(0, 10) : [];
+                this.quickItems = Array.isArray(parsed)
+                    ? parsed.slice(0, 10)
+                    : [];
             } catch {
                 this.quickItems = [];
             }
@@ -1140,10 +1186,18 @@ export default {
                     item.icon_id === ""
                         ? null
                         : Number(item.icon_id),
+                gender:
+                    item.gender === null ||
+                    item.gender === undefined ||
+                    item.gender === ""
+                        ? null
+                        : Number(item.gender),
             };
             const next = [
                 normalized,
-                ...this.quickItems.filter((it) => Number(it.id) !== normalized.id),
+                ...this.quickItems.filter(
+                    (it) => Number(it.id) !== normalized.id,
+                ),
             ].slice(0, 10);
             this.quickItems = next;
             try {
@@ -1193,6 +1247,12 @@ export default {
         closeItemPicker() {
             this.itemPicker.open = false;
         },
+        debouncedLoadItemPicker() {
+            window.clearTimeout(this.itemPickerSearchTimer);
+            this.itemPickerSearchTimer = window.setTimeout(() => {
+                this.loadItemPicker(1);
+            }, 300);
+        },
         async loadItemPicker(page = 1) {
             try {
                 this.itemPicker.loading = true;
@@ -1209,10 +1269,19 @@ export default {
                 if (this.itemPicker.type !== "") {
                     params.set("type", this.itemPicker.type);
                 }
-                const res = await fetch(`/admin/api/items?${params.toString()}`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" },
-                });
-                const data = await res.json();
+                if (this.itemPicker.gender !== "") {
+                    params.set("gender", this.itemPicker.gender);
+                }
+                const res = await fetch(
+                    `/admin/api/items?${params.toString()}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                const data = await this.readJsonResponse(
+                    res,
+                    "Không thể lọc item",
+                );
                 this.itemPicker.rows = data?.data || [];
                 this.itemPicker.types = data?.types || this.itemPicker.types;
                 this.itemPicker.typeOptions =
@@ -1221,7 +1290,8 @@ export default {
                 this.itemPicker.pageInput = String(this.itemPicker.page);
                 this.itemPicker.totalPages = data?.total_pages || 1;
                 this.itemPicker.total = data?.total || 0;
-            } catch {
+            } catch (e) {
+                this.error = e?.message || "Không thể lọc item";
                 this.itemPicker.rows = [];
                 this.itemPicker.total = 0;
                 this.itemPicker.totalPages = 1;
@@ -1234,11 +1304,27 @@ export default {
         },
         itemTypeLabel(typeValue) {
             const key = String(typeValue ?? "").trim();
-            const found = this.itemPickerTypes.find((t) => String(t.id) === key);
+            const found = this.itemPickerTypes.find(
+                (t) => String(t.id) === key,
+            );
             if (found) {
                 return `TYPE: ${found.id} - ${found.name}`;
             }
             return `TYPE: ${typeValue}`;
+        },
+        itemGenderLabel(genderValue) {
+            const value =
+                genderValue === null || genderValue === undefined
+                    ? ""
+                    : String(genderValue);
+            return (
+                {
+                    "0": "Trái Đất",
+                    "1": "Namek",
+                    "2": "Xayda",
+                    "3": "Chung",
+                }[value] || "Không rõ hệ"
+            );
         },
         optionName(id) {
             const o = this.allOptions.find((a) => a.id === id);
@@ -1284,7 +1370,10 @@ export default {
 
             const normalized = keyword.toLowerCase();
             const foundByExactName = this.allOptions.find(
-                (o) => String(o.name || "").trim().toLowerCase() === normalized,
+                (o) =>
+                    String(o.name || "")
+                        .trim()
+                        .toLowerCase() === normalized,
             );
             if (foundByExactName) return foundByExactName;
 
@@ -1448,6 +1537,7 @@ export default {
                             temp_id: d.temp_id,
                             name: itemInfo?.name || "Item #" + d.temp_id,
                             icon_id: itemInfo?.icon_id ?? null,
+                            gender: itemInfo?.gender ?? null,
                             quantity: d.quantity || 1,
                             options: (d.options || []).map((o) => {
                                 const matched = this.allOptions.find(
@@ -1473,11 +1563,19 @@ export default {
         },
         async fetchItemById(id) {
             try {
-                const res = await fetch(`/admin/api/items/search?q=${id}`, {
+                const params = new URLSearchParams({
+                    lite: "1",
+                    per_page: "1",
+                    search: String(id),
+                });
+                const res = await fetch(`/admin/api/items?${params}`, {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 });
-                const data = await res.json();
-                return data.length ? data[0] : null;
+                const data = await this.readJsonResponse(
+                    res,
+                    "Không thể tải item",
+                );
+                return data?.data?.length ? data.data[0] : null;
             } catch {
                 return null;
             }
@@ -1493,15 +1591,22 @@ export default {
             this.searching = true;
             this.searchTimeout = setTimeout(async () => {
                 try {
-                    const res = await fetch(
-                        `/admin/api/items/search?q=${encodeURIComponent(q)}`,
-                        {
-                            headers: { "X-Requested-With": "XMLHttpRequest" },
-                        },
+                    const params = new URLSearchParams({
+                        lite: "1",
+                        per_page: "30",
+                        search: q,
+                    });
+                    const res = await fetch(`/admin/api/items?${params}`, {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    });
+                    const data = await this.readJsonResponse(
+                        res,
+                        "Không thể tìm item",
                     );
-                    this.searchResults = await res.json();
+                    this.searchResults = data?.data || [];
                     this.showResults = true;
-                } catch {
+                } catch (e) {
+                    this.error = e?.message || "Không thể tìm item";
                     this.searchResults = [];
                 } finally {
                     this.searching = false;
@@ -1513,6 +1618,7 @@ export default {
                 temp_id: item.id,
                 name: item.name,
                 icon_id: item.icon_id,
+                gender: item.gender ?? null,
                 quantity: 1,
                 options: [],
             });
@@ -2397,7 +2503,7 @@ export default {
 }
 .picker-tools {
     display: grid;
-    grid-template-columns: 1fr 180px auto;
+    grid-template-columns: 1fr 180px 160px auto;
     gap: 10px;
     padding: 12px 14px;
     border-bottom: 1px solid var(--ds-border);

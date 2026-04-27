@@ -60,4 +60,25 @@ const router = createRouter({
     },
 });
 
+function emitRouteLoading(loading) {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+        new CustomEvent("route-loading", { detail: { loading } }),
+    );
+}
+
+router.beforeEach((to, from) => {
+    if (to.fullPath !== from.fullPath) {
+        emitRouteLoading(true);
+    }
+});
+
+router.afterEach(() => {
+    emitRouteLoading(false);
+});
+
+router.onError(() => {
+    emitRouteLoading(false);
+});
+
 export default router;

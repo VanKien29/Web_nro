@@ -22,7 +22,11 @@
 
         <div class="page-title">NẠP THẺ CÀO</div>
 
-        <div class="topup-grid" style="display: block">
+        <div v-if="loading" class="page-loading">
+            <div class="page-loading__spinner"></div>
+        </div>
+
+        <div v-else class="topup-grid" style="display: block">
             <!-- Card Form -->
             <div class="topup-box" style="margin-bottom: 20px">
                 <form @submit.prevent="submitCard">
@@ -168,6 +172,7 @@ export default {
             formMessage: "",
             formMessageType: "",
             submitting: false,
+            loading: true,
         };
     },
     computed: {
@@ -240,6 +245,8 @@ export default {
                 if (data.ok) this.cardHistory = data.data || [];
             } catch (err) {
                 console.error(err);
+            } finally {
+                this.loading = false;
             }
         },
     },

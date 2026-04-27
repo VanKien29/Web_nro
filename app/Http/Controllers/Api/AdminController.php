@@ -854,8 +854,78 @@ class AdminController extends Controller
                 2 => 'Số lượng đã làm',
                 3 => 'Mốc thời gian nhiệm vụ',
             ]),
+            'items_body', 'items_bag', 'items_box', 'item_mails_box', 'items_daban' => $this->parsePlayerItemList($value),
             default => $this->summarizeDecodedArray($value),
         };
+    }
+
+    private function parsePlayerItemList($value): ?array
+    {
+        $decoded = $this->decodeArray($value);
+        if (empty($decoded)) {
+            return null;
+        }
+
+        $itemIds = [];
+        foreach ($decoded as $slot) {
+            if (!is_array($slot)) {
+                continue;
+            }
+            $itemId = $slot['temp_id'] ?? $slot['template_id'] ?? $slot[0] ?? null;
+            if (is_numeric($itemId) && (int) $itemId >= 0) {
+                $itemIds[(int) $itemId] = true;
+            }
+        }
+
+        $templates = [];
+        if (!empty($itemIds)) {
+            try {
+                $templates = DB::connection('game')->table('item_template')
+                    ->whereIn('id', array_keys($itemIds))
+                    ->get(['id', DB::raw('NAME as name'), DB::raw('TYPE as type'), 'icon_id'])
+                    ->keyBy('id')
+                    ->all();
+            } catch (\Throwable) {
+                $templates = [];
+            }
+        }
+
+        $items = [];
+        foreach (array_slice($decoded, 0, 40, true) as $index => $slot) {
+            if (!is_array($slot)) {
+                $items[] = [
+                    'index' => is_int($index) ? $index : (string) $index,
+                    'label' => 'Ô',
+                    'value' => $slot,
+                ];
+                continue;
+            }
+
+            $itemId = $slot['temp_id'] ?? $slot['template_id'] ?? $slot[0] ?? -1;
+            $quantity = $slot['quantity'] ?? $slot['qty'] ?? $slot[1] ?? 1;
+            $options = $slot['options'] ?? $slot[2] ?? [];
+            $template = is_numeric($itemId) ? ($templates[(int) $itemId] ?? null) : null;
+            $optionCount = is_array($options) ? count($options) : 0;
+
+            $items[] = [
+                'index' => is_int($index) ? $index : (string) $index,
+                'label' => $template
+                    ? ('#' . (int) $itemId . ' ' . (string) $template->name)
+                    : ('Item #' . $itemId),
+                'value' => [
+                    'quantity' => is_numeric($quantity) ? (int) $quantity : $quantity,
+                    'type' => $template ? (int) $template->type : null,
+                    'icon_id' => $template && isset($template->icon_id) ? (int) $template->icon_id : null,
+                    'options' => $optionCount,
+                ],
+            ];
+        }
+
+        return [
+            'type' => 'item_list',
+            'count' => count($decoded),
+            'items' => $items,
+        ];
     }
 
     private function summarizeDecodedArray($value): ?array
@@ -1499,6 +1569,7 @@ class AdminController extends Controller
     {
         $search = $request->query('search', '');
         $typeInput = $request->query('type');
+        $genderInput = $request->query('gender');
         $lite = $request->boolean('lite');
         $type = null;
         if ($typeInput !== null) {
@@ -1507,20 +1578,38 @@ class AdminController extends Controller
                 $type = is_numeric($typeStr) ? (int) $typeStr : $typeStr;
             }
         }
+        $gender = null;
+        if ($genderInput !== null) {
+            $genderStr = trim((string) $genderInput);
+            if ($genderStr !== '' && !in_array(strtolower($genderStr), ['undefined', 'null', 'nan'], true)) {
+                $gender = is_numeric($genderStr) ? (int) $genderStr : $genderStr;
+            }
+        }
         $perPage = max(1, min((int) $request->query('per_page', 50), 200));
         $page = max((int) $request->query('page', 1), 1);
 
         $usingWebIndex = $this->webItemIndexReady();
+        $webIndexHasGender = false;
+        if ($usingWebIndex) {
+            try {
+                $webIndexHasGender = Schema::hasColumn('game_item_indexes', 'gender');
+            } catch (\Throwable) {
+                $webIndexHasGender = false;
+            }
+            if ($gender !== null && !$webIndexHasGender) {
+                $usingWebIndex = false;
+            }
+        }
         $query = $usingWebIndex
             ? DB::table('game_item_indexes')->selectRaw($lite
-                ? 'id, name, type, icon_id'
-                : 'id, name, type, icon_id, part, head, body, leg, description, is_up_to_up')
+                ? ('id, name, type, icon_id' . ($webIndexHasGender ? ', gender' : ''))
+                : ('id, name, type, icon_id, part, head, body, leg, description, is_up_to_up' . ($webIndexHasGender ? ', gender' : '')))
             : DB::connection('game')->table('item_template')->selectRaw($lite
-                ? 'id, NAME as name, TYPE as type, icon_id'
-                : 'id, NAME as name, TYPE as type, icon_id, part, head, body, leg, description, is_up_to_up');
+                ? 'id, NAME as name, TYPE as type, gender, icon_id'
+                : 'id, NAME as name, TYPE as type, gender, icon_id, part, head, body, leg, description, is_up_to_up');
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $query->where(function ($q) use ($search, $usingWebIndex) {
                 if (is_numeric($search)) {
                     $q->where('id', (int) $search);
                 } else {
@@ -1530,7 +1619,7 @@ class AdminController extends Controller
                                 ->orWhere('normalized_name', 'LIKE', '%' . mb_strtolower($search) . '%');
                         });
                     } else {
-                        $q->where('name', 'LIKE', "%{$search}%");
+                        $q->where('NAME', 'LIKE', "%{$search}%");
                     }
                 }
             });
@@ -1538,6 +1627,9 @@ class AdminController extends Controller
 
         if ($type !== null) {
             $query->where('type', $type);
+        }
+        if ($gender !== null) {
+            $query->where('gender', $gender);
         }
 
         $total = (clone $query)->count();
@@ -1577,6 +1669,7 @@ class AdminController extends Controller
         $items = $items->map(function ($item) use ($partMap, $lite) {
             $item->id = (int) $item->id;
             $item->type = isset($item->type) ? (int) $item->type : null;
+            $item->gender = isset($item->gender) ? (int) $item->gender : null;
             $item->icon_id = isset($item->icon_id) ? (int) $item->icon_id : 0;
             if ($lite) {
                 return $item;
@@ -1689,7 +1782,7 @@ class AdminController extends Controller
 
         sort($ids);
         $items = DB::connection('game')->table('item_template')
-            ->selectRaw('id, NAME as name, TYPE as type, icon_id')
+            ->selectRaw('id, NAME as name, TYPE as type, gender, icon_id')
             ->whereIn('id', $ids)
             ->get()
             ->mapWithKeys(function ($item) {
@@ -1698,12 +1791,81 @@ class AdminController extends Controller
                         'id' => (int) $item->id,
                         'name' => (string) ($item->name ?? ''),
                         'type' => isset($item->type) ? (int) $item->type : null,
+                        'gender' => isset($item->gender) ? (int) $item->gender : null,
                         'icon_id' => isset($item->icon_id) ? (int) $item->icon_id : null,
                     ],
                 ];
             });
 
         return response()->json($items);
+    }
+
+    // PUT /api/admin/items/{id}
+    public function itemsUpdate(Request $request, int $id): JsonResponse
+    {
+        $game = DB::connection('game');
+        $table = $game->table('item_template');
+        $before = $table->where('id', $id)->first();
+
+        if (!$before) {
+            return response()->json(['ok' => false, 'message' => 'Item không tồn tại'], 404);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|integer',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'icon_id' => 'required|integer|min:0',
+            'part' => 'nullable|integer|min:-1',
+            'head' => 'nullable|integer|min:-1',
+            'body' => 'nullable|integer|min:-1',
+            'leg' => 'nullable|integer|min:-1',
+            'description' => 'nullable|string|max:2000',
+            'is_up_to_up' => 'nullable|boolean',
+        ]);
+
+        $data = [
+            'NAME' => (string) $request->input('name', ''),
+            'TYPE' => (int) $request->input('type', 0),
+            'gender' => (int) $request->input('gender', 3),
+            'icon_id' => (int) $request->input('icon_id', 0),
+            'part' => (int) $request->input('part', -1),
+            'head' => (int) $request->input('head', -1),
+            'body' => (int) $request->input('body', -1),
+            'leg' => (int) $request->input('leg', -1),
+            'description' => (string) $request->input('description', ''),
+            'is_up_to_up' => $request->boolean('is_up_to_up') ? 1 : 0,
+        ];
+
+        foreach (array_keys($data) as $column) {
+            if (!Schema::connection('game')->hasColumn('item_template', $column)) {
+                unset($data[$column]);
+            }
+        }
+
+        if (empty($data)) {
+            return response()->json(['ok' => false, 'message' => 'Không có cột item nào có thể cập nhật'], 422);
+        }
+
+        $table->where('id', $id)->update($data);
+        Cache::forget('admin:item_type_options:v2');
+        Cache::forget('admin:item_type_options:web:v1');
+
+        $after = $game->table('item_template')->where('id', $id)->first();
+        $this->logAdminAction(
+            'item.update',
+            'item',
+            $id,
+            "Cập nhật item #{$id} " . ($data['NAME'] ?? ($before->NAME ?? '')),
+            $this->sanitizeLogState((array) $before),
+            $this->sanitizeLogState((array) $after)
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã cập nhật item',
+            'data' => $after,
+        ]);
     }
 
     // GET /api/admin/items/{id}/options

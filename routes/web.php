@@ -62,6 +62,7 @@ Route::prefix('api')->group(function () {
 
         // Items
         Route::get('/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
+        Route::put('/items/{id}', [\App\Http\Controllers\Api\AdminController::class, 'itemsUpdate']);
         Route::get('/items/{id}/options', [\App\Http\Controllers\Api\AdminController::class, 'itemsOptions']);
 
         // Shops
@@ -134,6 +135,7 @@ Route::prefix('admin')->group(function () {
 
         // Items & Options
         Route::get('/api/items', [\App\Http\Controllers\Api\AdminController::class, 'itemsList']);
+        Route::put('/api/items/{id}', [\App\Http\Controllers\Api\AdminController::class, 'itemsUpdate']);
         Route::get('/api/items/batch', [\App\Http\Controllers\Api\AdminController::class, 'itemsBatch']);
         Route::get('/api/items/search', [\App\Http\Controllers\Admin\GiftcodeController::class, 'searchItems']);
         Route::get('/api/options', [\App\Http\Controllers\Admin\GiftcodeController::class, 'allOptions']);

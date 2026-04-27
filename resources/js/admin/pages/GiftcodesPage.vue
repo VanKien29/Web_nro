@@ -36,7 +36,9 @@
                     class="form-input compact-filter"
                 >
                     <option value="">Tất cả trạng thái</option>
-                    <option value="available">Đang hiển thị và dùng được</option>
+                    <option value="available">
+                        Đang hiển thị và dùng được
+                    </option>
                     <option value="active">Đang hiển thị</option>
                     <option value="inactive">Đang ẩn</option>
                     <option value="expired">Đã hết hạn</option>
@@ -181,6 +183,13 @@
                                 </div>
                             </td>
                         </tr>
+                        <!-- <tr v-if="loading" class="admin-loading-row">
+                            <td colspan="9">
+                                <span class="admin-loading-row__content">
+                                    <span class="admin-loading-spinner"></span>
+                                </span>
+                            </td>
+                        </tr> -->
                         <tr v-if="!giftcodes.length && !loading">
                             <td
                                 colspan="9"
@@ -444,7 +453,8 @@ export default {
                     const nextMap = { ...this.itemIconMap };
                     for (const [id, item] of Object.entries(data || {})) {
                         nextMap[Number(id)] =
-                            item?.icon_id !== undefined && item?.icon_id !== null
+                            item?.icon_id !== undefined &&
+                            item?.icon_id !== null
                                 ? item.icon_id
                                 : null;
                     }
