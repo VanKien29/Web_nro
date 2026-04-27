@@ -425,6 +425,9 @@
                                 </button>
                             </div>
                         </details>
+                        <!-- <div v-if="loading" class="admin-loading-block">
+                            <div class="admin-loading-spinner"></div>
+                        </div> -->
                         <div
                             v-if="!bossBuckets.length && !loading"
                             class="empty-cell"

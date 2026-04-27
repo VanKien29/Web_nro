@@ -121,12 +121,23 @@
                         <!-- Slides -->
                         <div class="list-slide box-border p-r">
                             <div class="listSlide__new" ref="slickSlider">
-                                <div v-for="slide in slides" :key="slide.id">
-                                    <img
-                                        :src="slide.image"
-                                        :alt="slide.title"
-                                    />
+                                <div
+                                    v-if="loading"
+                                    class="page-loading page-loading--compact"
+                                >
+                                    <div class="page-loading__spinner"></div>
                                 </div>
+                                <template v-else>
+                                    <div
+                                        v-for="slide in slides"
+                                        :key="slide.id"
+                                    >
+                                        <img
+                                            :src="slide.image"
+                                            :alt="slide.title"
+                                        />
+                                    </div>
+                                </template>
                             </div>
                             <div class="icon-rau rau-left-top"></div>
                             <div class="icon-rau rau-right-bottom"></div>
@@ -166,67 +177,82 @@
 
                             <div class="tab-content">
                                 <div
-                                    class="tab-detail"
-                                    :class="{
-                                        current: activeTab === 'tin-tuc',
-                                    }"
+                                    v-if="loading"
+                                    class="page-loading page-loading--compact"
                                 >
-                                    <router-link
-                                        v-for="post in tin_tuc"
-                                        :key="post.id"
-                                        :to="`/post/${post.slug}`"
-                                        class="item-new-box f-Roboto-Regular"
-                                    >
-                                        <div class="cat-des">
-                                            {{ post.title }}
-                                        </div>
-                                        <div class="date-open">
-                                            {{ formatDate(post.created_at) }}
-                                        </div>
-                                    </router-link>
+                                    <div class="page-loading__spinner"></div>
                                 </div>
 
-                                <div
-                                    class="tab-detail"
-                                    :class="{
-                                        current: activeTab === 'su-kien',
-                                    }"
-                                >
-                                    <router-link
-                                        v-for="post in su_kien"
-                                        :key="post.id"
-                                        :to="`/post/${post.slug}`"
-                                        class="item-new-box f-Roboto-Regular"
+                                <template v-else>
+                                    <div
+                                        class="tab-detail"
+                                        :class="{
+                                            current: activeTab === 'tin-tuc',
+                                        }"
                                     >
-                                        <div class="cat-des">
-                                            {{ post.title }}
-                                        </div>
-                                        <div class="date-open">
-                                            {{ formatDate(post.created_at) }}
-                                        </div>
-                                    </router-link>
-                                </div>
+                                        <router-link
+                                            v-for="post in tin_tuc"
+                                            :key="post.id"
+                                            :to="`/post/${post.slug}`"
+                                            class="item-new-box f-Roboto-Regular"
+                                        >
+                                            <div class="cat-des">
+                                                {{ post.title }}
+                                            </div>
+                                            <div class="date-open">
+                                                {{
+                                                    formatDate(post.created_at)
+                                                }}
+                                            </div>
+                                        </router-link>
+                                    </div>
 
-                                <div
-                                    class="tab-detail"
-                                    :class="{
-                                        current: activeTab === 'huong-dan',
-                                    }"
-                                >
-                                    <router-link
-                                        v-for="post in huong_dan"
-                                        :key="post.id"
-                                        :to="`/post/${post.slug}`"
-                                        class="item-new-box f-Roboto-Regular"
+                                    <div
+                                        class="tab-detail"
+                                        :class="{
+                                            current: activeTab === 'su-kien',
+                                        }"
                                     >
-                                        <div class="cat-des">
-                                            {{ post.title }}
-                                        </div>
-                                        <div class="date-open">
-                                            {{ formatDate(post.created_at) }}
-                                        </div>
-                                    </router-link>
-                                </div>
+                                        <router-link
+                                            v-for="post in su_kien"
+                                            :key="post.id"
+                                            :to="`/post/${post.slug}`"
+                                            class="item-new-box f-Roboto-Regular"
+                                        >
+                                            <div class="cat-des">
+                                                {{ post.title }}
+                                            </div>
+                                            <div class="date-open">
+                                                {{
+                                                    formatDate(post.created_at)
+                                                }}
+                                            </div>
+                                        </router-link>
+                                    </div>
+
+                                    <div
+                                        class="tab-detail"
+                                        :class="{
+                                            current: activeTab === 'huong-dan',
+                                        }"
+                                    >
+                                        <router-link
+                                            v-for="post in huong_dan"
+                                            :key="post.id"
+                                            :to="`/post/${post.slug}`"
+                                            class="item-new-box f-Roboto-Regular"
+                                        >
+                                            <div class="cat-des">
+                                                {{ post.title }}
+                                            </div>
+                                            <div class="date-open">
+                                                {{
+                                                    formatDate(post.created_at)
+                                                }}
+                                            </div>
+                                        </router-link>
+                                    </div>
+                                </template>
                             </div>
 
                             <div class="icon-rau rau-left-bottom"></div>
@@ -340,6 +366,7 @@ export default {
             huong_dan: [],
             settings: {},
             activeTab: "tin-tuc",
+            loading: true,
         };
     },
     async mounted() {
@@ -360,6 +387,8 @@ export default {
                 this.settings = data.settings || {};
             } catch (err) {
                 console.error("Failed to load home data:", err);
+            } finally {
+                this.loading = false;
             }
         },
         formatDate(dateStr) {

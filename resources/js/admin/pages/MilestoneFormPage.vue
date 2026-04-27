@@ -11,16 +11,24 @@
                     >
                     <span>/</span>
                     <router-link
-                        :to="{ name: 'admin.milestones', params: { type: currentType } }"
+                        :to="{
+                            name: 'admin.milestones',
+                            params: { type: currentType },
+                        }"
                     >
                         {{ currentTypeLabel }}
                     </router-link>
                     <span>/</span>
-                    <span class="current">{{ isEdit ? "#" + form.id : "Tạo mới" }}</span>
+                    <span class="current">{{
+                        isEdit ? "#" + form.id : "Tạo mới"
+                    }}</span>
                 </nav>
             </div>
             <router-link
-                :to="{ name: 'admin.milestones', params: { type: currentType } }"
+                :to="{
+                    name: 'admin.milestones',
+                    params: { type: currentType },
+                }"
                 class="btn btn-outline"
             >
                 <span class="mi" style="font-size: 16px">arrow_back</span>
@@ -88,7 +96,9 @@
                         Quà vật phẩm
                     </h3>
                     <div class="card-header-actions">
-                        <span class="item-count">{{ items.length }} vật phẩm</span>
+                        <span class="item-count"
+                            >{{ items.length }} vật phẩm</span
+                        >
                         <button
                             type="button"
                             class="btn btn-outline btn-sm"
@@ -125,8 +135,12 @@
                                 :icon-id="item.icon_id"
                             />
                             <div class="item-result-info">
-                                <div class="item-result-name">{{ item.name }}</div>
-                                <div class="item-result-id">ID: {{ item.id }}</div>
+                                <div class="item-result-name">
+                                    {{ item.name }}
+                                </div>
+                                <div class="item-result-id">
+                                    ID: {{ item.id }}
+                                </div>
                             </div>
                             <span class="mi add-icon">add_circle</span>
                         </div>
@@ -157,7 +171,10 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(item, idx) in items" :key="'item-' + idx">
+                            <tr
+                                v-for="(item, idx) in items"
+                                :key="'item-' + idx"
+                            >
                                 <td class="td-idx">{{ idx + 1 }}</td>
                                 <td class="td-icon">
                                     <AdminIcon
@@ -167,7 +184,9 @@
                                 </td>
                                 <td class="td-name">
                                     <div class="t-name">{{ item.name }}</div>
-                                    <div class="t-id">ID: {{ item.temp_id }}</div>
+                                    <div class="t-id">
+                                        ID: {{ item.temp_id }}
+                                    </div>
                                 </td>
                                 <td>
                                     <input
@@ -180,7 +199,11 @@
                                 <td class="td-opts">
                                     <div class="t-opts-list">
                                         <span
-                                            v-for="(opt, oi) in item.options.filter((o) => !o._pending)"
+                                            v-for="(
+                                                opt, oi
+                                            ) in item.options.filter(
+                                                (o) => !o._pending,
+                                            )"
                                             :key="'opt-' + oi"
                                             class="t-opt-pill"
                                             @click="editOption(item, opt)"
@@ -192,7 +215,9 @@
                                                 class="t-opt-rm"
                                                 @click.stop="
                                                     item.options.splice(
-                                                        item.options.indexOf(opt),
+                                                        item.options.indexOf(
+                                                            opt,
+                                                        ),
                                                         1,
                                                     )
                                                 "
@@ -201,37 +226,55 @@
                                             </button>
                                         </span>
                                         <button
-                                            v-if="!item.options.some((o) => o._pending)"
+                                            v-if="
+                                                !item.options.some(
+                                                    (o) => o._pending,
+                                                )
+                                            "
                                             type="button"
                                             class="t-opt-add"
                                             @click="addPendingOption(item)"
                                             title="Thêm option"
                                         >
-                                            <span class="mi" style="font-size: 14px"
+                                            <span
+                                                class="mi"
+                                                style="font-size: 14px"
                                                 >add</span
                                             >
                                         </button>
                                     </div>
 
                                     <div
-                                        v-if="item.options.some((o) => o._pending)"
+                                        v-if="
+                                            item.options.some((o) => o._pending)
+                                        "
                                         class="t-opt-editor"
                                     >
                                         <div class="option-select-wrap">
                                             <input
-                                                v-model="pendingOpt(item).search"
+                                                v-model="
+                                                    pendingOpt(item).search
+                                                "
                                                 class="form-input input-sm"
                                                 placeholder="Tìm chỉ số..."
                                                 autocomplete="off"
-                                                @focus="pendingOpt(item).showDrop = true"
-                                                @input="pendingOpt(item).showDrop = true"
+                                                @focus="
+                                                    pendingOpt(item).showDrop =
+                                                        true
+                                                "
+                                                @input="
+                                                    pendingOpt(item).showDrop =
+                                                        true
+                                                "
                                             />
                                             <div
                                                 v-if="pendingOpt(item).showDrop"
                                                 class="option-dropdown"
                                             >
                                                 <div
-                                                    v-for="o in filteredOptions(pendingOpt(item).search)"
+                                                    v-for="o in filteredOptions(
+                                                        pendingOpt(item).search,
+                                                    )"
                                                     :key="'o-' + o.id"
                                                     class="option-dropdown-item"
                                                     @mousedown.prevent="
@@ -249,7 +292,8 @@
                                                 <div
                                                     v-if="
                                                         !filteredOptions(
-                                                            pendingOpt(item).search,
+                                                            pendingOpt(item)
+                                                                .search,
                                                         ).length
                                                     "
                                                     class="option-dropdown-empty"
@@ -259,7 +303,9 @@
                                             </div>
                                         </div>
                                         <input
-                                            v-model.number="pendingOpt(item).param"
+                                            v-model.number="
+                                                pendingOpt(item).param
+                                            "
                                             type="number"
                                             class="form-input input-sm param-input"
                                             placeholder="Param"
@@ -270,7 +316,9 @@
                                             @click="confirmOption(item)"
                                             title="Xác nhận"
                                         >
-                                            <span class="mi" style="font-size: 16px"
+                                            <span
+                                                class="mi"
+                                                style="font-size: 16px"
                                                 >check</span
                                             >
                                         </button>
@@ -280,7 +328,9 @@
                                             @click="cancelPendingOption(item)"
                                             title="Hủy"
                                         >
-                                            <span class="mi" style="font-size: 16px"
+                                            <span
+                                                class="mi"
+                                                style="font-size: 16px"
                                                 >close</span
                                             >
                                         </button>
@@ -300,7 +350,9 @@
                     </table>
                 </div>
                 <div v-else class="empty-items">
-                    <span class="mi" style="font-size: 42px; color: var(--ds-gray-300)"
+                    <span
+                        class="mi"
+                        style="font-size: 42px; color: var(--ds-gray-300)"
                         >inventory_2</span
                     >
                     <p>Chưa có vật phẩm trong mốc quà</p>
@@ -308,7 +360,11 @@
             </div>
 
             <div class="form-actions">
-                <button class="btn btn-primary" type="submit" :disabled="saving">
+                <button
+                    class="btn btn-primary"
+                    type="submit"
+                    :disabled="saving"
+                >
                     <span class="mi" style="font-size: 16px">save</span>
                     {{ saving ? "Đang lưu..." : "Lưu thay đổi" }}
                 </button>
@@ -371,9 +427,12 @@
                 </div>
                 <div class="picker-list">
                     <div v-if="itemPicker.loading" class="picker-empty">
-                        Đang tải dữ liệu...
+                        <span class="admin-loading-spinner"></span>
                     </div>
-                    <div v-else-if="!itemPicker.rows.length" class="picker-empty">
+                    <div
+                        v-else-if="!itemPicker.rows.length"
+                        class="picker-empty"
+                    >
                         Không có vật phẩm phù hợp.
                     </div>
                     <button
@@ -398,7 +457,12 @@
                     </button>
                 </div>
                 <div class="picker-foot">
-                    <span>{{ itemPicker.total.toLocaleString("vi-VN") }} item</span>
+                    <span
+                        >{{
+                            itemPicker.total.toLocaleString("vi-VN")
+                        }}
+                        item</span
+                    >
                     <div class="picker-pagination">
                         <button
                             type="button"
@@ -596,6 +660,11 @@ export default {
                 this.items = [];
             }
         },
+        "$route.params.id"() {
+            if (this.isEdit) {
+                this.loadRecord();
+            }
+        },
     },
     created() {
         this.ensureType();
@@ -621,7 +690,10 @@ export default {
             if (!TYPE_MAP[type]) return;
             if (type === this.currentType) return;
             if (this.isEdit) {
-                this.$router.push({ name: "admin.milestones", params: { type } });
+                this.$router.push({
+                    name: "admin.milestones",
+                    params: { type },
+                });
                 return;
             }
             this.$router.push({
@@ -652,7 +724,9 @@ export default {
         parseDetail(detail) {
             try {
                 const raw =
-                    typeof detail === "string" ? detail : JSON.stringify(detail);
+                    typeof detail === "string"
+                        ? detail
+                        : JSON.stringify(detail);
                 const d = JSON.parse(this.fixJson(raw));
                 return Array.isArray(d) ? d : [];
             } catch {
@@ -664,7 +738,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -698,7 +778,10 @@ export default {
         },
         goToItemPickerPage(page) {
             const target = this.normalizePickerPage(page);
-            if (target === this.itemPicker.page && this.itemPicker.rows.length) {
+            if (
+                target === this.itemPicker.page &&
+                this.itemPicker.rows.length
+            ) {
                 this.itemPicker.pageInput = String(target);
                 return;
             }
@@ -731,9 +814,12 @@ export default {
                 if (this.itemPicker.type !== "") {
                     params.set("type", this.itemPicker.type);
                 }
-                const res = await fetch(`/admin/api/items?${params.toString()}`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" },
-                });
+                const res = await fetch(
+                    `/admin/api/items?${params.toString()}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
                 const data = await res.json();
                 this.itemPicker.rows = data?.data || [];
                 this.itemPicker.types = data?.types || this.itemPicker.types;
@@ -756,7 +842,9 @@ export default {
         },
         itemTypeLabel(typeValue) {
             const key = String(typeValue ?? "").trim();
-            const found = this.itemPickerTypes.find((t) => String(t.id) === key);
+            const found = this.itemPickerTypes.find(
+                (t) => String(t.id) === key,
+            );
             if (found) return `TYPE: ${found.id} - ${found.name}`;
             return `TYPE: ${typeValue}`;
         },
@@ -921,15 +1009,17 @@ export default {
                         return {
                             id: o.id || 0,
                             param: o.param || 0,
-                            search: name ? `${name} (ID: ${o.id})` : `ID: ${o.id}`,
+                            search: name
+                                ? `${name} (ID: ${o.id})`
+                                : `ID: ${o.id}`,
                             showDrop: false,
                         };
                     }),
                 }));
 
-                const ids = [...new Set(this.items.map((i) => i.temp_id))].filter(
-                    (id) => !!id,
-                );
+                const ids = [
+                    ...new Set(this.items.map((i) => i.temp_id)),
+                ].filter((id) => !!id);
                 if (ids.length) {
                     const iconRes = await fetch(
                         `/admin/api/items/batch?ids=${ids.join(",")}`,
@@ -939,7 +1029,7 @@ export default {
                     this.items = this.items.map((it) => ({
                         ...it,
                         name: iconData[it.temp_id]?.name || it.name,
-                        icon_id: iconData[it.temp_id]?.icon_id ?? null,
+                        icon_id: iconData[it.temp_id]?.icon_id ?? it.icon_id,
                     }));
                 }
             } catch {

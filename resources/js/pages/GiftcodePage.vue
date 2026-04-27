@@ -11,9 +11,9 @@
                 DANH SÁCH GIFTCODE
             </div>
 
-            <p v-if="loading" style="text-align: center; color: #111">
-                Đang tải...
-            </p>
+            <div v-if="loading" class="page-loading">
+                <div class="page-loading__spinner"></div>
+            </div>
 
             <div v-else-if="giftcodes.length === 0" class="no-giftcodes">
                 Hiện chưa có giftcode nào.

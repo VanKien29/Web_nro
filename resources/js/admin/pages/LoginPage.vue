@@ -93,7 +93,10 @@
                                 class="submit-btn"
                                 :disabled="loading"
                             >
-                                <span v-if="loading">Đang đăng nhập...</span>
+                                <span v-if="loading">
+                                    <span class="admin-loading-dot"></span>
+                                    Đang đăng nhập...
+                                </span>
                                 <span v-else>Đăng nhập &rarr;</span>
                             </button>
                         </form>

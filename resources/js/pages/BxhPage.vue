@@ -9,7 +9,11 @@
         <div class="rankings-container">
             <div class="main-title" style="color: #1f2937">BẢNG XẾP HẠNG</div>
 
-            <div class="tabs-container">
+            <div v-if="loading" class="page-loading">
+                <div class="page-loading__spinner"></div>
+            </div>
+
+            <div v-else class="tabs-container">
                 <div class="tab-navigation">
                     <button
                         class="tab-btn tab-nap"

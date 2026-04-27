@@ -2,7 +2,11 @@
     <div class="admin-app" :class="layoutClass">
         <!-- Login page — no layout -->
         <template v-if="$route.meta.guest">
-            <router-view />
+            <router-view v-slot="{ Component }">
+                <transition name="admin-page-switch" mode="out-in">
+                    <component :is="Component" />
+                </transition>
+            </router-view>
         </template>
 
         <!-- Authenticated layout -->
@@ -220,12 +224,25 @@
                     </div>
                 </header>
                 <main class="page-content">
-                    <transition name="fade" mode="out-in">
-                        <router-view />
-                    </transition>
+                    <router-view v-slot="{ Component }">
+                        <transition name="admin-page-switch" mode="out-in">
+                            <component :is="Component" />
+                        </transition>
+                    </router-view>
                 </main>
             </div>
         </template>
+
+        <transition name="admin-loading-fade">
+            <div
+                v-if="isAdminLoading"
+                class="admin-route-loading"
+                role="status"
+                aria-live="polite"
+            >
+                <div class="admin-loading-spinner"></div>
+            </div>
+        </transition>
     </div>
 </template>
 
@@ -241,9 +258,15 @@ export default {
             scrollLockObserver: null,
             bodyScrollLocked: false,
             lockedScrollY: 0,
+            bootLoading: true,
+            routeLoading: false,
+            routeLoadingTimer: null,
         };
     },
     computed: {
+        isAdminLoading() {
+            return this.bootLoading || this.routeLoading;
+        },
         layoutClass() {
             return (
                 (this.sidebarCollapsed
@@ -282,6 +305,30 @@ export default {
             attributeFilter: ["class", "style"],
         });
         this.updateScrollLock();
+
+        this._onAdminRouteLoading = (event) => {
+            const loading = !!event.detail?.loading;
+            window.clearTimeout(this.routeLoadingTimer);
+
+            if (loading) {
+                this.routeLoading = true;
+                return;
+            }
+
+            this.routeLoadingTimer = window.setTimeout(() => {
+                this.routeLoading = false;
+            }, 160);
+        };
+        window.addEventListener(
+            "admin-route-loading",
+            this._onAdminRouteLoading,
+        );
+
+        this.$nextTick(() => {
+            window.setTimeout(() => {
+                this.bootLoading = false;
+            }, 280);
+        });
     },
     unmounted() {
         document.removeEventListener("click", this.closeMenus);
@@ -292,6 +339,11 @@ export default {
             this.scrollLockObserver.disconnect();
             this.scrollLockObserver = null;
         }
+        window.removeEventListener(
+            "admin-route-loading",
+            this._onAdminRouteLoading,
+        );
+        window.clearTimeout(this.routeLoadingTimer);
         this.unlockBodyScroll();
     },
     methods: {
@@ -1126,6 +1178,170 @@ body.admin-scroll-lock {
 .pagination button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+/* ═══ LOADING ═══ */
+.admin-page-switch-enter-active,
+.admin-page-switch-leave-active {
+    transition:
+        opacity 0.16s ease,
+        transform 0.16s ease;
+}
+.admin-page-switch-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+}
+.admin-page-switch-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+.admin-loading-fade-enter-active,
+.admin-loading-fade-leave-active {
+    transition: opacity 0.18s ease;
+}
+.admin-loading-fade-enter-from,
+.admin-loading-fade-leave-to {
+    opacity: 0;
+}
+.admin-route-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(9, 14, 18, 0.48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+.admin-route-loading__panel {
+    min-width: 190px;
+    padding: 18px 22px;
+    border: 1px solid var(--ds-border);
+    border-radius: var(--ds-radius-lg);
+    background: rgba(21, 29, 37, 0.94);
+    box-shadow: var(--ds-shadow-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--ds-text-emphasis);
+    font-size: 14px;
+    font-weight: 600;
+}
+.admin-loading-spinner {
+    display: inline-block;
+    position: relative;
+    width: 3em;
+    height: 3em;
+    cursor: not-allowed;
+    border-radius: 50%;
+    border: 2px solid #444;
+    box-shadow:
+        -10px -10px 10px #6359f8,
+        0 -10px 10px 0 #9c32e2,
+        10px -10px 10px #f36896,
+        10px 0 10px #ff0b0b,
+        10px 10px 10px 0 #ff5500,
+        0 10px 10px 0 #ff9500,
+        -10px 10px 10px 0 #ffb700;
+    animation: admin-loader-spin 0.7s linear infinite;
+    flex: 0 0 auto;
+}
+.admin-loading-spinner::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.5em;
+    height: 1.5em;
+    border: 2px solid #444;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+.admin-loading-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ds-text-muted);
+    font-size: 13px;
+}
+.admin-loading-inline .admin-loading-spinner {
+    font-size: 0.45rem;
+}
+.muted-line .admin-loading-spinner,
+.picker-empty .admin-loading-spinner {
+    font-size: 0.5rem;
+    margin-right: 8px;
+    vertical-align: -4px;
+}
+.admin-loading-block {
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--ds-text-muted);
+    text-align: center;
+}
+.admin-loading-row td {
+    padding: 32px 16px !important;
+    text-align: center !important;
+    color: var(--ds-text-muted) !important;
+}
+.admin-loading-row__content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+}
+.admin-loading-dot {
+    display: inline-block;
+    position: relative;
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    border: 2px solid rgba(68, 68, 68, 0.85);
+    box-shadow:
+        -4px -4px 6px #6359f8,
+        0 -4px 6px 0 #9c32e2,
+        4px -4px 6px #f36896,
+        4px 0 6px #ff0b0b,
+        4px 4px 6px 0 #ff5500,
+        0 4px 6px 0 #ff9500,
+        -4px 4px 6px 0 #ffb700;
+    animation: admin-loader-spin 0.7s linear infinite;
+    flex: 0 0 auto;
+    vertical-align: -2px;
+}
+.admin-loading-dot::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.48em;
+    height: 0.48em;
+    border: 1px solid rgba(68, 68, 68, 0.85);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+@keyframes admin-loader-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .admin-page-switch-enter-active,
+    .admin-page-switch-leave-active,
+    .admin-loading-fade-enter-active,
+    .admin-loading-fade-leave-active {
+        transition: none;
+    }
+    .admin-loading-spinner,
+    .admin-loading-dot {
+        animation-duration: 1.5s;
+    }
 }
 
 /* ═══ TRANSITION ═══ */

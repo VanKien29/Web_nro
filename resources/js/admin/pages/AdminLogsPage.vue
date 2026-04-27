@@ -4,7 +4,9 @@
             <div>
                 <h2 class="page-title">Nhật ký admin</h2>
                 <nav class="breadcrumb">
-                    <router-link :to="{ name: 'admin.dashboard' }">Trang chủ</router-link>
+                    <router-link :to="{ name: 'admin.dashboard' }"
+                        >Trang chủ</router-link
+                    >
                     <span>/</span>
                     <span class="current">Nhật ký admin</span>
                 </nav>
@@ -35,7 +37,9 @@
                     <option value="delete">Xoá</option>
                     <option value="clone">Clone</option>
                 </select>
-                <button class="btn btn-primary btn-sm" type="submit">Lọc</button>
+                <button class="btn btn-primary btn-sm" type="submit">
+                    Lọc
+                </button>
             </form>
         </div>
 
@@ -57,52 +61,93 @@
                     <tbody>
                         <template v-for="row in rows" :key="row.id">
                             <tr>
-                                <td class="cell-muted">{{ formatDateTime(row.created_at) }}</td>
-                                <td class="cell-strong">{{ row.admin_username || "admin" }}</td>
+                                <td class="cell-muted">
+                                    {{ formatDateTime(row.created_at) }}
+                                </td>
+                                <td class="cell-strong">
+                                    {{ row.admin_username || "admin" }}
+                                </td>
                                 <td>
-                                    <span class="badge badge-info">{{ actionLabel(row.action) }}</span>
+                                    <span class="badge badge-info">{{
+                                        actionLabel(row.action)
+                                    }}</span>
                                 </td>
                                 <td>
                                     <div class="log-target-cell">
-                                        <span>{{ targetLabel(row.target_type) }}</span>
-                                        <span v-if="row.target_id" class="log-id">#{{ row.target_id }}</span>
+                                        <span>{{
+                                            targetLabel(row.target_type)
+                                        }}</span>
+                                        <span
+                                            v-if="row.target_id"
+                                            class="log-id"
+                                            >#{{ row.target_id }}</span
+                                        >
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="log-summary-cell" :title="row.summary || ''">
+                                    <div
+                                        class="log-summary-cell"
+                                        :title="row.summary || ''"
+                                    >
                                         {{ row.summary || "Không có mô tả" }}
                                     </div>
                                 </td>
-                                <td style="text-align:right">
+                                <td style="text-align: right">
                                     <button
                                         type="button"
                                         class="btn btn-outline btn-xs"
                                         @click="toggleExpanded(row.id)"
                                     >
-                                        {{ expanded[row.id] ? "Thu gọn" : "Chi tiết" }}
+                                        {{
+                                            expanded[row.id]
+                                                ? "Thu gọn"
+                                                : "Chi tiết"
+                                        }}
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="expanded[row.id]" class="log-expanded-row">
+                            <tr
+                                v-if="expanded[row.id]"
+                                class="log-expanded-row"
+                            >
                                 <td colspan="6">
                                     <div class="log-details">
                                         <div class="log-detail-meta">
-                                            <span class="log-target">{{ row.target_label || "—" }}</span>
+                                            <span class="log-target">{{
+                                                row.target_label || "—"
+                                            }}</span>
                                         </div>
                                         <div class="log-detail-grid">
                                             <div class="log-detail-box">
-                                                <div class="log-detail-title">Trước khi sửa</div>
-                                                <pre>{{ prettyState(row.before_state) }}</pre>
+                                                <div class="log-detail-title">
+                                                    Trước khi sửa
+                                                </div>
+                                                <pre>{{
+                                                    prettyState(
+                                                        row.before_state,
+                                                    )
+                                                }}</pre>
                                             </div>
                                             <div class="log-detail-box">
-                                                <div class="log-detail-title">Sau khi sửa</div>
-                                                <pre>{{ prettyState(row.after_state) }}</pre>
+                                                <div class="log-detail-title">
+                                                    Sau khi sửa
+                                                </div>
+                                                <pre>{{
+                                                    prettyState(row.after_state)
+                                                }}</pre>
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                             </tr>
                         </template>
+                        <!-- <tr v-if="loading" class="admin-loading-row">
+                            <td colspan="6">
+                                <span class="admin-loading-row__content">
+                                    <span class="admin-loading-spinner"></span>
+                                </span>
+                            </td>
+                        </tr> -->
                         <tr v-if="!rows.length && !loading">
                             <td colspan="6" class="empty-state">
                                 Chưa có nhật ký thao tác nào.
@@ -114,15 +159,35 @@
 
             <div v-if="totalPages > 1" class="pagination">
                 <button :disabled="page <= 1" @click="goToPage(1)">Đầu</button>
-                <button :disabled="page <= 1" @click="goToPage(page - 1)">&laquo;</button>
+                <button :disabled="page <= 1" @click="goToPage(page - 1)">
+                    &laquo;
+                </button>
                 <template v-for="p in paginationItems" :key="String(p)">
-                    <span v-if="typeof p !== 'number'" class="pagination-ellipsis">...</span>
-                    <button v-else :class="{ active: p === page }" @click="goToPage(p)">
+                    <span
+                        v-if="typeof p !== 'number'"
+                        class="pagination-ellipsis"
+                        >...</span
+                    >
+                    <button
+                        v-else
+                        :class="{ active: p === page }"
+                        @click="goToPage(p)"
+                    >
                         {{ p }}
                     </button>
                 </template>
-                <button :disabled="page >= totalPages" @click="goToPage(page + 1)">&raquo;</button>
-                <button :disabled="page >= totalPages" @click="goToPage(totalPages)">Cuối</button>
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(page + 1)"
+                >
+                    &raquo;
+                </button>
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(totalPages)"
+                >
+                    Cuối
+                </button>
             </div>
         </div>
     </div>
@@ -158,7 +223,13 @@ export default {
             if (total <= 7) {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -192,12 +263,17 @@ export default {
                     target_type: this.filters.target_type || "",
                     action: this.filters.action || "",
                 });
-                const res = await fetch(`/admin/api/admin-logs?${params.toString()}`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" },
-                });
+                const res = await fetch(
+                    `/admin/api/admin-logs?${params.toString()}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
                 const data = await res.json();
                 if (!data.ok) {
-                    throw new Error(data.message || "Không thể tải nhật ký admin");
+                    throw new Error(
+                        data.message || "Không thể tải nhật ký admin",
+                    );
                 }
                 this.rows = data.data || [];
                 this.page = data.page || 1;
@@ -209,7 +285,10 @@ export default {
             }
         },
         goToPage(page) {
-            const target = Math.min(Math.max(Number(page) || 1, 1), this.totalPages || 1);
+            const target = Math.min(
+                Math.max(Number(page) || 1, 1),
+                this.totalPages || 1,
+            );
             this.loadPage(target);
         },
         toggleExpanded(id) {

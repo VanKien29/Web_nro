@@ -6,9 +6,9 @@
             <span>Thông tin cá nhân</span>
         </div>
 
-        <p v-if="loading" style="text-align: center; color: #111">
-            Đang tải...
-        </p>
+        <div v-if="loading" class="page-loading">
+            <div class="page-loading__spinner"></div>
+        </div>
 
         <div
             v-else-if="profile"

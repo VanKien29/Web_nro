@@ -114,7 +114,18 @@ const router = createRouter({
 
 const CHUNK_RELOAD_KEY = "admin_chunk_reload_once";
 
+function emitAdminRouteLoading(loading) {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+        new CustomEvent("admin-route-loading", { detail: { loading } }),
+    );
+}
+
 router.beforeEach(async (to, from, next) => {
+    if (to.fullPath !== from.fullPath) {
+        emitAdminRouteLoading(true);
+    }
+
     // Check if route needs auth
     if (to.meta.auth) {
         try {
@@ -146,7 +157,13 @@ router.beforeEach(async (to, from, next) => {
     next();
 });
 
+router.afterEach(() => {
+    emitAdminRouteLoading(false);
+});
+
 router.onError((error, to) => {
+    emitAdminRouteLoading(false);
+
     const msg = String(error?.message || "");
     const isChunkError =
         /Failed to fetch dynamically imported module/i.test(msg) ||

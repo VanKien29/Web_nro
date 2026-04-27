@@ -19,6 +19,10 @@
                     :disabled="runtimeLoading"
                     @click="reloadRuntimeShop"
                 >
+                    <span
+                        v-if="runtimeLoading"
+                        class="admin-loading-dot"
+                    ></span>
                     <span class="mi" style="font-size: 16px">sync</span>
                     {{
                         runtimeLoading
@@ -165,6 +169,13 @@
                                 </td>
                             </tr>
                         </template>
+                        <!-- <tr v-if="loading" class="admin-loading-row">
+                            <td colspan="5">
+                                <span class="admin-loading-row__content">
+                                    <span class="admin-loading-spinner"></span>
+                                </span>
+                            </td>
+                        </tr> -->
                         <tr v-if="!shops.length && !loading">
                             <td
                                 colspan="5"

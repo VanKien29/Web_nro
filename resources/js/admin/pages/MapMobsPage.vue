@@ -150,6 +150,9 @@
                         </span>
                         <em>{{ map.mob_count }} mob</em>
                     </button>
+                    <!-- <div v-if="loading" class="admin-loading-block">
+                        <div class="admin-loading-spinner"></div>
+                    </div> -->
                     <div
                         v-if="!filteredMaps.length && !loading"
                         class="empty-cell"

@@ -12,7 +12,10 @@
                 </nav>
             </div>
             <router-link
-                :to="{ name: 'admin.milestones.create', params: { type: currentType } }"
+                :to="{
+                    name: 'admin.milestones.create',
+                    params: { type: currentType },
+                }"
                 class="btn btn-primary"
             >
                 <span class="mi" style="font-size: 16px">add</span>
@@ -69,7 +72,9 @@
                             <td>
                                 <div class="item-icons">
                                     <AdminIcon
-                                        v-for="(it, idx) in parseDetail(row.detail).slice(0, 6)"
+                                        v-for="(it, idx) in parseDetail(
+                                            row.detail,
+                                        ).slice(0, 6)"
                                         :key="'item-' + row.id + '-' + idx"
                                         :icon-id="itemIconId(it.temp_id)"
                                         :title="
@@ -81,10 +86,14 @@
                                         class="item-icon-sm"
                                     />
                                     <span
-                                        v-if="parseDetail(row.detail).length > 6"
+                                        v-if="
+                                            parseDetail(row.detail).length > 6
+                                        "
                                         class="more-items"
                                     >
-                                        +{{ parseDetail(row.detail).length - 6 }}
+                                        +{{
+                                            parseDetail(row.detail).length - 6
+                                        }}
                                     </span>
                                     <span
                                         v-if="!parseDetail(row.detail).length"
@@ -99,7 +108,10 @@
                                 <router-link
                                     :to="{
                                         name: 'admin.milestones.edit',
-                                        params: { type: currentType, id: row.id },
+                                        params: {
+                                            type: currentType,
+                                            id: row.id,
+                                        },
                                     }"
                                     class="btn btn-primary btn-sm"
                                 >
@@ -110,6 +122,13 @@
                                 </router-link>
                             </td>
                         </tr>
+                        <!-- <tr v-if="loading" class="admin-loading-row">
+                            <td colspan="5">
+                                <span class="admin-loading-row__content">
+                                    <span class="admin-loading-spinner"></span>
+                                </span>
+                            </td>
+                        </tr> -->
                         <tr v-if="!rows.length && !loading">
                             <td colspan="5" class="empty-cell">
                                 Không có dữ liệu.
@@ -139,10 +158,16 @@
                         {{ p }}
                     </button>
                 </template>
-                <button :disabled="page >= totalPages" @click="goToPage(page + 1)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(page + 1)"
+                >
                     &raquo;
                 </button>
-                <button :disabled="page >= totalPages" @click="goToPage(totalPages)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(totalPages)"
+                >
                     Cuối
                 </button>
                 <div class="pagination-jump">
@@ -232,7 +257,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -259,7 +290,10 @@ export default {
         normalizePage(page) {
             const value = Number(page);
             if (!Number.isFinite(value)) return 1;
-            return Math.min(Math.max(1, Math.trunc(value)), this.totalPages || 1);
+            return Math.min(
+                Math.max(1, Math.trunc(value)),
+                this.totalPages || 1,
+            );
         },
         goToPage(page) {
             const target = this.normalizePage(page);
@@ -283,7 +317,9 @@ export default {
         parseDetail(detail) {
             try {
                 const raw =
-                    typeof detail === "string" ? detail : JSON.stringify(detail);
+                    typeof detail === "string"
+                        ? detail
+                        : JSON.stringify(detail);
                 const d = JSON.parse(this.fixJson(raw));
                 return Array.isArray(d) ? d : [];
             } catch {
@@ -329,7 +365,8 @@ export default {
                     const nextMap = { ...this.itemIconMap };
                     for (const [id, item] of Object.entries(data || {})) {
                         nextMap[Number(id)] =
-                            item?.icon_id !== undefined && item?.icon_id !== null
+                            item?.icon_id !== undefined &&
+                            item?.icon_id !== null
                                 ? item.icon_id
                                 : null;
                     }

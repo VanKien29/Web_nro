@@ -35,6 +35,7 @@
                     :disabled="loading"
                     style="margin-top: 10px"
                 >
+                    <span v-if="loading" class="btn-loading-dot"></span>
                     {{ loading ? "Đang xử lý..." : "ĐĂNG KÝ" }}
                 </button>
             </form>

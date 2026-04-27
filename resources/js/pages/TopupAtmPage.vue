@@ -22,7 +22,11 @@
 
         <div class="page-title">NẠP ATM</div>
 
-        <div class="topup-grid">
+        <div v-if="loading" class="page-loading">
+            <div class="page-loading__spinner"></div>
+        </div>
+
+        <div v-else class="topup-grid">
             <!-- LEFT: QR + Bank info -->
             <div class="topup-box">
                 <div class="qr-box">
@@ -165,6 +169,7 @@ export default {
             history: [],
             currentPage: 1,
             perPage: 10,
+            loading: true,
         };
     },
     computed: {
@@ -215,6 +220,8 @@ export default {
                 this.updateQR();
             } catch (err) {
                 console.error(err);
+            } finally {
+                this.loading = false;
             }
         },
     },

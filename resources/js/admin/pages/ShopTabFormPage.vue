@@ -27,7 +27,11 @@
         <div v-if="error" class="alert alert-error">{{ error }}</div>
         <div v-if="success" class="alert alert-success">{{ success }}</div>
 
-        <form @submit.prevent="save">
+        <div v-if="loading" class="admin-loading-block shop-tab-loading">
+            <div class="admin-loading-spinner"></div>
+        </div>
+
+        <form v-else @submit.prevent="save">
             <div class="form-layout">
                 <!-- ═══ LEFT: Main Content (2/3) ═══ -->
                 <div class="form-main">
@@ -75,6 +79,13 @@
                                 <span class="item-count"
                                     >{{ items.length }} vật phẩm</span
                                 >
+                                <span
+                                    v-if="itemsHydrating"
+                                    class="admin-loading-inline"
+                                >
+                                    <span class="admin-loading-spinner"></span>
+                                    Đang tải chi tiết item
+                                </span>
                                 <button
                                     type="button"
                                     class="btn btn-outline btn-sm"
@@ -84,6 +95,28 @@
                                         >list</span
                                     >
                                     Chọn item
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline btn-sm"
+                                    :disabled="!selectedItemCount"
+                                    @click="removeSelectedItems"
+                                >
+                                    <span class="mi" style="font-size: 15px"
+                                        >delete</span
+                                    >
+                                    Xóa chọn
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline btn-sm"
+                                    :disabled="!undoStack.length"
+                                    @click="undoLastRemove"
+                                >
+                                    <span class="mi" style="font-size: 15px"
+                                        >undo</span
+                                    >
+                                    Hoàn tác
                                 </button>
                                 <div class="view-toggle">
                                     <button
@@ -170,6 +203,20 @@
                             <table class="items-table">
                                 <thead>
                                     <tr>
+                                        <th class="th-select">
+                                            <input
+                                                type="checkbox"
+                                                :checked="
+                                                    allCurrentItemsSelected
+                                                "
+                                                :disabled="!items.length"
+                                                @change="
+                                                    toggleSelectAllItems(
+                                                        $event.target.checked,
+                                                    )
+                                                "
+                                            />
+                                        </th>
                                         <th class="th-idx">#</th>
                                         <th class="th-icon"></th>
                                         <th class="th-name">Vật phẩm</th>
@@ -185,11 +232,24 @@
                                 <tbody>
                                     <tr
                                         v-for="(item, idx) in items"
-                                        :key="'t' + idx"
+                                        :key="'t' + item._local_id"
                                     >
+                                        <td class="td-select">
+                                            <input
+                                                type="checkbox"
+                                                :checked="
+                                                    isItemSelected(item)
+                                                "
+                                                @change="
+                                                    toggleItemSelection(item)
+                                                "
+                                            />
+                                        </td>
                                         <td class="td-idx">{{ idx + 1 }}</td>
                                         <td class="td-icon">
-                                            <AdminIcon :icon-id="item.icon_id" />
+                                            <AdminIcon
+                                                :icon-id="item.icon_id"
+                                            />
                                         </td>
                                         <td class="td-name">
                                             <div class="t-name">
@@ -214,6 +274,9 @@
                                             >
                                                 <option :value="0">Gold</option>
                                                 <option :value="1">Ngọc</option>
+                                                <option :value="2">
+                                                    Hồng ngọc
+                                                </option>
                                                 <option :value="3">
                                                     Đặc biệt
                                                 </option>
@@ -262,7 +325,9 @@
                                                     )"
                                                     :key="oi"
                                                     class="t-opt-pill"
-                                                    @click="editOption(item, opt)"
+                                                    @click="
+                                                        editOption(item, opt)
+                                                    "
                                                     title="Bấm để sửa option"
                                                 >
                                                     {{
@@ -294,7 +359,9 @@
                                                     "
                                                     type="button"
                                                     class="t-opt-add"
-                                                    @click="addPendingOption(item)"
+                                                    @click="
+                                                        addPendingOption(item)
+                                                    "
                                                     title="Thêm option"
                                                 >
                                                     <span
@@ -412,7 +479,11 @@
                                                 <button
                                                     type="button"
                                                     class="t-opt-cancel"
-                                                    @click="cancelPendingOption(item)"
+                                                    @click="
+                                                        cancelPendingOption(
+                                                            item,
+                                                        )
+                                                    "
                                                     title="Hủy"
                                                 >
                                                     <span
@@ -427,7 +498,7 @@
                                             <button
                                                 type="button"
                                                 class="item-remove-btn"
-                                                @click="items.splice(idx, 1)"
+                                                @click="removeItem(idx)"
                                                 title="Xoá"
                                             >
                                                 <span
@@ -449,11 +520,20 @@
                         >
                             <div
                                 v-for="(item, idx) in items"
-                                :key="idx"
+                                :key="item._local_id"
                                 class="item-card"
+                                :class="{ selected: isItemSelected(item) }"
                             >
                                 <div class="item-card-top">
                                     <div class="item-card-head">
+                                        <input
+                                            type="checkbox"
+                                            class="item-card-select"
+                                            :checked="isItemSelected(item)"
+                                            @change="
+                                                toggleItemSelection(item)
+                                            "
+                                        />
                                         <AdminIcon
                                             class="item-card-icon"
                                             :icon-id="item.icon_id"
@@ -470,7 +550,7 @@
                                     <button
                                         type="button"
                                         class="item-remove-btn"
-                                        @click="items.splice(idx, 1)"
+                                        @click="removeItem(idx)"
                                         title="Xoá vật phẩm"
                                     >
                                         <span class="mi">close</span>
@@ -496,6 +576,9 @@
                                             >
                                                 <option :value="0">Gold</option>
                                                 <option :value="1">Ngọc</option>
+                                                <option :value="2">
+                                                    Hồng ngọc
+                                                </option>
                                                 <option :value="3">
                                                     Đặc biệt
                                                 </option>
@@ -680,6 +763,10 @@
                             :disabled="saving"
                             style="margin-top: 8px"
                         >
+                            <span
+                                v-if="saving"
+                                class="admin-loading-dot"
+                            ></span>
                             <span class="mi" style="font-size: 16px">save</span>
                             {{ saving ? "Đang lưu..." : "Lưu thay đổi" }}
                         </button>
@@ -690,6 +777,10 @@
                             style="margin-top: 10px"
                             @click="reloadRuntimeShop"
                         >
+                            <span
+                                v-if="runtimeLoading"
+                                class="admin-loading-dot"
+                            ></span>
                             <span class="mi" style="font-size: 16px">sync</span>
                             {{
                                 runtimeLoading
@@ -745,6 +836,7 @@
                         v-model="itemPicker.search"
                         class="form-input"
                         placeholder="Tìm theo ID hoặc tên..."
+                        @input="debouncedLoadItemPicker"
                         @keyup.enter="loadItemPicker(1)"
                     />
                     <select
@@ -769,10 +861,34 @@
                         Lọc
                     </button>
                 </div>
+                <div class="picker-bulkbar">
+                    <span>
+                        Đã chọn {{ itemPickerSelectedCount }} item để thêm
+                    </span>
+                    <div class="picker-bulk-actions">
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            :disabled="!itemPickerSelectedCount"
+                            @click="addSelectedPickerItems"
+                        >
+                            <span class="mi" style="font-size: 15px">add</span>
+                            Thêm đã chọn
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-sm"
+                            :disabled="!itemPickerSelectedCount"
+                            @click="clearPickerSelection"
+                        >
+                            Bỏ chọn
+                        </button>
+                    </div>
+                </div>
 
                 <div class="picker-list">
                     <div v-if="itemPicker.loading" class="picker-empty">
-                        Đang tải dữ liệu...
+                        <span class="admin-loading-spinner"></span>
                     </div>
                     <div
                         v-else-if="!itemPicker.rows.length"
@@ -780,14 +896,25 @@
                     >
                         Không có vật phẩm phù hợp.
                     </div>
-                    <button
+                    <div
                         v-else
                         v-for="row in itemPicker.rows"
                         :key="'picker-item-' + row.id"
-                        type="button"
                         class="picker-item"
-                        @click="pickItemFromPicker(row)"
+                        :class="{ selected: isPickerItemSelected(row) }"
+                        role="button"
+                        tabindex="0"
+                        @click="togglePickerItem(row)"
+                        @keydown.enter.prevent="togglePickerItem(row)"
+                        @keydown.space.prevent="togglePickerItem(row)"
                     >
+                        <input
+                            type="checkbox"
+                            class="picker-select-checkbox"
+                            :checked="isPickerItemSelected(row)"
+                            @click.stop
+                            @change="togglePickerItem(row)"
+                        />
                         <AdminIcon :icon-id="row.icon_id" />
                         <div class="picker-item-info">
                             <div class="picker-item-name">{{ row.name }}</div>
@@ -795,8 +922,15 @@
                                 ID: {{ row.id }} | {{ itemTypeLabel(row.type) }}
                             </div>
                         </div>
-                        <span class="mi" style="font-size: 18px">add</span>
-                    </button>
+                        <button
+                            type="button"
+                            class="picker-add-one"
+                            title="Thêm ngay item này"
+                            @click.stop="pickItemFromPicker(row)"
+                        >
+                            <span class="mi" style="font-size: 18px">add</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="picker-foot">
@@ -845,9 +979,7 @@
                         <button
                             type="button"
                             class="btn btn-outline btn-xs"
-                            :disabled="
-                                itemPicker.page >= itemPicker.totalPages
-                            "
+                            :disabled="itemPicker.page >= itemPicker.totalPages"
                             @click="goToItemPickerPage(itemPicker.page + 1)"
                         >
                             Sau
@@ -855,9 +987,7 @@
                         <button
                             type="button"
                             class="btn btn-outline btn-xs"
-                            :disabled="
-                                itemPicker.page >= itemPicker.totalPages
-                            "
+                            :disabled="itemPicker.page >= itemPicker.totalPages"
                             @click="goToItemPickerPage(itemPicker.totalPages)"
                         >
                             Cuối
@@ -902,6 +1032,7 @@ export default {
                 open: false,
                 loading: false,
                 rows: [],
+                selected: {},
                 types: [],
                 typeOptions: [],
                 search: "",
@@ -915,11 +1046,18 @@ export default {
             searchResults: [],
             showResults: false,
             searching: false,
+            selectedItemKeys: {},
+            undoStack: [],
+            localIdSeq: 1,
+            loading: false,
+            itemsHydrating: false,
+            loadSeq: 0,
             error: "",
             success: "",
             saving: false,
             runtimeLoading: false,
             searchTimeout: null,
+            itemPickerSearchTimer: null,
             optionsCacheKey: "admin_item_options_v1",
             optionsCacheTtlMs: 1000 * 60 * 30,
         };
@@ -980,6 +1118,23 @@ export default {
                 this.itemPicker.totalPages,
             );
         },
+        selectedItemCount() {
+            return Object.keys(this.selectedItemKeys || {}).length;
+        },
+        allCurrentItemsSelected() {
+            return (
+                this.items.length > 0 &&
+                this.items.every((item) => this.isItemSelected(item))
+            );
+        },
+        itemPickerSelectedCount() {
+            return Object.keys(this.itemPicker.selected || {}).length;
+        },
+    },
+    watch: {
+        tabId() {
+            this.loadTab();
+        },
     },
     created() {
         this.loadOptions();
@@ -987,7 +1142,10 @@ export default {
         document.addEventListener("click", this.closeResults);
     },
     unmounted() {
+        this.loadSeq += 1;
         document.removeEventListener("click", this.closeResults);
+        window.clearTimeout(this.searchTimeout);
+        window.clearTimeout(this.itemPickerSearchTimer);
     },
     methods: {
         closeResults(e) {
@@ -1002,6 +1160,133 @@ export default {
                 });
             });
         },
+        nextLocalId() {
+            const id = `shop-item-${Date.now()}-${this.localIdSeq}`;
+            this.localIdSeq += 1;
+            return id;
+        },
+        ensureLocalId(item) {
+            if (!item._local_id) {
+                item._local_id = this.nextLocalId();
+            }
+            return item._local_id;
+        },
+        cloneShopItem(item) {
+            return JSON.parse(JSON.stringify(item));
+        },
+        makeShopItem(item, overrides = {}) {
+            return {
+                _local_id: this.nextLocalId(),
+                temp_id: Number(item.id ?? item.temp_id ?? 0),
+                name: item.name || `Item #${item.id ?? item.temp_id ?? 0}`,
+                icon_id: item.icon_id ?? null,
+                cost: Number(overrides.cost ?? item.cost ?? 0),
+                type_sell: Number(overrides.type_sell ?? item.type_sell ?? 0),
+                is_new: !!(overrides.is_new ?? item.is_new ?? false),
+                is_sell: (overrides.is_sell ?? item.is_sell) !== false,
+                item_spec: Number(
+                    overrides.item_spec ?? item.item_spec ?? 0,
+                ),
+                options: Array.isArray(overrides.options)
+                    ? overrides.options
+                    : Array.isArray(item.options)
+                      ? item.options
+                      : [],
+            };
+        },
+        itemKey(item) {
+            return this.ensureLocalId(item);
+        },
+        isItemSelected(item) {
+            return !!this.selectedItemKeys[this.itemKey(item)];
+        },
+        toggleItemSelection(item, force = null) {
+            const key = this.itemKey(item);
+            const shouldSelect =
+                force === null ? !this.selectedItemKeys[key] : !!force;
+            const next = { ...this.selectedItemKeys };
+            if (shouldSelect) {
+                next[key] = true;
+            } else {
+                delete next[key];
+            }
+            this.selectedItemKeys = next;
+        },
+        toggleSelectAllItems(checked) {
+            if (!checked) {
+                this.selectedItemKeys = {};
+                return;
+            }
+            const next = {};
+            this.items.forEach((item) => {
+                next[this.itemKey(item)] = true;
+            });
+            this.selectedItemKeys = next;
+        },
+        pushUndoRemove(entries) {
+            if (!entries.length) return;
+            this.undoStack = [
+                ...this.undoStack,
+                { type: "remove", entries },
+            ].slice(-20);
+        },
+        removeItem(index) {
+            const item = this.items[index];
+            if (!item) return;
+            const key = this.itemKey(item);
+            this.pushUndoRemove([
+                {
+                    index,
+                    item: this.cloneShopItem(item),
+                },
+            ]);
+            this.items.splice(index, 1);
+            const next = { ...this.selectedItemKeys };
+            delete next[key];
+            this.selectedItemKeys = next;
+        },
+        removeSelectedItems() {
+            const selected = this.selectedItemKeys || {};
+            const entries = [];
+            const keep = [];
+            this.items.forEach((item, index) => {
+                if (selected[this.itemKey(item)]) {
+                    entries.push({
+                        index,
+                        item: this.cloneShopItem(item),
+                    });
+                } else {
+                    keep.push(item);
+                }
+            });
+            if (!entries.length) return;
+            this.pushUndoRemove(entries);
+            this.items = keep;
+            this.selectedItemKeys = {};
+        },
+        undoLastRemove() {
+            const action = this.undoStack[this.undoStack.length - 1];
+            if (!action || action.type !== "remove") return;
+            const restored = [...this.items];
+            action.entries
+                .slice()
+                .sort((a, b) => a.index - b.index)
+                .forEach((entry) => {
+                    const item = this.cloneShopItem(entry.item);
+                    const exists = restored.some(
+                        (row) => row._local_id === item._local_id,
+                    );
+                    if (exists) item._local_id = this.nextLocalId();
+                    restored.splice(
+                        Math.min(entry.index, restored.length),
+                        0,
+                        item,
+                    );
+                });
+            this.items = restored;
+            this.selectedItemKeys = {};
+            this.undoStack = this.undoStack.slice(0, -1);
+        },
         fixJson(str) {
             if (typeof str !== "string") return str;
             let s = str.trim();
@@ -1009,6 +1294,107 @@ export default {
             s = s.replace(/([\[\{])\s*,/g, "$1");
             s = s.replace(/,\s*,/g, ",");
             return s;
+        },
+        async readJsonResponse(res, fallbackMessage = "Không thể tải dữ liệu") {
+            const contentType = res.headers.get("content-type") || "";
+            if (!res.ok) {
+                throw new Error(`${fallbackMessage} (${res.status})`);
+            }
+            if (!contentType.includes("application/json")) {
+                throw new Error("Phiên đăng nhập hết hạn hoặc API trả về sai định dạng");
+            }
+            return res.json();
+        },
+        async fetchItemsBatch(ids) {
+            const uniqueIds = [
+                ...new Set(
+                    ids
+                        .map((id) => Number(id))
+                        .filter((id) => Number.isFinite(id) && id >= 0),
+                ),
+            ];
+            const chunks = [];
+            for (let i = 0; i < uniqueIds.length; i += 150) {
+                chunks.push(uniqueIds.slice(i, i + 150));
+            }
+
+            const itemMap = {};
+            for (const chunk of chunks) {
+                const res = await fetch(
+                    `/admin/api/items/batch?ids=${chunk.join(",")}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                Object.assign(
+                    itemMap,
+                    await this.readJsonResponse(res, "Không thể tải item"),
+                );
+            }
+            return itemMap;
+        },
+        buildShopItems(detail, itemMap = {}) {
+            return detail.map((d) => {
+                const itemInfo = itemMap[d.temp_id] || null;
+                return {
+                    _local_id: this.nextLocalId(),
+                    temp_id: d.temp_id,
+                    name: itemInfo?.name || "Item #" + d.temp_id,
+                    icon_id: itemInfo?.icon_id ?? null,
+                    cost: d.cost || 0,
+                    type_sell: d.type_sell ?? 0,
+                    is_new: !!d.is_new,
+                    is_sell: d.is_sell !== false,
+                    item_spec: d.item_spec || 0,
+                    options: (d.options || []).map((o) => {
+                        const matched = this.allOptions.find(
+                            (ao) => ao.id === o.id,
+                        );
+                        return {
+                            id: o.id || 0,
+                            param: o.param || 0,
+                            search: matched
+                                ? `${matched.name} (ID: ${matched.id})`
+                                : o.id
+                                  ? `ID: ${o.id}`
+                                  : "",
+                            showDrop: false,
+                        };
+                    }),
+                };
+            });
+        },
+        async hydrateShopItems(detail, allIds, seq) {
+            if (!allIds.length) return;
+            this.itemsHydrating = true;
+            try {
+                const itemMap = await this.fetchItemsBatch(allIds);
+                if (seq !== this.loadSeq) return;
+
+                const specIds = detail
+                    .map((d) => d.item_spec)
+                    .filter((id) => id && id > 0);
+                const specIconMap = {};
+                for (const sid of specIds) {
+                    if (itemMap[sid]) {
+                        specIconMap[sid] = itemMap[sid].icon_id;
+                    }
+                }
+
+                this.specIconMap = specIconMap;
+                this.items = this.buildShopItems(detail, itemMap);
+                this.selectedItemKeys = {};
+            } catch (e) {
+                if (seq === this.loadSeq) {
+                    this.error =
+                        e?.message ||
+                        "Đã tải tab, nhưng chưa tải được chi tiết item.";
+                }
+            } finally {
+                if (seq === this.loadSeq) {
+                    this.itemsHydrating = false;
+                }
+            }
         },
         async openItemPicker() {
             this.itemPicker.open = true;
@@ -1056,7 +1442,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -1090,7 +1482,10 @@ export default {
         },
         goToItemPickerPage(page) {
             const target = this.normalizePickerPage(page);
-            if (target === this.itemPicker.page && this.itemPicker.rows.length) {
+            if (
+                target === this.itemPicker.page &&
+                this.itemPicker.rows.length
+            ) {
                 this.itemPicker.pageInput = String(target);
                 return;
             }
@@ -1098,6 +1493,12 @@ export default {
         },
         jumpItemPickerPage() {
             this.goToItemPickerPage(this.itemPicker.pageInput);
+        },
+        debouncedLoadItemPicker() {
+            window.clearTimeout(this.itemPickerSearchTimer);
+            this.itemPickerSearchTimer = window.setTimeout(() => {
+                this.loadItemPicker(1);
+            }, 300);
         },
         async loadItemPicker(page = 1) {
             try {
@@ -1115,10 +1516,16 @@ export default {
                 if (this.itemPicker.type !== "") {
                     params.set("type", this.itemPicker.type);
                 }
-                const res = await fetch(`/admin/api/items?${params.toString()}`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" },
-                });
-                const data = await res.json();
+                const res = await fetch(
+                    `/admin/api/items?${params.toString()}`,
+                    {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                    },
+                );
+                const data = await this.readJsonResponse(
+                    res,
+                    "Không thể lọc item",
+                );
                 this.itemPicker.rows = data?.data || [];
                 this.itemPicker.types = data?.types || this.itemPicker.types;
                 this.itemPicker.typeOptions =
@@ -1127,7 +1534,8 @@ export default {
                 this.itemPicker.pageInput = String(this.itemPicker.page);
                 this.itemPicker.totalPages = data?.total_pages || 1;
                 this.itemPicker.total = data?.total || 0;
-            } catch {
+            } catch (e) {
+                this.error = e?.message || "Không thể lọc item";
                 this.itemPicker.rows = [];
                 this.itemPicker.total = 0;
                 this.itemPicker.totalPages = 1;
@@ -1135,12 +1543,49 @@ export default {
                 this.itemPicker.loading = false;
             }
         },
+        pickerItemKey(item) {
+            return String(item?.id ?? "");
+        },
+        isPickerItemSelected(item) {
+            return !!this.itemPicker.selected[this.pickerItemKey(item)];
+        },
+        togglePickerItem(item) {
+            const key = this.pickerItemKey(item);
+            if (!key) return;
+            const next = { ...this.itemPicker.selected };
+            if (next[key]) {
+                delete next[key];
+            } else {
+                next[key] = {
+                    id: Number(item.id),
+                    name: item.name,
+                    type: item.type,
+                    icon_id: item.icon_id ?? null,
+                };
+            }
+            this.itemPicker.selected = next;
+        },
+        clearPickerSelection() {
+            this.itemPicker.selected = {};
+        },
+        addSelectedPickerItems() {
+            const selected = Object.values(this.itemPicker.selected || {});
+            if (!selected.length) return;
+            selected.forEach((item) => {
+                this.items.push(this.makeShopItem(item));
+            });
+            this.success = `Đã thêm ${selected.length} vật phẩm vào tab.`;
+            this.error = "";
+            this.clearPickerSelection();
+        },
         pickItemFromPicker(item) {
             this.addItem(item);
         },
         itemTypeLabel(typeValue) {
             const key = String(typeValue ?? "").trim();
-            const found = this.itemPickerTypes.find((t) => String(t.id) === key);
+            const found = this.itemPickerTypes.find(
+                (t) => String(t.id) === key,
+            );
             if (found) {
                 return `TYPE: ${found.id} - ${found.name}`;
             }
@@ -1168,7 +1613,7 @@ export default {
             fetch(`/admin/api/items/batch?ids=${specId}`, {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
             })
-                .then((r) => r.json())
+                .then((r) => this.readJsonResponse(r, "Không thể tải item spec"))
                 .then((data) => {
                     if (data[specId]) {
                         this.specIconMap = {
@@ -1213,7 +1658,10 @@ export default {
 
             const normalized = keyword.toLowerCase();
             const foundByExactName = this.allOptions.find(
-                (o) => String(o.name || "").trim().toLowerCase() === normalized,
+                (o) =>
+                    String(o.name || "")
+                        .trim()
+                        .toLowerCase() === normalized,
             );
             if (foundByExactName) return foundByExactName;
 
@@ -1235,6 +1683,15 @@ export default {
             if (resolved) {
                 opt.id = resolved.id;
                 opt.search = `${resolved.name} (ID: ${resolved.id})`;
+            } else if (!resolved && /^\d+$/.test(opt.search)) {
+                const numeric = Number(opt.search);
+                const found = this.allOptions.find(
+                    (o) => Number(o.id) === numeric,
+                );
+                if (found) {
+                    opt.id = found.id;
+                    opt.search = `${found.name} (ID: ${found.id})`;
+                }
             } else if (opt.id && (!opt.search || !opt.search.trim())) {
                 const name = this.optionName(opt.id);
                 opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
@@ -1321,11 +1778,22 @@ export default {
             }
         },
         async loadTab() {
+            const seq = ++this.loadSeq;
+            this.loading = true;
+            this.itemsHydrating = false;
+            this.selectedItemKeys = {};
+            this.undoStack = [];
             try {
+                this.items = [];
+                this.specIconMap = {};
+                this.error = "";
                 const res = await fetch(`/admin/api/shops/tab/${this.tabId}`, {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 });
-                const data = await res.json();
+                const data = await this.readJsonResponse(
+                    res,
+                    "Không thể tải tab shop",
+                );
                 if (data.ok) {
                     const tab = data.data;
                     const shop = data.shop;
@@ -1353,61 +1821,18 @@ export default {
                         .map((d) => d.item_spec)
                         .filter((id) => id && id > 0);
                     const allIds = [...new Set([...itemIds, ...specIds])];
-                    let itemMap = {};
-                    if (allIds.length) {
-                        try {
-                            const batchRes = await fetch(
-                                `/admin/api/items/batch?ids=${allIds.join(",")}`,
-                                {
-                                    headers: {
-                                        "X-Requested-With": "XMLHttpRequest",
-                                    },
-                                },
-                            );
-                            itemMap = await batchRes.json();
-                        } catch {
-                            // fallback
-                        }
-                    }
-
-                    // Build spec icon map
-                    for (const sid of specIds) {
-                        if (itemMap[sid]) {
-                            this.specIconMap[sid] = itemMap[sid].icon_id;
-                        }
-                    }
-
-                    for (const d of detail) {
-                        const itemInfo = itemMap[d.temp_id] || null;
-                        this.items.push({
-                            temp_id: d.temp_id,
-                            name: itemInfo?.name || "Item #" + d.temp_id,
-                            icon_id: itemInfo?.icon_id ?? null,
-                            cost: d.cost || 0,
-                            type_sell: d.type_sell ?? 0,
-                            is_new: !!d.is_new,
-                            is_sell: d.is_sell !== false,
-                            item_spec: d.item_spec || 0,
-                            options: (d.options || []).map((o) => {
-                                const matched = this.allOptions.find(
-                                    (ao) => ao.id === o.id,
-                                );
-                                return {
-                                    id: o.id || 0,
-                                    param: o.param || 0,
-                                    search: matched
-                                        ? `${matched.name} (ID: ${matched.id})`
-                                        : o.id
-                                          ? `ID: ${o.id}`
-                                          : "",
-                                    showDrop: false,
-                                };
-                            }),
-                        });
-                    }
+                    this.items = this.buildShopItems(detail);
+                    this.loading = false;
+                    this.hydrateShopItems(detail, allIds, seq);
+                } else {
+                    throw new Error(data.message || "Không thể tải tab shop");
                 }
-            } catch {
-                this.error = "Không thể tải dữ liệu";
+            } catch (e) {
+                this.error = e?.message || "Không thể tải dữ liệu";
+            } finally {
+                if (seq === this.loadSeq) {
+                    this.loading = false;
+                }
             }
         },
         searchItems() {
@@ -1422,14 +1847,19 @@ export default {
             this.searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch(
-                        `/admin/api/items/search?q=${encodeURIComponent(q)}`,
+                        `/admin/api/items?lite=1&per_page=30&search=${encodeURIComponent(q)}`,
                         {
                             headers: { "X-Requested-With": "XMLHttpRequest" },
                         },
                     );
-                    this.searchResults = await res.json();
+                    const data = await this.readJsonResponse(
+                        res,
+                        "Không thể tìm item",
+                    );
+                    this.searchResults = data?.data || [];
                     this.showResults = true;
-                } catch {
+                } catch (e) {
+                    this.error = e?.message || "Không thể tìm item";
                     this.searchResults = [];
                 } finally {
                     this.searching = false;
@@ -1437,20 +1867,11 @@ export default {
             }, 300);
         },
         addItem(item) {
-            this.items.push({
-                temp_id: item.id,
-                name: item.name,
-                icon_id: item.icon_id,
-                cost: 0,
-                type_sell: 0,
-                is_new: false,
-                is_sell: true,
-                item_spec: 0,
-                options: [],
-            });
+            this.items.push(this.makeShopItem(item));
             this.itemQuery = "";
             this.searchResults = [];
             this.showResults = false;
+            this.error = "";
         },
         buildItems() {
             return JSON.stringify(
@@ -1462,11 +1883,14 @@ export default {
                     is_sell: item.is_sell !== false,
                     item_spec: parseInt(item.item_spec) || 0,
                     options: item.options
-                        .filter((o) => !o._pending)
-                        .map((o) => ({
-                            id: parseInt(o.id) || 0,
-                            param: parseInt(o.param) || 0,
-                        })),
+                        .map((o) => {
+                            if (o._pending) this.normalizeOptionInput(o);
+                            return {
+                                id: parseInt(o.id) || 0,
+                                param: parseInt(o.param) || 0,
+                            };
+                        })
+                        .filter((o) => o.id > 0),
                 })),
             );
         },
@@ -1715,6 +2139,10 @@ export default {
 .item-card:hover {
     border-color: rgba(var(--ds-primary-rgb), 0.3);
 }
+.item-card.selected {
+    border-color: rgba(var(--ds-primary-rgb), 0.7);
+    background: rgba(var(--ds-primary-rgb), 0.06);
+}
 .item-card-top {
     display: flex;
     align-items: flex-start;
@@ -1725,6 +2153,12 @@ export default {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+.item-card-select {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex: 0 0 auto;
 }
 .item-card-icon {
     width: 44px;
@@ -1938,6 +2372,7 @@ export default {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 /* ── View toggle ── */
@@ -1992,6 +2427,11 @@ export default {
     white-space: nowrap;
     border-bottom: 1px solid var(--ds-border);
 }
+.items-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
 .items-table td {
     padding: 8px 10px;
     border-bottom: 1px solid var(--ds-border);
@@ -2006,6 +2446,10 @@ export default {
 .th-idx {
     width: 36px;
     text-align: center;
+}
+.th-select {
+    width: 36px;
+    text-align: center !important;
 }
 .th-icon {
     width: 40px;
@@ -2033,6 +2477,9 @@ export default {
     text-align: center;
     color: var(--ds-text-muted);
     font-size: 12px;
+}
+.td-select {
+    text-align: center;
 }
 .td-icon img {
     width: 32px;
@@ -2228,6 +2675,22 @@ export default {
     padding: 12px 14px;
     border-bottom: 1px solid var(--ds-border);
 }
+.picker-bulkbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ds-border);
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+.picker-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
 .picker-list {
     overflow: auto;
     padding: 8px 10px;
@@ -2250,6 +2713,16 @@ export default {
     background: rgba(var(--ds-primary-rgb), 0.08);
     border-color: rgba(var(--ds-primary-rgb), 0.3);
 }
+.picker-item.selected {
+    background: rgba(var(--ds-primary-rgb), 0.12);
+    border-color: rgba(var(--ds-primary-rgb), 0.55);
+}
+.picker-select-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
 .picker-item img {
     width: 32px;
     height: 32px;
@@ -2269,6 +2742,23 @@ export default {
 .picker-item-meta {
     font-size: 11px;
     color: var(--ds-text-muted);
+}
+.picker-add-one {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    background: var(--ds-surface);
+    color: var(--ds-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.picker-add-one:hover {
+    border-color: rgba(var(--ds-primary-rgb), 0.65);
+    background: rgba(var(--ds-primary-rgb), 0.12);
 }
 .picker-empty {
     height: 220px;
@@ -2320,6 +2810,11 @@ export default {
     }
     .picker-tools {
         grid-template-columns: 1fr;
+    }
+    .picker-bulkbar,
+    .picker-foot {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 </style>

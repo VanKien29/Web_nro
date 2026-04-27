@@ -7,9 +7,9 @@
             <span v-else>Đang tải...</span>
         </div>
 
-        <p v-if="loading" style="text-align: center; color: #111">
-            Đang tải...
-        </p>
+        <div v-if="loading" class="page-loading">
+            <div class="page-loading__spinner"></div>
+        </div>
         <p v-else-if="!post" style="text-align: center; color: #111">
             Bài viết không tồn tại.
         </p>

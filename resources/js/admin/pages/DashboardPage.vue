@@ -19,6 +19,7 @@
                     :disabled="loading"
                     @click="load"
                 >
+                    <span v-if="loading" class="admin-loading-dot"></span>
                     <span class="mi">refresh</span>
                     Làm mới
                 </button>

@@ -39,7 +39,11 @@
         </div>
 
         <div class="card">
-            <div v-if="loadError" class="alert alert-error" style="margin: 16px">
+            <div
+                v-if="loadError"
+                class="alert alert-error"
+                style="margin: 16px"
+            >
                 {{ loadError }}
             </div>
             <div class="table-wrap">
@@ -73,9 +77,7 @@
                                         <span class="badge badge-info"
                                             >SM
                                             {{
-                                                fmt(
-                                                    acc.player_power || 0,
-                                                )
+                                                fmt(acc.player_power || 0)
                                             }}</span
                                         >
                                         <span class="gender-chip">{{
@@ -255,6 +257,13 @@
                                 </router-link>
                             </td>
                         </tr>
+                        <!-- <tr v-if="loading" class="admin-loading-row">
+                            <td colspan="12">
+                                <span class="admin-loading-row__content">
+                                    <span class="admin-loading-spinner"></span>
+                                </span>
+                            </td>
+                        </tr> -->
                         <tr v-if="!accounts.length && !loading">
                             <td
                                 colspan="12"
@@ -290,10 +299,16 @@
                         {{ p }}
                     </button>
                 </template>
-                <button :disabled="page >= totalPages" @click="goToPage(page + 1)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(page + 1)"
+                >
                     &raquo;
                 </button>
-                <button :disabled="page >= totalPages" @click="goToPage(totalPages)">
+                <button
+                    :disabled="page >= totalPages"
+                    @click="goToPage(totalPages)"
+                >
                     Cuối
                 </button>
                 <div class="pagination-jump">
@@ -343,7 +358,13 @@ export default {
                 return Array.from({ length: total }, (_, index) => index + 1);
             }
 
-            const pages = new Set([1, total, current - 1, current, current + 1]);
+            const pages = new Set([
+                1,
+                total,
+                current - 1,
+                current,
+                current + 1,
+            ]);
             if (current <= 3) {
                 pages.add(2);
                 pages.add(3);
@@ -370,7 +391,10 @@ export default {
         normalizePage(page) {
             const value = Number(page);
             if (!Number.isFinite(value)) return 1;
-            return Math.min(Math.max(1, Math.trunc(value)), this.totalPages || 1);
+            return Math.min(
+                Math.max(1, Math.trunc(value)),
+                this.totalPages || 1,
+            );
         },
         goToPage(page) {
             const target = this.normalizePage(page);

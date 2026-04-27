@@ -32,7 +32,7 @@
         <div v-if="error" class="alert alert-error">{{ error }}</div>
         <div v-if="success" class="alert alert-success">{{ success }}</div>
         <div v-if="loadingAccount" class="muted-line">
-            Đang tải dữ liệu tài khoản...
+            <span class="admin-loading-spinner"></span>
         </div>
 
         <form @submit.prevent="save">
@@ -48,7 +48,7 @@
                             {{ activityError }}
                         </div>
                         <div v-else-if="activityLoading" class="muted-line">
-                            Đang tải lịch sử tài khoản...
+                            <span class="admin-loading-spinner"></span>
                         </div>
                         <template v-else-if="activity">
                             <div class="hub-summary-grid">
@@ -582,7 +582,7 @@
 
                         <div v-if="showPlayerFull" class="player-full-wrap">
                             <div v-if="playerFullLoading" class="muted-line">
-                                Đang tải dữ liệu player...
+                                <span class="admin-loading-spinner"></span>
                             </div>
                             <div
                                 v-else-if="playerFullError"
