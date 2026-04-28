@@ -965,7 +965,7 @@ export default {
             searchTimeout: null,
             itemPickerSearchTimer: null,
             quickItemsKey: "admin_quick_items",
-            optionsCacheKey: "admin_item_options_v1",
+            optionsCacheKey: "admin_item_options_v2",
             optionsCacheTtlMs: 1000 * 60 * 30,
         };
     },
@@ -1034,9 +1034,9 @@ export default {
             }
         },
     },
-    created() {
+    async created() {
         this.loadQuickItems();
-        this.loadOptions();
+        await this.loadOptions();
         if (this.isEdit) {
             this.loadGiftcode();
         }
@@ -1327,23 +1327,25 @@ export default {
             );
         },
         optionName(id) {
-            const o = this.allOptions.find((a) => a.id === id);
+            const o = this.allOptions.find((a) => Number(a.id) === Number(id));
             return o ? o.name : null;
         },
         optionLabel(id, param) {
-            const o = this.allOptions.find((a) => a.id === id);
+            const o = this.allOptions.find((a) => Number(a.id) === Number(id));
             if (!o) return String(param);
-            return o.name.includes("#")
-                ? o.name.replace("#", param)
-                : o.name + ": " + param;
+            const name = String(o.name || "");
+            return name.includes("#")
+                ? name.replace("#", param)
+                : name + ": " + param;
         },
         filteredOptions(search) {
-            if (!search || !search.trim()) return this.allOptions.slice(0, 30);
+            const options = Array.isArray(this.allOptions) ? this.allOptions : [];
+            if (!search || !search.trim()) return options.slice(0, 30);
             const q = search.trim().toLowerCase();
-            return this.allOptions
+            return options
                 .filter(
                     (o) =>
-                        o.name.toLowerCase().includes(q) ||
+                        String(o.name || "").toLowerCase().includes(q) ||
                         String(o.id).includes(q),
                 )
                 .slice(0, 20);
@@ -1395,7 +1397,10 @@ export default {
             if (resolved) {
                 opt.id = resolved.id;
                 opt.search = `${resolved.name} (ID: ${resolved.id})`;
-            } else if (opt.id && (!opt.search || !opt.search.trim())) {
+            } else if (
+                this.hasOptionId(opt) &&
+                (!opt.search || !opt.search.trim())
+            ) {
                 const name = this.optionName(opt.id);
                 opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
             }
@@ -1463,7 +1468,7 @@ export default {
         },
         async loadOptions() {
             const cached = this.readCachedOptions();
-            if (cached?.length) {
+            if (Array.isArray(cached) && cached.length) {
                 this.allOptions = cached;
                 return;
             }
@@ -1472,7 +1477,13 @@ export default {
                     headers: { "X-Requested-With": "XMLHttpRequest" },
                 });
                 const data = await res.json();
-                this.allOptions = data || [];
+                this.allOptions = Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.data)
+                      ? data.data
+                      : Array.isArray(data?.options)
+                        ? data.options
+                        : [];
                 if (Array.isArray(this.allOptions) && this.allOptions.length) {
                     this.writeCachedOptions(this.allOptions);
                 }
@@ -1539,13 +1550,16 @@ export default {
                             icon_id: itemInfo?.icon_id ?? null,
                             gender: itemInfo?.gender ?? null,
                             quantity: d.quantity || 1,
-                            options: (d.options || []).map((o) => {
-                                const matched = this.allOptions.find(
-                                    (ao) => ao.id === o.id,
-                                );
-                                return {
-                                    id: o.id || 0,
-                                    param: o.param || 0,
+                    options: (d.options || []).map((o) => {
+                        const matched = this.allOptions.find(
+                            (ao) => Number(ao.id) === Number(o.id),
+                        );
+                        return {
+                            id:
+                                o.id === null || o.id === undefined
+                                    ? 0
+                                    : Number(o.id),
+                            param: Number(o.param || 0),
                                     search: matched
                                         ? `${matched.name} (ID: ${matched.id})`
                                         : o.id

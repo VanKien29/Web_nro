@@ -184,6 +184,26 @@
                             </p>
                         </div>
                         <div class="head-actions">
+                            <button
+                                class="btn btn-outline"
+                                :disabled="!canUndoMapEdit"
+                                @click="undoMapEdit"
+                            >
+                                <span class="mi" style="font-size: 16px"
+                                    >undo</span
+                                >
+                                Hoàn tác
+                            </button>
+                            <button
+                                class="btn btn-outline"
+                                :disabled="!hasMapChanges"
+                                @click="resetMapEdit"
+                            >
+                                <span class="mi" style="font-size: 16px"
+                                    >restart_alt</span
+                                >
+                                Reset
+                            </button>
                             <button class="btn btn-outline" @click="addMob">
                                 <span class="mi" style="font-size: 16px"
                                     >add</span
@@ -201,6 +221,12 @@
                                 Lưu và reload
                             </button>
                         </div>
+                    </div>
+
+                    <div v-if="hasMapChanges" class="change-banner">
+                        <span class="mi">edit_note</span>
+                        <strong>Có thay đổi chưa lưu</strong>
+                        <span>{{ mapChangeSummary }}</span>
                     </div>
 
                     <div class="map-meta-grid">
@@ -1052,6 +1078,7 @@ export default {
             },
             loading: false,
             saving: false,
+            undoStack: [],
             error: "",
             success: "",
         };
@@ -1156,6 +1183,59 @@ export default {
                         .includes(q)
                 );
             });
+        },
+        currentMapComparable() {
+            return this.buildCurrentMapComparable();
+        },
+        originalMapComparable() {
+            return this.buildOriginalMapComparable(this.selectedMap);
+        },
+        hasMapChanges() {
+            return (
+                !!this.selectedMap &&
+                this.stableJson(this.currentMapComparable) !==
+                    this.stableJson(this.originalMapComparable)
+            );
+        },
+        canUndoMapEdit() {
+            return this.undoStack.length > 0;
+        },
+        mapChangeSummary() {
+            if (!this.selectedMap) return "";
+            const current = this.currentMapComparable;
+            const original = this.originalMapComparable;
+            const changes = [];
+            if (current.mobs.length !== original.mobs.length) {
+                changes.push(
+                    `mob ${original.mobs.length} -> ${current.mobs.length}`,
+                );
+            }
+            if (current.waypoints.length !== original.waypoints.length) {
+                changes.push(
+                    `waypoint ${original.waypoints.length} -> ${current.waypoints.length}`,
+                );
+            }
+            if (current.npcs.length !== original.npcs.length) {
+                changes.push(
+                    `NPC ${original.npcs.length} -> ${current.npcs.length}`,
+                );
+            }
+            if (current.drop_rules.length !== original.drop_rules.length) {
+                changes.push(
+                    `drop ${original.drop_rules.length} -> ${current.drop_rules.length}`,
+                );
+            }
+            if (current.max_player !== original.max_player) {
+                changes.push(
+                    `max/player ${original.max_player} -> ${current.max_player}`,
+                );
+            }
+            if (current.zones !== original.zones) {
+                changes.push(`khu ${original.zones} -> ${current.zones}`);
+            }
+            return changes.length
+                ? changes.join(", ")
+                : "Có chỉnh sửa nội dung trong các dòng hiện tại.";
         },
     },
     watch: {
@@ -1275,6 +1355,175 @@ export default {
             );
             return map ? `${map.id} - ${map.name}` : `Map ${id}`;
         },
+        stableJson(value) {
+            try {
+                return JSON.stringify(value);
+            } catch {
+                return "";
+            }
+        },
+        buildCurrentMapComparable() {
+            return {
+                max_player: Number(this.mapMaxPlayer || 1),
+                zones: Number(this.mapZonesConfig || 1),
+                mobs: this.rows.map((row) => ({
+                    temp_id: Number(row.temp_id || 0),
+                    level: Number(row.level || 0),
+                    hp: Number(row.hp || 1),
+                    percent_dame: Number(row.percent_dame || 0),
+                    x: Number(row.x || 0),
+                    y: Number(row.y || 0),
+                })),
+                waypoints: this.waypointRows.map((row) => ({
+                    name: row.name || "",
+                    min_x: Number(row.min_x || 0),
+                    min_y: Number(row.min_y || 0),
+                    max_x: Number(row.max_x || 0),
+                    max_y: Number(row.max_y || 0),
+                    is_enter: !!row.is_enter,
+                    is_offline: !!row.is_offline,
+                    go_map: Number(row.go_map || 0),
+                    go_x: Number(row.go_x || 0),
+                    go_y: Number(row.go_y || 0),
+                })),
+                npcs: this.npcRows.map((row) => ({
+                    id: Number(row.id || 0),
+                    x: Number(row.x || 0),
+                    y: Number(row.y || 0),
+                })),
+                drop_rules: this.dropRuleRows.map((row) => ({
+                    item_id: Number(row.item_id || 0),
+                    quantity_min: Number(row.quantity_min || 1),
+                    quantity_max: Number(row.quantity_max || 1),
+                    chance_numerator: Number(row.chance_numerator || 0),
+                    chance_denominator: Number(row.chance_denominator || 1),
+                    mob_temp_id:
+                        Number(row.mob_temp_id) >= 0
+                            ? Number(row.mob_temp_id)
+                            : null,
+                    active: !!row.active,
+                    note: row.note || "",
+                    options: Array.isArray(row.options) ? row.options : [],
+                })),
+            };
+        },
+        buildOriginalMapComparable(map) {
+            if (!map) {
+                return {
+                    max_player: 1,
+                    zones: 1,
+                    mobs: [],
+                    waypoints: [],
+                    npcs: [],
+                    drop_rules: [],
+                };
+            }
+            return {
+                max_player: Number(map.max_player || 1),
+                zones: Number(map.zones_config || map.zones || 1),
+                mobs: (map.mobs || []).map((row) => ({
+                    temp_id: Number(row.temp_id || 0),
+                    level: Number(row.level || 0),
+                    hp: Number(row.hp || 1),
+                    percent_dame: Number(row.percent_dame || 0),
+                    x: Number(row.x || 0),
+                    y: Number(row.y || 0),
+                })),
+                waypoints: (map.waypoints || []).map((row) => ({
+                    name: row.name || "",
+                    min_x: Number(row.min_x || 0),
+                    min_y: Number(row.min_y || 0),
+                    max_x: Number(row.max_x || 0),
+                    max_y: Number(row.max_y || 0),
+                    is_enter: !!row.is_enter,
+                    is_offline: !!row.is_offline,
+                    go_map: Number(row.go_map || 0),
+                    go_x: Number(row.go_x || 0),
+                    go_y: Number(row.go_y || 0),
+                })),
+                npcs: (map.npcs || []).map((row) => ({
+                    id: Number(row.id || 0),
+                    x: Number(row.x || 0),
+                    y: Number(row.y || 0),
+                })),
+                drop_rules: (map.drop_rules || []).map((row) => ({
+                    item_id: Number(row.item_id || 0),
+                    quantity_min: Number(row.quantity_min || 1),
+                    quantity_max: Number(row.quantity_max || 1),
+                    chance_numerator: Number(row.chance_numerator || 0),
+                    chance_denominator: Number(row.chance_denominator || 1),
+                    mob_temp_id:
+                        row.mob_temp_id === null ||
+                        row.mob_temp_id === undefined ||
+                        Number(row.mob_temp_id) < 0
+                            ? null
+                            : Number(row.mob_temp_id),
+                    active: row.active !== false,
+                    note: row.note || "",
+                    options: Array.isArray(row.options) ? row.options : [],
+                })),
+            };
+        },
+        createEditSnapshot() {
+            return {
+                mapMaxPlayer: Number(this.mapMaxPlayer || 1),
+                mapZonesConfig: Number(this.mapZonesConfig || 1),
+                rows: this.rows.map((row) => ({ ...row })),
+                waypointRows: this.waypointRows.map((row) => ({ ...row })),
+                npcRows: this.npcRows.map((row) => ({ ...row })),
+                dropRuleRows: this.dropRuleRows.map((row) => ({
+                    ...row,
+                    options: Array.isArray(row.options)
+                        ? row.options.map((option) => ({ ...option }))
+                        : [],
+                })),
+            };
+        },
+        applyEditSnapshot(snapshot) {
+            if (!snapshot) return;
+            this.mapMaxPlayer = Number(snapshot.mapMaxPlayer || 1);
+            this.mapZonesConfig = Number(snapshot.mapZonesConfig || 1);
+            this.rows = snapshot.rows.map((row) => ({ ...row }));
+            this.waypointRows = snapshot.waypointRows.map((row) => ({
+                ...row,
+            }));
+            this.npcRows = snapshot.npcRows.map((row) => ({ ...row }));
+            this.dropRuleRows = snapshot.dropRuleRows.map((row) => ({
+                ...row,
+                options: Array.isArray(row.options)
+                    ? row.options.map((option) => ({ ...option }))
+                    : [],
+            }));
+        },
+        pushMapUndo(label = "Chỉnh sửa") {
+            this.undoStack = [
+                ...this.undoStack.slice(-9),
+                {
+                    label,
+                    snapshot: this.createEditSnapshot(),
+                },
+            ];
+        },
+        undoMapEdit() {
+            const entry = this.undoStack[this.undoStack.length - 1];
+            if (!entry) return;
+            this.applyEditSnapshot(entry.snapshot);
+            this.undoStack = this.undoStack.slice(0, -1);
+            this.success = `Đã hoàn tác: ${entry.label}`;
+            this.error = "";
+        },
+        resetMapEdit() {
+            if (!this.selectedMap) return;
+            if (
+                this.hasMapChanges &&
+                !confirm("Reset toàn bộ thay đổi chưa lưu của map này?")
+            ) {
+                return;
+            }
+            this.syncRows();
+            this.success = "Đã reset về dữ liệu đang có từ server.";
+            this.error = "";
+        },
         async loadData() {
             this.loading = true;
             this.error = "";
@@ -1336,6 +1585,12 @@ export default {
             }
         },
         selectMap(map) {
+            if (
+                this.hasMapChanges &&
+                !confirm("Map hiện tại có thay đổi chưa lưu. Chuyển map và bỏ thay đổi?")
+            ) {
+                return;
+            }
             this.selectedMapId = map.id;
             this.success = "";
             this.error = "";
@@ -1375,6 +1630,7 @@ export default {
             this.dropRuleRows = map
                 ? (map.drop_rules || []).map((row) => this.localDropRule(row))
                 : [];
+            this.undoStack = [];
         },
         applyTemplateDefaults(row) {
             const mob = this.mobTemplate(row.temp_id);
@@ -1401,6 +1657,7 @@ export default {
         chooseMobTemplate(mob) {
             const row = this.rows[this.mobPicker.rowIndex];
             if (!row) return;
+            this.pushMapUndo("Đổi mob template");
             row.temp_id = Number(mob.id);
             if (!row.hp || row.hp <= 1) {
                 row.hp = Number(mob.hp || 1);
@@ -1415,6 +1672,7 @@ export default {
             this.waypointModalOpen = false;
         },
         addWaypoint() {
+            this.pushMapUndo("Thêm waypoint");
             const last = this.waypointRows[this.waypointRows.length - 1];
             this.waypointRows.push(
                 this.localWaypoint({
@@ -1430,11 +1688,13 @@ export default {
             );
         },
         removeWaypoint(index) {
+            this.pushMapUndo("Xóa waypoint");
             this.waypointRows.splice(index, 1);
         },
         cycleWaypointTarget(index) {
             const row = this.waypointRows[index];
             if (!row || !this.mapOptions.length) return;
+            this.pushMapUndo("Đổi map đích waypoint");
             const currentIndex = this.mapOptions.findIndex(
                 (map) => Number(map.id) === Number(row.go_map),
             );
@@ -1452,6 +1712,7 @@ export default {
             this.npcModalOpen = false;
         },
         addNpc() {
+            this.pushMapUndo("Thêm NPC");
             const first = this.npcTemplates[0] || {};
             this.npcRows.push(
                 this.localNpc({
@@ -1467,6 +1728,7 @@ export default {
             );
         },
         removeNpc(index) {
+            this.pushMapUndo("Xóa NPC");
             this.npcRows.splice(index, 1);
         },
         openNpcPicker(index) {
@@ -1483,6 +1745,7 @@ export default {
         chooseNpcTemplate(npc) {
             const row = this.npcRows[this.npcPicker.rowIndex];
             if (!row) return;
+            this.pushMapUndo("Đổi NPC template");
             row.id = Number(npc.id);
             row.name = npc.name || "";
             row.avatar = npc.avatar ?? null;
@@ -1498,6 +1761,7 @@ export default {
             this.dropRuleModalOpen = false;
         },
         addDropRule() {
+            this.pushMapUndo("Thêm rule drop");
             const first = this.itemTemplates[0] || {};
             this.dropRuleRows.push(
                 this.localDropRule({
@@ -1516,6 +1780,7 @@ export default {
             );
         },
         removeDropRule(index) {
+            this.pushMapUndo("Xóa rule drop");
             this.dropRuleRows.splice(index, 1);
         },
         openItemPicker(index) {
@@ -1533,12 +1798,14 @@ export default {
         chooseItemTemplate(item) {
             const row = this.dropRuleRows[this.itemPicker.rowIndex];
             if (!row) return;
+            this.pushMapUndo("Đổi item drop");
             row.item_id = Number(item.id);
             row.item_name = item.name || "";
             row.icon_id = item.icon_id ?? null;
             this.closeItemPicker();
         },
         addMob() {
+            this.pushMapUndo("Thêm mob");
             const last = this.rows[this.rows.length - 1];
             this.rows.push(
                 this.localRow({
@@ -1558,6 +1825,7 @@ export default {
         cloneMob(index) {
             const row = this.rows[index];
             if (!row) return;
+            this.pushMapUndo("Nhân bản mob");
             this.rows.splice(
                 index + 1,
                 0,
@@ -1568,6 +1836,7 @@ export default {
             );
         },
         removeMob(index) {
+            this.pushMapUndo("Xóa mob");
             this.rows.splice(index, 1);
         },
         async saveMapMobs() {
@@ -1633,6 +1902,7 @@ export default {
                 if (!res.ok || !data.ok) {
                     throw new Error(data.message || "Lưu map mob thất bại");
                 }
+                this.undoStack = [];
                 const updated = data.data?.map;
                 if (updated) {
                     const normalized = {
@@ -1796,6 +2066,21 @@ export default {
 }
 .panel-note {
     margin-top: 6px !important;
+    color: var(--ds-warning);
+}
+.change-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(var(--ds-warning-rgb), 0.28);
+    border-radius: 10px;
+    background: rgba(var(--ds-warning-rgb), 0.1);
+    color: var(--ds-text);
+    padding: 10px 12px;
+    font-size: 13px;
+}
+.change-banner .mi,
+.change-banner strong {
     color: var(--ds-warning);
 }
 .map-filters {

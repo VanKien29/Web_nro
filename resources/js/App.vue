@@ -266,6 +266,8 @@
 </template>
 
 <script>
+import { prefetchPages } from "./router";
+
 export default {
     name: "App",
     data() {
@@ -337,6 +339,22 @@ export default {
                 this.bootLoading = false;
             }, 350);
         });
+
+        const preload = () =>
+            prefetchPages([
+                "bxh",
+                "giftcode",
+                "login",
+                "register",
+                "profile",
+                "topupAtm",
+                "topupCard",
+            ]);
+        if ("requestIdleCallback" in window) {
+            window.requestIdleCallback(preload, { timeout: 2500 });
+        } else {
+            window.setTimeout(preload, 1200);
+        }
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this._onScroll);

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
@@ -594,6 +595,9 @@ class AdminController extends Controller
         if (Schema::connection('game')->hasColumn('player', 'power')) {
             $playerColumns[] = 'power';
         }
+        if (Schema::connection('game')->hasColumn('player', 'dataBadges')) {
+            $playerColumns[] = 'dataBadges';
+        }
 
         $player = $game->table('player')
             ->select($playerColumns)
@@ -659,6 +663,7 @@ class AdminController extends Controller
                         2 => 'Số lượng đã làm',
                         3 => 'Mốc thời gian nhiệm vụ',
                     ]),
+                    'dataBadges' => $this->parsePlayerBadges($raw['dataBadges'] ?? null),
                 ],
                 'fields' => $fields,
             ],
@@ -747,6 +752,7 @@ class AdminController extends Controller
             'items_box',
             'item_mails_box',
             'items_daban',
+            'dataBadges',
             'data_item_time',
             'pet',
             'giftcode',
@@ -855,8 +861,410 @@ class AdminController extends Controller
                 3 => 'Mốc thời gian nhiệm vụ',
             ]),
             'items_body', 'items_bag', 'items_box', 'item_mails_box', 'items_daban' => $this->parsePlayerItemList($value),
+            'dataBadges' => $this->parsePlayerBadges($value),
             default => $this->summarizeDecodedArray($value),
         };
+    }
+
+    private function parsePlayerBadges($value): ?array
+    {
+        $decoded = $this->decodeArray($value);
+        if (empty($decoded)) {
+            return [
+                'type' => 'badge_list',
+                'count' => 0,
+                'items' => [],
+            ];
+        }
+
+        $badgeIds = [];
+        foreach ($decoded as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $id = $row['idBadGes'] ?? $row['idBadges'] ?? $row['id'] ?? null;
+            if (is_numeric($id)) {
+                $badgeIds[(int) $id] = true;
+            }
+        }
+
+        $templates = $this->badgeTemplatesById(array_keys($badgeIds));
+        $items = [];
+        foreach ($decoded as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $id = (int) ($row['idBadGes'] ?? $row['idBadges'] ?? $row['id'] ?? 0);
+            $expires = (int) ($row['timeofUseBadges'] ?? 0);
+            $template = $templates[$id] ?? null;
+            $items[] = [
+                'index' => is_int($index) ? $index : (string) $index,
+                'label' => $template['name'] ?? ('Badge #' . $id),
+                'value' => [
+                    'id' => $id,
+                    'name' => $template['name'] ?? '',
+                    'icon_id' => $template['icon_id'] ?? null,
+                    'id_effect' => $template['id_effect'] ?? null,
+                    'id_item' => $template['id_item'] ?? null,
+                    'options' => $template['options'] ?? [],
+                    'expires_at' => $expires,
+                    'days_left' => $expires > 0 ? (int) floor(($expires - (int) floor(microtime(true) * 1000)) / 86400000) : null,
+                    'is_use' => !empty($row['isUse']),
+                ],
+            ];
+        }
+
+        return [
+            'type' => 'badge_list',
+            'count' => count($items),
+            'items' => $items,
+        ];
+    }
+
+    private function badgeTemplatesById(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($id) => $id > 0)));
+        if (empty($ids) || !Schema::connection('game')->hasTable('data_badges')) {
+            return [];
+        }
+
+        try {
+            return DB::connection('game')->table('data_badges as b')
+                ->leftJoin('item_template as i', 'b.idItem', '=', 'i.id')
+                ->whereIn('b.id', $ids)
+                ->get([
+                    'b.id',
+                    DB::raw('b.NAME as name'),
+                    DB::raw('b.idEffect as id_effect'),
+                    DB::raw('b.idItem as id_item'),
+                    DB::raw('b.Options as options'),
+                    'i.icon_id',
+                ])
+                ->mapWithKeys(fn($row) => [(int) $row->id => $this->normalizeBadgeTemplate($row)])
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function normalizeBadgeTemplate($row): array
+    {
+        $options = [];
+        $raw = (string) ($row->options ?? '[]');
+        try {
+            $decoded = json_decode($this->fixJson($raw), true);
+            $options = is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            $options = [];
+        }
+
+        return [
+            'id' => (int) ($row->id ?? 0),
+            'name' => (string) ($row->name ?? ''),
+            'id_effect' => (int) ($row->id_effect ?? 0),
+            'id_item' => (int) ($row->id_item ?? -1),
+            'icon_id' => isset($row->icon_id) ? (int) $row->icon_id : null,
+            'image_url' => $this->normalizeBadgeImageUrl((string) ($row->image_url ?? '')),
+            'data' => isset($row->data_raw) ? (string) $row->data_raw : '',
+            'raw_options' => $raw,
+            'options' => collect($options)->map(function ($option) {
+                $option = is_array($option) ? $option : [];
+                return [
+                    'id' => (int) ($option['id'] ?? 0),
+                    'param' => (int) ($option['param'] ?? 0),
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    private function badgeBaseQuery()
+    {
+        $select = [
+            'b.id',
+            DB::raw('b.NAME as name'),
+            DB::raw('b.idEffect as id_effect'),
+            DB::raw('b.idItem as id_item'),
+            DB::raw('b.Options as options'),
+            'i.icon_id',
+        ];
+
+        $imageColumn = $this->badgeImageColumn();
+        if ($imageColumn) {
+            $select[] = DB::raw("b.`{$imageColumn}` as image_url");
+        } else {
+            $select[] = DB::raw("'' as image_url");
+        }
+
+        if (Schema::connection('game')->hasColumn('data_badges', 'data')) {
+            $select[] = DB::raw('b.`data` as data_raw');
+        } else {
+            $select[] = DB::raw("'' as data_raw");
+        }
+
+        return DB::connection('game')->table('data_badges as b')
+            ->leftJoin('item_template as i', 'b.idItem', '=', 'i.id')
+            ->select($select);
+    }
+
+    private function badgeCapabilities(): array
+    {
+        return [
+            'image_column' => $this->badgeImageColumn(),
+            'data_column' => Schema::connection('game')->hasColumn('data_badges', 'data') ? 'data' : null,
+            'asset_table' => Schema::hasTable('admin_badge_assets'),
+        ];
+    }
+
+    private function attachBadgeAssets($badges)
+    {
+        if (!Schema::hasTable('admin_badge_assets') || $badges->isEmpty()) {
+            return $badges;
+        }
+
+        $assets = DB::table('admin_badge_assets')
+            ->whereIn('badge_id', $badges->pluck('id')->all())
+            ->get()
+            ->keyBy('badge_id');
+
+        return $badges->map(function ($badge) use ($assets) {
+            $asset = $assets->get($badge['id']);
+            if (!$asset) {
+                return $badge;
+            }
+            if (!empty($asset->image_url)) {
+                $badge['image_url'] = $this->normalizeBadgeImageUrl((string) $asset->image_url);
+            }
+            if ($asset->data !== null && $asset->data !== '') {
+                $badge['data'] = (string) $asset->data;
+            }
+            return $badge;
+        });
+    }
+
+    private function badgeImageColumn(): ?string
+    {
+        foreach (['image_url', 'image', 'image_path', 'avatar', 'icon'] as $column) {
+            if (Schema::connection('game')->hasColumn('data_badges', $column)) {
+                return $column;
+            }
+        }
+        return null;
+    }
+
+    private function normalizeBadgeImageUrl(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, '/')) {
+            return $value;
+        }
+        return '/' . ltrim($value, '/');
+    }
+
+    private function normalizeBadgePayload(Request $request): array
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'id_effect' => 'nullable|integer|min:0',
+            'id_item' => 'nullable|integer|min:-1',
+            'options' => 'nullable',
+            'data' => 'nullable|string|max:200000',
+            'image' => 'nullable|file|mimes:png,jpg,jpeg,webp,gif|max:4096',
+            'create_item_template' => 'nullable|boolean',
+            'item_name' => 'nullable|string|max:255',
+            'item_type' => 'nullable|integer',
+            'item_gender' => 'nullable|integer|min:0|max:3',
+            'item_description' => 'nullable|string|max:255',
+            'create_part' => 'nullable|boolean',
+            'part_type' => 'nullable|integer|min:0|max:2',
+            'part_dx' => 'nullable|integer|min:-32768|max:32767',
+            'part_dy' => 'nullable|integer|min:-32768|max:32767',
+        ]);
+
+        $optionsInput = $request->input('options', []);
+        if (is_string($optionsInput)) {
+            $decoded = json_decode($this->fixJson($optionsInput), true);
+            $optionsInput = is_array($decoded) ? $decoded : [];
+        }
+        $options = collect(is_array($optionsInput) ? $optionsInput : [])->map(function ($option) {
+            $option = is_array($option) ? $option : [];
+            return [
+                'id' => (int) ($option['id'] ?? 0),
+                'param' => (int) ($option['param'] ?? 0),
+            ];
+        })->values()->all();
+
+        $payload = [
+            'NAME' => (string) $request->input('name', ''),
+            'idEffect' => (int) $request->input('id_effect', 0),
+            'idItem' => (int) $request->input('id_item', -1),
+            'Options' => json_encode($options, JSON_UNESCAPED_UNICODE),
+        ];
+
+        if (Schema::connection('game')->hasColumn('data_badges', 'data')) {
+            $payload['data'] = (string) $request->input('data', '');
+        }
+
+        $imageColumn = $this->badgeImageColumn();
+        if ($imageColumn && $request->hasFile('image') && !$request->boolean('create_item_template')) {
+            $file = $request->file('image');
+            $dir = public_path('uploads/badges');
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+            $name = 'badge_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . strtolower($file->getClientOriginalExtension());
+            $file->move($dir, $name);
+            $payload[$imageColumn] = '/uploads/badges/' . $name;
+        } elseif ($imageColumn && $request->filled('image_url')) {
+            $payload[$imageColumn] = (string) $request->input('image_url');
+        }
+
+        return $payload;
+    }
+
+    private function createBadgeItemTemplateIfRequested(Request $request): ?array
+    {
+        if (!$request->boolean('create_item_template')) {
+            return null;
+        }
+        if (!Schema::connection('game')->hasTable('item_template')) {
+            return null;
+        }
+
+        $game = DB::connection('game');
+        $itemId = $this->nextGameId('item_template');
+        $iconId = $this->nextBadgeIconId();
+        $partId = -1;
+
+        if ($request->hasFile('image')) {
+            $this->saveBadgeIconImage($request->file('image'), $iconId);
+        }
+
+        if ($request->boolean('create_part') && Schema::connection('game')->hasTable('part')) {
+            $partId = $this->nextGameId('part');
+            $partType = max(0, min(2, (int) $request->input('part_type', 0)));
+            $baseIcon = match ($partType) {
+                1 => 16,
+                2 => 34,
+                default => 20,
+            };
+            $partData = [
+                [
+                    $iconId,
+                    (int) $request->input('part_dx', 0),
+                    (int) $request->input('part_dy', 0),
+                ],
+                [$baseIcon, 0, 0],
+            ];
+            $game->table('part')->insert([
+                'id' => $partId,
+                'TYPE' => $partType,
+                'DATA' => json_encode($partData, JSON_UNESCAPED_UNICODE),
+            ]);
+        }
+
+        $itemName = trim((string) $request->input('item_name', ''));
+        if ($itemName === '') {
+            $itemName = trim((string) $request->input('name', 'Danh hiệu'));
+        }
+
+        $game->table('item_template')->insert([
+            'id' => $itemId,
+            'TYPE' => (int) $request->input('item_type', 99),
+            'gender' => (int) $request->input('item_gender', 3),
+            'NAME' => $itemName,
+            'description' => (string) $request->input('item_description', 'Danh hiệu'),
+            'level' => 0,
+            'icon_id' => $iconId,
+            'part' => $partId,
+            'is_up_to_up' => 0,
+            'power_require' => 0,
+            'gold' => 0,
+            'gem' => 0,
+            'head' => -1,
+            'body' => -1,
+            'leg' => -1,
+            'is_up_to_up_over_99' => 0,
+            'can_trade' => 1,
+            'comment' => (string) $request->input('data', ''),
+        ]);
+
+        return [
+            'item_id' => $itemId,
+            'icon_id' => $iconId,
+            'part_id' => $partId,
+        ];
+    }
+
+    private function nextGameId(string $table): int
+    {
+        return ((int) (DB::connection('game')->table($table)->max('id') ?? 0)) + 1;
+    }
+
+    private function nextBadgeIconId(): int
+    {
+        $dbMax = (int) (DB::connection('game')->table('item_template')->max('icon_id') ?? 0);
+        $fileMax = 0;
+        $dir = public_path('assets/frontend/home/v1/images/x4');
+        if (is_dir($dir)) {
+            foreach (glob($dir . DIRECTORY_SEPARATOR . '*.{png,jpg,jpeg,webp,gif}', GLOB_BRACE) ?: [] as $file) {
+                $name = pathinfo($file, PATHINFO_FILENAME);
+                if (is_numeric($name)) {
+                    $fileMax = max($fileMax, (int) $name);
+                }
+            }
+        }
+        return max($dbMax, $fileMax) + 1;
+    }
+
+    private function saveBadgeIconImage($file, int $iconId): void
+    {
+        $dir = public_path('assets/frontend/home/v1/images/x4');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $file->move($dir, $iconId . '.png');
+    }
+
+    private function saveBadgeAsset(Request $request, int $badgeId): void
+    {
+        if (!Schema::hasTable('admin_badge_assets')) {
+            return;
+        }
+
+        $data = ['updated_at' => now()];
+        $hasAssetChange = false;
+
+        if ($request->has('data')) {
+            $data['data'] = (string) $request->input('data', '');
+            $hasAssetChange = true;
+        }
+
+        if (!$this->badgeImageColumn() && $request->hasFile('image') && !$request->boolean('create_item_template')) {
+            $file = $request->file('image');
+            $dir = public_path('uploads/badges');
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+            $name = 'badge_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . strtolower($file->getClientOriginalExtension());
+            $file->move($dir, $name);
+            $data['image_url'] = '/uploads/badges/' . $name;
+            $hasAssetChange = true;
+        } elseif ($request->filled('image_url')) {
+            $data['image_url'] = (string) $request->input('image_url');
+            $hasAssetChange = true;
+        }
+
+        if (!$hasAssetChange) {
+            return;
+        }
+
+        DB::table('admin_badge_assets')->updateOrInsert(
+            ['badge_id' => $badgeId],
+            array_merge($data, ['created_at' => now()])
+        );
     }
 
     private function parsePlayerItemList($value): ?array
@@ -988,6 +1396,7 @@ class AdminController extends Controller
             'items_box' => 'Vật phẩm trong rương',
             'item_mails_box' => 'Vật phẩm từ thư',
             'items_daban' => 'Vật phẩm đã bán',
+            'dataBadges' => 'Danh hiệu đang có',
             'data_item_time' => 'Dữ liệu thời gian hiệu ứng',
             'pet' => 'Dữ liệu đệ tử',
             'giftcode' => 'Giftcode đã nhận',
@@ -1150,6 +1559,1175 @@ class AdminController extends Controller
         );
 
         return response()->json(['ok' => true, 'message' => 'Xoá tài khoản thành công']);
+    }
+
+    public function badgesList(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = max(1, min((int) $request->query('per_page', 30), 100));
+
+        if (!Schema::connection('game')->hasTable('data_badges')) {
+            return response()->json(['ok' => true, 'data' => [], 'total' => 0, 'page' => 1, 'total_pages' => 1]);
+        }
+
+        $query = $this->badgeBaseQuery();
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('b.id', (int) $search);
+                }
+                $q->orWhere('b.NAME', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderBy('b.id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(fn($row) => $this->normalizeBadgeTemplate($row))
+            ->values();
+        $rows = $this->attachBadgeAssets($rows);
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'total_pages' => (int) max(1, ceil($total / $limit)),
+            'capabilities' => $this->badgeCapabilities(),
+        ]);
+    }
+
+    public function badgesGet(int $id): JsonResponse
+    {
+        $row = $this->badgeBaseQuery()->where('b.id', $id)->first();
+        if (!$row) {
+            return response()->json(['ok' => false, 'message' => 'Badge không tồn tại'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'data' => $this->attachBadgeAssets(collect([$this->normalizeBadgeTemplate($row)]))->first(),
+            'capabilities' => $this->badgeCapabilities(),
+        ]);
+    }
+
+    public function badgesCreate(Request $request): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('data_badges')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng data_badges'], 422);
+        }
+
+        $payload = $this->normalizeBadgePayload($request);
+        $id = $this->nextGameId('data_badges');
+        $payload['id'] = $id;
+        $createdItem = $this->createBadgeItemTemplateIfRequested($request);
+        if ($createdItem) {
+            $payload['idItem'] = $createdItem['item_id'];
+        }
+        DB::connection('game')->table('data_badges')->insert($payload);
+        $this->saveBadgeAsset($request, $id);
+        $row = $this->badgeBaseQuery()->where('b.id', $id)->first();
+        $normalized = $this->attachBadgeAssets(collect([$this->normalizeBadgeTemplate($row)]))->first();
+
+        $this->logAdminAction(
+            'badge.create',
+            'badge',
+            $id,
+            "Tạo badge {$payload['NAME']}",
+            null,
+            $this->sanitizeLogState((array) $row)
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã tạo badge',
+            'data' => $normalized,
+        ]);
+    }
+
+    public function badgesUpdate(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('data_badges')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng data_badges'], 422);
+        }
+
+        $before = $this->badgeBaseQuery()->where('b.id', $id)->first();
+        if (!$before) {
+            return response()->json(['ok' => false, 'message' => 'Badge không tồn tại'], 404);
+        }
+
+        $payload = $this->normalizeBadgePayload($request);
+        $createdItem = $this->createBadgeItemTemplateIfRequested($request);
+        if ($createdItem) {
+            $payload['idItem'] = $createdItem['item_id'];
+        }
+        DB::connection('game')->table('data_badges')->where('id', $id)->update($payload);
+        $this->saveBadgeAsset($request, $id);
+        $after = $this->badgeBaseQuery()->where('b.id', $id)->first();
+        $normalized = $this->attachBadgeAssets(collect([$this->normalizeBadgeTemplate($after)]))->first();
+
+        $this->logAdminAction(
+            'badge.update',
+            'badge',
+            $id,
+            "Cập nhật badge {$payload['NAME']}",
+            $this->sanitizeLogState((array) $before),
+            $this->sanitizeLogState((array) $after)
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã cập nhật badge',
+            'data' => $normalized,
+        ]);
+    }
+
+    public function badgesDelete(int $id): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('data_badges')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng data_badges'], 422);
+        }
+
+        $before = $this->badgeBaseQuery()->where('b.id', $id)->first();
+        if (!$before) {
+            return response()->json(['ok' => false, 'message' => 'Badge không tồn tại'], 404);
+        }
+
+        DB::connection('game')->table('data_badges')->where('id', $id)->delete();
+        if (Schema::hasTable('admin_badge_assets')) {
+            DB::table('admin_badge_assets')->where('badge_id', $id)->delete();
+        }
+        $this->logAdminAction(
+            'badge.delete',
+            'badge',
+            $id,
+            "Xóa badge {$before->name}",
+            $this->sanitizeLogState((array) $before),
+            null
+        );
+
+        return response()->json(['ok' => true, 'message' => 'Đã xóa badge']);
+    }
+
+    public function titleItemsList(Request $request): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('item_template')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng item_template'], 422);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = max(1, min((int) $request->query('per_page', 30), 100));
+
+        $query = DB::connection('game')->table('item_template as i')
+            ->select([
+                'i.id',
+                DB::raw('i.TYPE as type'),
+                'i.gender',
+                DB::raw('i.NAME as name'),
+                'i.description',
+                'i.icon_id',
+                'i.part',
+            ])
+            ->where(function ($q) {
+                $q->whereIn('i.TYPE', [36, 99])
+                    ->orWhere('i.description', 'LIKE', '%Danh hiệu%')
+                    ->orWhere('i.comment', 'LIKE', '%Admin title item%');
+            });
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('i.id', (int) $search)
+                        ->orWhere('i.icon_id', (int) $search)
+                        ->orWhere('i.part', (int) $search);
+                }
+                $q->orWhere('i.NAME', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderByDesc('i.id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(fn($row) => [
+                'id' => (int) $row->id,
+                'type' => (int) $row->type,
+                'gender' => (int) $row->gender,
+                'name' => (string) $row->name,
+                'description' => (string) $row->description,
+                'icon_id' => (int) $row->icon_id,
+                'part' => (int) $row->part,
+                'id_effect' => (int) $row->part >= 0 ? (int) $row->part : null,
+                'has_icon_x4' => is_file($this->gameSrcPath('data/icon/x4/' . (int) $row->icon_id . '.png')),
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . (int) $row->icon_id . '.png'))
+                    ? '/admin/api/title-items/icon/' . (int) $row->icon_id
+                    : null,
+                'has_effect_data' => (int) $row->part >= 0 && is_file($this->gameSrcPath('data/effdata/DataEffect_' . (int) $row->part)),
+            ])
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'total_pages' => (int) max(1, ceil($total / $limit)),
+            'paths' => [
+                'game_src' => $this->gameSrcPath(),
+                'icon' => $this->gameSrcPath('data/icon'),
+                'effect' => $this->gameSrcPath('data/effect'),
+                'effdata' => $this->gameSrcPath('data/effdata'),
+            ],
+            'next' => [
+                'item_id' => $this->nextGameId('item_template'),
+                'icon_id' => $this->nextGameAssetId('icon', 'item_template', 'icon_id'),
+                'effect_id' => $this->nextGameEffectId(),
+                'part_id' => Schema::connection('game')->hasTable('part') ? $this->nextGameId('part') : null,
+            ],
+        ]);
+    }
+
+    public function titleItemIcon(int $iconId)
+    {
+        $path = $this->gameSrcPath("data/icon/x4/{$iconId}.png");
+        if (!is_file($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
+    }
+
+    public function titleItemsCreate(Request $request): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('item_template')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng item_template'], 422);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'type' => 'nullable|integer',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'effect_data_text' => 'nullable|string|max:400000',
+            'effect_data_file' => 'nullable',
+            'icon_x1' => 'nullable',
+            'icon_x2' => 'nullable',
+            'icon_x3' => 'nullable',
+            'icon_x4' => 'nullable',
+            'effect_x1' => 'nullable',
+            'effect_x2' => 'nullable',
+            'effect_x3' => 'nullable',
+            'effect_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $assetIds = [];
+        $iconIds = [];
+        $effectIds = [];
+        $saved = [];
+        $created = [];
+
+        foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+            $id = $this->resolveGameAssetId($this->numericIdFromFilename($file->getClientOriginalName()), 'icon', $iconIds);
+            $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$id}.png", 96));
+            $assetIds[$id] = true;
+            $iconIds[$id] = true;
+        }
+
+        foreach ($this->requestFiles($request, 'effect_x4') as $file) {
+            $id = $this->resolveGameAssetId($this->numericIdFromFilename($file->getClientOriginalName()), 'effect', $effectIds);
+            $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/effect', "ImgEffect_{$id}.png"));
+            $assetIds[$id] = true;
+            $effectIds[$id] = true;
+        }
+
+        foreach ([1, 2, 3, 4] as $zoom) {
+            if ($zoom === 4) {
+                continue;
+            }
+
+            foreach ($this->requestFiles($request, "icon_x{$zoom}") as $file) {
+                $id = $this->resolveGameAssetId($this->numericIdFromFilename($file->getClientOriginalName()), 'icon', $iconIds);
+                $saved[] = $this->saveGameUpload($file, "data/icon/x{$zoom}/{$id}.png");
+                $assetIds[$id] = true;
+                $iconIds[$id] = true;
+            }
+
+            foreach ($this->requestFiles($request, "effect_x{$zoom}") as $file) {
+                $id = $this->resolveGameAssetId($this->numericIdFromFilename($file->getClientOriginalName()), 'effect', $effectIds);
+                $effectName = str_contains(strtolower($file->getClientOriginalName()), 'imageeffect_')
+                    ? "ImageEffect_{$id}.png"
+                    : "ImgEffect_{$id}.png";
+                $saved[] = $this->saveGameUpload($file, "data/effect/x{$zoom}/{$effectName}");
+                $assetIds[$id] = true;
+                $effectIds[$id] = true;
+            }
+        }
+
+        $orderedEffectIds = array_values(array_unique(array_map('intval', array_keys($effectIds))));
+        sort($orderedEffectIds);
+        foreach ($this->requestFiles($request, 'effect_data_file') as $file) {
+            $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+            $id = ($candidate !== null && isset($effectIds[$candidate]))
+                ? $candidate
+                : ($orderedEffectIds[count(array_filter($saved, fn($path) => str_contains($path, 'DataEffect_')))] ?? null);
+            if ($id === null) {
+                $id = $this->resolveGameAssetId($candidate, 'effect', $effectIds);
+                $effectIds[$id] = true;
+            }
+            $saved[] = $this->saveGameUpload($file, "data/effdata/DataEffect_{$id}");
+            $assetIds[$id] = true;
+            $effectIds[$id] = true;
+        }
+
+        if ($request->filled('effect_data_text')) {
+            $id = $orderedEffectIds[0] ?? $this->resolveGameAssetId(null, 'effect', $effectIds);
+            $path = $this->gameSrcPath("data/effdata/DataEffect_{$id}");
+            File::ensureDirectoryExists(dirname($path), 0775, true);
+            File::put($path, (string) $request->input('effect_data_text'));
+            $saved[] = $path;
+            $assetIds[$id] = true;
+            $effectIds[$id] = true;
+        }
+
+        if (!$assetIds) {
+            $assetIds[$this->nextGameEffectId()] = true;
+        }
+
+        $iconIds = array_map('intval', array_keys($iconIds));
+        $effectIds = array_map('intval', array_keys($effectIds));
+        sort($iconIds);
+        sort($effectIds);
+        $assetPairs = $this->pairTitleAssetIds($iconIds, $effectIds, array_map('intval', array_keys($assetIds)));
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        try {
+            $nextItemId = $this->nextGameId('item_template');
+            $baseName = trim((string) $request->input('name'));
+            foreach ($assetPairs as $index => $pair) {
+                $itemId = $nextItemId + $index;
+                $iconId = $pair['icon_id'];
+                $partId = $pair['part'];
+                $nameSuffix = $iconId === $partId ? $iconId : "{$iconId}-{$partId}";
+                $name = count($assetPairs) === 1 ? $baseName : "{$baseName} {$nameSuffix}";
+                $row = [
+                    'id' => $itemId,
+                    'TYPE' => (int) $request->input('type', 99),
+                    'gender' => (int) $request->input('gender', 3),
+                    'NAME' => $name,
+                    'description' => (string) $request->input('description', 'Danh hiệu'),
+                    'level' => 0,
+                    'icon_id' => $iconId,
+                    'part' => $partId,
+                    'is_up_to_up' => 0,
+                    'power_require' => 0,
+                    'gold' => 0,
+                    'gem' => 0,
+                    'head' => -1,
+                    'body' => -1,
+                    'leg' => -1,
+                    'is_up_to_up_over_99' => 0,
+                    'can_trade' => 1,
+                    'comment' => "Admin title item. icon_id={$iconId};part={$partId}",
+                ];
+                $game->table('item_template')->insert($row);
+                $created[] = [
+                    'item_id' => $itemId,
+                    'icon_id' => $iconId,
+                    'part' => $partId,
+                    'name' => $name,
+                ];
+            }
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không tạo được danh hiệu: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'title_item.create',
+            'item_template',
+            $created[0]['item_id'] ?? 0,
+            'Tạo danh hiệu item_template ' . trim((string) $request->input('name')),
+            null,
+            [
+                'created' => $created,
+                'saved_files' => $saved,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã lưu asset vào src game và tạo ' . count($created) . ' item_template danh hiệu',
+            'data' => [
+                'created' => $created,
+                'saved_files' => $saved,
+            ],
+        ]);
+    }
+
+    public function titleItemsUpdate(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('item_template')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng item_template'], 422);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'type' => 'nullable|integer',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'effect_data_text' => 'nullable|string|max:400000',
+            'effect_data_file' => 'nullable',
+            'icon_x4' => 'nullable',
+            'effect_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $before = $game->table('item_template')->where('id', $id)->first();
+        if (!$before) {
+            return response()->json(['ok' => false, 'message' => 'Danh hiệu không tồn tại'], 404);
+        }
+
+        $iconId = (int) $before->icon_id;
+        $partId = (int) $before->part;
+        $saved = [];
+
+        try {
+            $iconFile = $this->requestFiles($request, 'icon_x4')[0] ?? null;
+            if ($iconFile) {
+                $iconId = $iconId > 0 ? $iconId : $this->resolveGameAssetId($this->numericIdFromFilename($iconFile->getClientOriginalName()), 'icon', []);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($iconFile, 'data/icon', "{$iconId}.png", 96));
+            }
+
+            $effectFile = $this->requestFiles($request, 'effect_x4')[0] ?? null;
+            if ($effectFile) {
+                $partId = $partId > 0 ? $partId : $this->resolveGameAssetId($this->numericIdFromFilename($effectFile->getClientOriginalName()), 'effect', []);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($effectFile, 'data/effect', "ImgEffect_{$partId}.png"));
+            }
+
+            $effectDataFile = $this->requestFiles($request, 'effect_data_file')[0] ?? null;
+            if ($effectDataFile) {
+                $partId = $partId > 0 ? $partId : $this->resolveGameAssetId($this->numericIdFromFilename($effectDataFile->getClientOriginalName()), 'effect', []);
+                $saved[] = $this->saveGameUpload($effectDataFile, "data/effdata/DataEffect_{$partId}");
+            } elseif ($request->filled('effect_data_text')) {
+                $partId = $partId > 0 ? $partId : $this->resolveGameAssetId(null, 'effect', []);
+                $path = $this->gameSrcPath("data/effdata/DataEffect_{$partId}");
+                File::ensureDirectoryExists(dirname($path), 0775, true);
+                File::put($path, (string) $request->input('effect_data_text'));
+                $saved[] = $path;
+            }
+
+            $payload = [
+                'TYPE' => (int) $request->input('type', $before->TYPE ?? 99),
+                'gender' => (int) $request->input('gender', $before->gender ?? 3),
+                'NAME' => trim((string) $request->input('name')),
+                'description' => (string) $request->input('description', $before->description ?? 'Danh hiệu'),
+                'icon_id' => $iconId,
+                'part' => $partId,
+                'comment' => "Admin title item. icon_id={$iconId};part={$partId}",
+            ];
+
+            $game->table('item_template')->where('id', $id)->update($payload);
+            $after = $game->table('item_template')->where('id', $id)->first();
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => 'Không cập nhật được danh hiệu: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'title_item.update',
+            'item_template',
+            $id,
+            'Cập nhật danh hiệu item_template ' . trim((string) $request->input('name')),
+            $this->sanitizeLogState((array) $before),
+            $this->sanitizeLogState([
+                'row' => (array) $after,
+                'saved_files' => $saved,
+            ]),
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã cập nhật danh hiệu',
+            'data' => [
+                'item_id' => $id,
+                'icon_id' => $iconId,
+                'part' => $partId,
+                'saved_files' => $saved,
+            ],
+        ]);
+    }
+
+    public function costumesList(Request $request): JsonResponse
+    {
+        if (!Schema::connection('game')->hasTable('item_template')) {
+            return response()->json(['ok' => false, 'message' => 'Chưa có bảng item_template'], 422);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = max(1, min((int) $request->query('per_page', 30), 100));
+
+        $query = DB::connection('game')->table('item_template as i')
+            ->select([
+                'i.id',
+                DB::raw('i.TYPE as type'),
+                'i.gender',
+                DB::raw('i.NAME as name'),
+                'i.description',
+                'i.icon_id',
+                'i.part',
+                'i.head',
+                'i.body',
+                'i.leg',
+            ])
+            ->where('i.TYPE', 5);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('i.id', (int) $search)
+                        ->orWhere('i.icon_id', (int) $search)
+                        ->orWhere('i.head', (int) $search)
+                        ->orWhere('i.body', (int) $search)
+                        ->orWhere('i.leg', (int) $search);
+                }
+                $q->orWhere('i.NAME', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderByDesc('i.id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(fn($row) => [
+                'id' => (int) $row->id,
+                'type' => (int) $row->type,
+                'gender' => (int) $row->gender,
+                'name' => (string) $row->name,
+                'description' => (string) $row->description,
+                'icon_id' => (int) $row->icon_id,
+                'part' => (int) $row->part,
+                'head' => (int) $row->head,
+                'body' => (int) $row->body,
+                'leg' => (int) $row->leg,
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . (int) $row->icon_id . '.png'))
+                    ? '/admin/api/title-items/icon/' . (int) $row->icon_id
+                    : null,
+            ])
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'total_pages' => (int) max(1, ceil($total / $limit)),
+            'next' => [
+                'item_id' => $this->nextGameId('item_template'),
+                'part_id' => Schema::connection('game')->hasTable('part') ? $this->nextGameId('part') : null,
+                'icon_id' => $this->nextCostumeIconId(),
+            ],
+        ]);
+    }
+
+    public function costumesCreate(Request $request): JsonResponse
+    {
+        foreach (['item_template', 'part', 'head_avatar'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'head_data' => 'required|string|max:400000',
+            'body_data' => 'required|string|max:400000',
+            'leg_data' => 'required|string|max:400000',
+            'extra_head_data' => 'nullable|string|max:400000',
+            'icon_x4' => 'nullable',
+            'item_icon_x4' => 'nullable',
+            'avatar_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $saved = [];
+        $idMap = [];
+        $iconIds = [];
+        $itemIconId = null;
+        $avatarId = null;
+
+        try {
+            foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+                $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+                $id = $this->resolveCostumeIconId($candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$id}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $id;
+                }
+                $iconIds[$id] = true;
+            }
+
+            $itemIconFile = $this->requestFiles($request, 'item_icon_x4')[0] ?? null;
+            if ($itemIconFile) {
+                $candidate = $this->numericIdFromFilename($itemIconFile->getClientOriginalName());
+                $itemIconId = $this->resolveCostumeIconId($candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($itemIconFile, 'data/icon', "{$itemIconId}.png", 96));
+                $iconIds[$itemIconId] = true;
+            }
+
+            $avatarFile = $this->requestFiles($request, 'avatar_x4')[0] ?? null;
+            if ($avatarFile) {
+                $candidate = $this->numericIdFromFilename($avatarFile->getClientOriginalName());
+                $avatarId = $this->resolveCostumeIconId($candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($avatarFile, 'data/icon', "{$avatarId}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $avatarId;
+                }
+                $iconIds[$avatarId] = true;
+            } elseif (!empty($iconIds)) {
+                $avatarId = (int) array_key_first($iconIds);
+            } else {
+                return response()->json(['ok' => false, 'message' => 'Cần upload ít nhất một icon hoặc avatar x4'], 422);
+            }
+            $itemIconId ??= $avatarId;
+
+            $headLayers = $this->rewritePartLayers($this->parsePartLayers((string) $request->input('head_data')), $idMap);
+            $bodyLayers = $this->rewritePartLayers($this->parsePartLayers((string) $request->input('body_data')), $idMap);
+            $legLayers = $this->rewritePartLayers($this->parsePartLayers((string) $request->input('leg_data')), $idMap);
+            $extraHeads = array_map(
+                fn($layers) => $this->rewritePartLayers($layers, $idMap),
+                $this->parseExtraPartLayerBlocks((string) $request->input('extra_head_data', '')),
+            );
+        } catch (\Throwable $e) {
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu cải trang không hợp lệ: ' . $e->getMessage()], 422);
+        }
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        try {
+            $nextPartId = $this->nextGameId('part');
+            $headId = $nextPartId;
+            $bodyId = $nextPartId + 1;
+            $legId = $nextPartId + 2;
+            $createdParts = [];
+
+            $partRows = [
+                ['id' => $headId, 'TYPE' => 0, 'DATA' => json_encode($headLayers, JSON_UNESCAPED_UNICODE)],
+                ['id' => $bodyId, 'TYPE' => 1, 'DATA' => json_encode($bodyLayers, JSON_UNESCAPED_UNICODE)],
+                ['id' => $legId, 'TYPE' => 2, 'DATA' => json_encode($legLayers, JSON_UNESCAPED_UNICODE)],
+            ];
+
+            foreach ($extraHeads as $offset => $layers) {
+                $partRows[] = [
+                    'id' => $nextPartId + 3 + $offset,
+                    'TYPE' => 0,
+                    'DATA' => json_encode($layers, JSON_UNESCAPED_UNICODE),
+                ];
+            }
+
+            foreach ($partRows as $row) {
+                $game->table('part')->insert($row);
+                $createdParts[] = $row['id'];
+                if ((int) $row['TYPE'] === 0) {
+                    $game->table('head_avatar')->updateOrInsert(
+                        ['head_id' => $row['id']],
+                        ['avatar_id' => $avatarId],
+                    );
+                }
+            }
+
+            $itemId = $this->nextGameId('item_template');
+            $name = trim((string) $request->input('name'));
+            $itemRow = [
+                'id' => $itemId,
+                'TYPE' => 5,
+                'gender' => (int) $request->input('gender', 3),
+                'NAME' => $name,
+                'description' => (string) $request->input('description', 'Cải trang ' . $name),
+                'level' => 0,
+                'icon_id' => $itemIconId,
+                'part' => 0,
+                'is_up_to_up' => 0,
+                'power_require' => 0,
+                'gold' => 0,
+                'gem' => 0,
+                'head' => $headId,
+                'body' => $bodyId,
+                'leg' => $legId,
+                'is_up_to_up_over_99' => 0,
+                'can_trade' => 1,
+                'comment' => "Admin costume item. head={$headId};body={$bodyId};leg={$legId};icon={$itemIconId};avatar={$avatarId}",
+            ];
+            $game->table('item_template')->insert($itemRow);
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không tạo được cải trang: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'costume.create',
+            'item_template',
+            $itemId,
+            'Tạo cải trang ' . $name,
+            null,
+            [
+                'item' => $itemRow,
+                'part_ids' => $createdParts,
+                'item_icon_id' => $itemIconId,
+                'avatar_id' => $avatarId,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => "Đã tạo cải trang {$name} (#{$itemId})",
+            'data' => [
+                'item_id' => $itemId,
+                'item_icon_id' => $itemIconId,
+                'avatar_id' => $avatarId,
+                'head' => $headId,
+                'body' => $bodyId,
+                'leg' => $legId,
+                'extra_heads' => array_values(array_diff($createdParts, [$headId, $bodyId, $legId])),
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+            ],
+        ]);
+    }
+
+    private function gameSrcPath(string $child = ''): string
+    {
+        $candidates = array_filter([
+            env('GAME_SRC_PATH'),
+            rtrim((string) getenv('USERPROFILE'), '\\/') . DIRECTORY_SEPARATOR . 'Downloads' . DIRECTORY_SEPARATOR . 'SRC' . DIRECTORY_SEPARATOR . 'SRC',
+            base_path('../../../../SRC/SRC'),
+            base_path('../../../SRC'),
+        ]);
+
+        foreach ($candidates as $candidate) {
+            $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+            if (is_dir($path . DIRECTORY_SEPARATOR . 'data')) {
+                return rtrim($path, DIRECTORY_SEPARATOR) . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
+            }
+        }
+
+        $fallback = rtrim((string) ($candidates[0] ?? base_path()), DIRECTORY_SEPARATOR);
+        return $fallback . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
+    }
+
+    private function nextGameAssetId(string $assetDir, string $table, string $column): int
+    {
+        $dbMax = (int) (DB::connection('game')->table($table)->max($column) ?? 0);
+        $fileMax = 0;
+        $dir = $this->gameSrcPath("data/{$assetDir}/x4");
+        if (is_dir($dir)) {
+            foreach (glob($dir . DIRECTORY_SEPARATOR . '*.png') ?: [] as $file) {
+                $name = pathinfo($file, PATHINFO_FILENAME);
+                if (is_numeric($name)) {
+                    $fileMax = max($fileMax, (int) $name);
+                }
+            }
+        }
+        return max($dbMax, $fileMax) + 1;
+    }
+
+    private function nextGameEffectId(): int
+    {
+        $dbMax = (int) (DB::connection('game')->table('item_template')->where('part', '>=', 0)->max('part') ?? 0);
+        $fileMax = 0;
+        $dir = $this->gameSrcPath('data/effdata');
+        if (is_dir($dir)) {
+            foreach (glob($dir . DIRECTORY_SEPARATOR . 'DataEffect_*') ?: [] as $file) {
+                $name = preg_replace('/\D+/', '', pathinfo($file, PATHINFO_FILENAME));
+                if (is_numeric($name)) {
+                    $fileMax = max($fileMax, (int) $name);
+                }
+            }
+        }
+        return max($dbMax, $fileMax) + 1;
+    }
+
+    private function saveGameUpload($file, string $relativePath): string
+    {
+        $path = $this->gameSrcPath($relativePath);
+        File::ensureDirectoryExists(dirname($path), 0775, true);
+        $file->move(dirname($path), basename($path));
+        return $path;
+    }
+
+    private function saveGamePngPyramid($file, string $baseDir, string $filename, ?int $maxX4Size = null): array
+    {
+        $source = @imagecreatefrompng($file->getRealPath());
+        if (!$source) {
+            throw new \RuntimeException('File ' . $file->getClientOriginalName() . ' không phải PNG hợp lệ.');
+        }
+
+        imagesavealpha($source, true);
+        $width = imagesx($source);
+        $height = imagesy($source);
+        $baseScale = 1.0;
+        if ($maxX4Size && max($width, $height) > $maxX4Size) {
+            $baseScale = $maxX4Size / max($width, $height);
+        }
+        $saved = [];
+
+        foreach ([4 => 1, 3 => 0.75, 2 => 0.5, 1 => 0.25] as $zoom => $scale) {
+            $targetWidth = max(1, (int) round($width * $baseScale * $scale));
+            $targetHeight = max(1, (int) round($height * $baseScale * $scale));
+            $target = imagecreatetruecolor($targetWidth, $targetHeight);
+            imagealphablending($target, false);
+            imagesavealpha($target, true);
+            $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+            imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
+            imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+            $path = $this->gameSrcPath($baseDir . "/x{$zoom}/{$filename}");
+            File::ensureDirectoryExists(dirname($path), 0775, true);
+            imagepng($target, $path);
+            imagedestroy($target);
+            $saved[] = $path;
+        }
+
+        imagedestroy($source);
+        return $saved;
+    }
+
+    private function requestFiles(Request $request, string $field): array
+    {
+        $files = $request->file($field);
+        if (!$files) {
+            return [];
+        }
+        return is_array($files) ? array_values(array_filter($files)) : [$files];
+    }
+
+    private function numericIdFromFilename(string $filename): ?int
+    {
+        $name = pathinfo(str_replace('\\', '/', $filename), PATHINFO_FILENAME);
+        if (preg_match('/(\d+)(?!.*\d)/', $name, $matches)) {
+            $id = (int) $matches[1];
+            return $id > 0 && $id <= 32767 ? $id : null;
+        }
+        return null;
+    }
+
+    private function resolveGameAssetId(?int $candidate, string $kind, array $used): int
+    {
+        if ($candidate !== null && $candidate > 0 && !isset($used[$candidate]) && $this->gameAssetIdAvailable($candidate, $kind)) {
+            return $candidate;
+        }
+
+        $id = $candidate !== null && $candidate > 0 && $candidate <= 32767
+            ? $candidate + 1
+            : $this->nextFreeGameAssetStart($kind);
+        while (!$this->gameAssetIdAvailable($id, $kind) || isset($used[$id])) {
+            $id++;
+            if ($id > 32767) {
+                throw new \RuntimeException('Không còn ID trống hợp lệ cho ' . $kind . ' (1-32767).');
+            }
+        }
+        return $id;
+    }
+
+    private function nextCostumeIconId(): int
+    {
+        $fileMax = $this->maxNumericAssetFileId('data/icon/x4', '/^(\d+)$/');
+        $templateMax = (int) (DB::connection('game')->table('item_template')->max('icon_id') ?? 0);
+        $avatarMax = Schema::connection('game')->hasTable('head_avatar')
+            ? (int) (DB::connection('game')->table('head_avatar')->max('avatar_id') ?? 0)
+            : 0;
+        return max(1, min(32767, max($fileMax, $templateMax, $avatarMax) + 1));
+    }
+
+    private function resolveCostumeIconId(?int $candidate, array $used): int
+    {
+        if ($candidate !== null && $candidate > 0 && !isset($used[$candidate]) && $this->costumeIconIdAvailable($candidate)) {
+            return $candidate;
+        }
+
+        $id = $candidate !== null && $candidate > 0 && $candidate <= 32767
+            ? $candidate + 1
+            : $this->nextCostumeIconId();
+        while (!$this->costumeIconIdAvailable($id) || isset($used[$id])) {
+            $id++;
+            if ($id > 32767) {
+                throw new \RuntimeException('Không còn icon ID trống hợp lệ cho cải trang (1-32767).');
+            }
+        }
+        return $id;
+    }
+
+    private function costumeIconIdAvailable(int $id): bool
+    {
+        if ($id <= 0 || $id > 32767) {
+            return false;
+        }
+
+        foreach ([1, 2, 3, 4] as $zoom) {
+            if (is_file($this->gameSrcPath("data/icon/x{$zoom}/{$id}.png"))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function parsePartLayers(string $raw): array
+    {
+        $normalized = trim($raw);
+        if ($normalized === '') {
+            throw new \InvalidArgumentException('DATA part không được để trống.');
+        }
+
+        $decoded = json_decode($this->fixJson($normalized), true);
+        if (is_string($decoded)) {
+            $decoded = json_decode($this->fixJson($decoded), true);
+        }
+
+        if (!is_array($decoded)) {
+            throw new \InvalidArgumentException('DATA part phải là JSON dạng [[icon_id,dx,dy], ...].');
+        }
+
+        $layers = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry) || count($entry) < 3) {
+                throw new \InvalidArgumentException('Mỗi layer part phải có đủ 3 giá trị [icon_id, dx, dy].');
+            }
+            $layers[] = [
+                (int) $entry[0],
+                (int) $entry[1],
+                (int) $entry[2],
+            ];
+        }
+
+        if (!$layers) {
+            throw new \InvalidArgumentException('DATA part không có layer hợp lệ.');
+        }
+
+        return $layers;
+    }
+
+    private function parseExtraPartLayerBlocks(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return [];
+        }
+
+        $blocks = preg_split('/\R{2,}/', $raw) ?: [];
+        if (count($blocks) === 1) {
+            $decoded = json_decode($this->fixJson($raw), true);
+            if (is_array($decoded) && isset($decoded[0]) && is_array($decoded[0]) && isset($decoded[0][0]) && is_array($decoded[0][0])) {
+                return array_map(fn($block) => $this->parsePartLayers(json_encode($block, JSON_UNESCAPED_UNICODE)), $decoded);
+            }
+        }
+
+        return array_values(array_filter(array_map(function ($block) {
+            $block = trim((string) $block);
+            return $block === '' ? null : $this->parsePartLayers($block);
+        }, $blocks)));
+    }
+
+    private function rewritePartLayers(array $layers, array $idMap): array
+    {
+        return array_map(function ($entry) use ($idMap) {
+            $iconId = (int) $entry[0];
+            return [
+                $idMap[$iconId] ?? $iconId,
+                (int) $entry[1],
+                (int) $entry[2],
+            ];
+        }, $layers);
+    }
+
+    private function gameAssetIdAvailable(int $id, string $kind): bool
+    {
+        if ($id <= 0 || $id > 32767) {
+            return false;
+        }
+
+        if ($kind === 'icon') {
+            if (DB::connection('game')->table('item_template')->where('icon_id', $id)->exists()) {
+                return false;
+            }
+            foreach ([1, 2, 3, 4] as $zoom) {
+                if (is_file($this->gameSrcPath("data/icon/x{$zoom}/{$id}.png"))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (DB::connection('game')->table('item_template')->where('part', $id)->exists()) {
+            return false;
+        }
+        if (is_file($this->gameSrcPath("data/effdata/DataEffect_{$id}"))) {
+            return false;
+        }
+        foreach ([1, 2, 3, 4] as $zoom) {
+            if (
+                is_file($this->gameSrcPath("data/effect/x{$zoom}/ImgEffect_{$id}.png")) ||
+                is_file($this->gameSrcPath("data/effect/x{$zoom}/ImageEffect_{$id}.png"))
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function nextFreeGameAssetStart(string $kind): int
+    {
+        if ($kind === 'icon') {
+            $dbMax = (int) (DB::connection('game')->table('item_template')->max('icon_id') ?? 0);
+            $fileMax = $this->maxNumericAssetFileId('data/icon/x4', '/^(\d+)$/');
+            return max(1, min(32767, max($dbMax, $fileMax) + 1));
+        }
+
+        $dbMax = (int) (DB::connection('game')->table('item_template')->where('part', '>=', 0)->max('part') ?? 0);
+        $effectMax = $this->maxNumericAssetFileId('data/effect/x4', '/(?:ImgEffect_|ImageEffect_)?(\d+)$/i');
+        $dataMax = $this->maxNumericAssetFileId('data/effdata', '/DataEffect_(\d+)$/i');
+        return max(1, min(32767, max($dbMax, $effectMax, $dataMax) + 1));
+    }
+
+    private function maxNumericAssetFileId(string $relativeDir, string $pattern): int
+    {
+        $max = 0;
+        $dir = $this->gameSrcPath($relativeDir);
+        if (!is_dir($dir)) {
+            return 0;
+        }
+        foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
+            $name = pathinfo($file, PATHINFO_FILENAME);
+            if (preg_match($pattern, $name, $matches)) {
+                $id = (int) $matches[1];
+                if ($id > 0 && $id <= 32767) {
+                    $max = max($max, $id);
+                }
+            }
+        }
+        return $max;
+    }
+
+    private function pairTitleAssetIds(array $iconIds, array $effectIds, array $fallbackIds): array
+    {
+        $iconIds = array_values(array_unique(array_map('intval', $iconIds)));
+        $effectIds = array_values(array_unique(array_map('intval', $effectIds)));
+        $fallbackIds = array_values(array_unique(array_map('intval', $fallbackIds)));
+        sort($iconIds);
+        sort($effectIds);
+        sort($fallbackIds);
+
+        if ($iconIds && $effectIds) {
+            $count = max(count($iconIds), count($effectIds));
+            $pairs = [];
+            for ($i = 0; $i < $count; $i++) {
+                $iconId = $iconIds[$i] ?? $iconIds[count($iconIds) - 1];
+                $effectId = $effectIds[$i] ?? $effectIds[count($effectIds) - 1];
+                $pairs[] = ['icon_id' => $iconId, 'part' => $effectId];
+            }
+            return $pairs;
+        }
+
+        $ids = $iconIds ?: ($effectIds ?: $fallbackIds);
+        return array_map(fn($id) => ['icon_id' => $id, 'part' => $id], $ids);
+    }
+
+    public function accountsBadgesUpdate(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::connection('game')->hasColumn('player', 'dataBadges')) {
+            return response()->json(['ok' => false, 'message' => 'Bảng player chưa có cột dataBadges'], 422);
+        }
+
+        $rows = $request->input('badges', []);
+        if (!is_array($rows)) {
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu badge không hợp lệ'], 422);
+        }
+
+        $player = DB::connection('game')->table('player')
+            ->where('account_id', $id)
+            ->first(['id', 'account_id', 'name', 'dataBadges']);
+
+        if (!$player) {
+            return response()->json(['ok' => false, 'message' => 'Tài khoản chưa có nhân vật'], 404);
+        }
+
+        $badges = collect($rows)->map(function ($row) {
+            $row = is_array($row) ? $row : [];
+            return [
+                'idBadGes' => max(0, (int) ($row['idBadGes'] ?? $row['id'] ?? 0)),
+                'timeofUseBadges' => max(0, (int) ($row['timeofUseBadges'] ?? $row['expires_at'] ?? 0)),
+                'isUse' => !empty($row['isUse'] ?? $row['is_use'] ?? false),
+            ];
+        })->filter(fn($row) => $row['idBadGes'] > 0)->values()->all();
+
+        $before = (array) $player;
+        DB::connection('game')->table('player')
+            ->where('id', $player->id)
+            ->update(['dataBadges' => json_encode($badges, JSON_UNESCAPED_UNICODE)]);
+
+        $after = DB::connection('game')->table('player')
+            ->where('id', $player->id)
+            ->first(['id', 'account_id', 'name', 'dataBadges']);
+
+        Cache::forget("admin:player-section:{$id}:dataBadges");
+        $this->logAdminAction(
+            'player.badges.update',
+            'player',
+            (int) $player->id,
+            "Cập nhật danh hiệu nhân vật {$player->name}",
+            $this->sanitizeLogState($before),
+            $this->sanitizeLogState((array) $after),
+            ['account_id' => $id, 'badge_count' => count($badges)]
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã cập nhật danh hiệu',
+            'data' => [
+                'raw' => $after->dataBadges ?? '[]',
+                'parsed' => $this->parsePlayerBadges($after->dataBadges ?? '[]'),
+            ],
+        ]);
     }
 
     // ========== GIFTCODE MANAGEMENT ==========

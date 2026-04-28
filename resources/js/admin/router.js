@@ -1,108 +1,154 @@
 import { createRouter, createWebHistory } from "vue-router";
-import LoginPage from "./pages/LoginPage.vue";
-import DashboardPage from "./pages/DashboardPage.vue";
+
+const pageLoaders = {
+    login: () => import("./pages/LoginPage.vue"),
+    dashboard: () => import("./pages/DashboardPage.vue"),
+    accounts: () => import("./pages/AccountsPage.vue"),
+    accountForm: () => import("./pages/AccountFormPage.vue"),
+    giftcodes: () => import("./pages/GiftcodesPage.vue"),
+    giftcodeForm: () => import("./pages/GiftcodeFormPage.vue"),
+    items: () => import("./pages/ItemsPage.vue"),
+    badges: () => import("./pages/BadgesPage.vue"),
+    costumes: () => import("./pages/CostumesPage.vue"),
+    milestones: () => import("./pages/MilestonesPage.vue"),
+    milestoneForm: () => import("./pages/MilestoneFormPage.vue"),
+    shops: () => import("./pages/ShopsPage.vue"),
+    shopTabForm: () => import("./pages/ShopTabFormPage.vue"),
+    bosses: () => import("./pages/BossesPage.vue"),
+    mapMobs: () => import("./pages/MapMobsPage.vue"),
+    logs: () => import("./pages/AdminLogsPage.vue"),
+};
+
+const loadedPages = new Map();
+
+function loadAdminPage(key) {
+    if (!loadedPages.has(key)) {
+        loadedPages.set(key, pageLoaders[key]());
+    }
+    return loadedPages.get(key);
+}
+
+export function prefetchAdminPages(keys) {
+    keys.forEach((key) => {
+        if (pageLoaders[key]) {
+            loadAdminPage(key).catch(() => loadedPages.delete(key));
+        }
+    });
+}
 
 const routes = [
     {
         path: "/admin/login",
         name: "admin.login",
-        component: LoginPage,
+        component: () => loadAdminPage("login"),
         meta: { guest: true },
     },
     {
         path: "/admin",
         name: "admin.dashboard",
-        component: DashboardPage,
+        component: () => loadAdminPage("dashboard"),
         meta: { auth: true },
     },
     {
         path: "/admin/accounts",
         name: "admin.accounts",
-        component: () => import("./pages/AccountsPage.vue"),
+        component: () => loadAdminPage("accounts"),
         meta: { auth: true },
     },
     {
         path: "/admin/accounts/create",
         name: "admin.accounts.create",
-        component: () => import("./pages/AccountFormPage.vue"),
+        component: () => loadAdminPage("accountForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/accounts/:id/edit",
         name: "admin.accounts.edit",
-        component: () => import("./pages/AccountFormPage.vue"),
+        component: () => loadAdminPage("accountForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/giftcodes",
         name: "admin.giftcodes",
-        component: () => import("./pages/GiftcodesPage.vue"),
+        component: () => loadAdminPage("giftcodes"),
         meta: { auth: true },
     },
     {
         path: "/admin/giftcodes/create",
         name: "admin.giftcodes.create",
-        component: () => import("./pages/GiftcodeFormPage.vue"),
+        component: () => loadAdminPage("giftcodeForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/giftcodes/:id/edit",
         name: "admin.giftcodes.edit",
-        component: () => import("./pages/GiftcodeFormPage.vue"),
+        component: () => loadAdminPage("giftcodeForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/items",
         name: "admin.items",
-        component: () => import("./pages/ItemsPage.vue"),
+        component: () => loadAdminPage("items"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/badges",
+        name: "admin.badges",
+        component: () => loadAdminPage("badges"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/costumes",
+        name: "admin.costumes",
+        component: () => loadAdminPage("costumes"),
         meta: { auth: true },
     },
     {
         path: "/admin/milestones/:type",
         name: "admin.milestones",
-        component: () => import("./pages/MilestonesPage.vue"),
+        component: () => loadAdminPage("milestones"),
         meta: { auth: true },
     },
     {
         path: "/admin/milestones/:type/create",
         name: "admin.milestones.create",
-        component: () => import("./pages/MilestoneFormPage.vue"),
+        component: () => loadAdminPage("milestoneForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/milestones/:type/:id/edit",
         name: "admin.milestones.edit",
-        component: () => import("./pages/MilestoneFormPage.vue"),
+        component: () => loadAdminPage("milestoneForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/shops",
         name: "admin.shops",
-        component: () => import("./pages/ShopsPage.vue"),
+        component: () => loadAdminPage("shops"),
         meta: { auth: true },
     },
     {
         path: "/admin/shops/tab/:tabId/edit",
         name: "admin.shops.tab.edit",
-        component: () => import("./pages/ShopTabFormPage.vue"),
+        component: () => loadAdminPage("shopTabForm"),
         meta: { auth: true },
     },
     {
         path: "/admin/bosses",
         name: "admin.bosses",
-        component: () => import("./pages/BossesPage.vue"),
+        component: () => loadAdminPage("bosses"),
         meta: { auth: true },
     },
     {
         path: "/admin/map-mobs",
         name: "admin.map_mobs",
-        component: () => import("./pages/MapMobsPage.vue"),
+        component: () => loadAdminPage("mapMobs"),
         meta: { auth: true },
     },
     {
         path: "/admin/admin-logs",
         name: "admin.logs",
-        component: () => import("./pages/AdminLogsPage.vue"),
+        component: () => loadAdminPage("logs"),
         meta: { auth: true },
     },
 ];
@@ -113,6 +159,23 @@ const router = createRouter({
 });
 
 const CHUNK_RELOAD_KEY = "admin_chunk_reload_once";
+let authCache = { ok: false, expiresAt: 0 };
+
+async function checkAdminAuth({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && authCache.expiresAt > now) {
+        return authCache.ok;
+    }
+
+    const res = await fetch("/admin/api/me", {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    authCache = {
+        ok: res.ok,
+        expiresAt: now + (res.ok ? 45000 : 0),
+    };
+    return res.ok;
+}
 
 function emitAdminRouteLoading(loading) {
     if (typeof window === "undefined") return;
@@ -129,13 +192,11 @@ router.beforeEach(async (to, from, next) => {
     // Check if route needs auth
     if (to.meta.auth) {
         try {
-            const res = await fetch("/admin/api/me", {
-                headers: { "X-Requested-With": "XMLHttpRequest" },
-            });
-            if (!res.ok) {
+            if (!(await checkAdminAuth())) {
                 return next({ name: "admin.login" });
             }
         } catch {
+            authCache = { ok: false, expiresAt: 0 };
             return next({ name: "admin.login" });
         }
     }
@@ -143,10 +204,7 @@ router.beforeEach(async (to, from, next) => {
     // Redirect logged-in users away from login page
     if (to.meta.guest) {
         try {
-            const res = await fetch("/admin/api/me", {
-                headers: { "X-Requested-With": "XMLHttpRequest" },
-            });
-            if (res.ok) {
+            if (await checkAdminAuth({ force: true })) {
                 return next({ name: "admin.dashboard" });
             }
         } catch {

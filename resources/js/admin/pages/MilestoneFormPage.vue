@@ -666,9 +666,9 @@ export default {
             }
         },
     },
-    created() {
+    async created() {
         this.ensureType();
-        this.loadOptions();
+        await this.loadOptions();
         if (this.isEdit) {
             this.loadRecord();
         }
@@ -887,23 +887,25 @@ export default {
             this.showResults = false;
         },
         optionName(id) {
-            const o = this.allOptions.find((a) => a.id === id);
+            const o = this.allOptions.find((a) => Number(a.id) === Number(id));
             return o ? o.name : "";
         },
         optionLabel(id, param) {
-            const o = this.allOptions.find((a) => a.id === id);
+            const o = this.allOptions.find((a) => Number(a.id) === Number(id));
             if (!o) return String(param);
-            return o.name.includes("#")
-                ? o.name.replace("#", param)
-                : o.name + ": " + param;
+            const name = String(o.name || "");
+            return name.includes("#")
+                ? name.replace("#", param)
+                : name + ": " + param;
         },
         filteredOptions(search) {
-            if (!search || !search.trim()) return this.allOptions.slice(0, 30);
+            const options = Array.isArray(this.allOptions) ? this.allOptions : [];
+            if (!search || !search.trim()) return options.slice(0, 30);
             const q = search.trim().toLowerCase();
-            return this.allOptions
+            return options
                 .filter(
                     (o) =>
-                        o.name.toLowerCase().includes(q) ||
+                        String(o.name || "").toLowerCase().includes(q) ||
                         String(o.id).includes(q),
                 )
                 .slice(0, 20);
@@ -939,7 +941,13 @@ export default {
         confirmOption(item) {
             const opt = this.pendingOpt(item);
             if (!opt || !opt._pending) return;
-            if (!opt.id) return;
+            if (
+                opt.id === null ||
+                opt.id === undefined ||
+                opt.id === "" ||
+                Number.isNaN(Number(opt.id))
+            )
+                return;
             if (!opt.search || !opt.search.trim()) {
                 const name = this.optionName(opt.id);
                 opt.search = name ? `${name} (ID: ${opt.id})` : `ID: ${opt.id}`;
@@ -975,9 +983,11 @@ export default {
                 const data = await res.json();
                 this.allOptions = Array.isArray(data)
                     ? data
-                    : Array.isArray(data?.options)
-                      ? data.options
-                      : [];
+                    : Array.isArray(data?.data)
+                      ? data.data
+                      : Array.isArray(data?.options)
+                        ? data.options
+                        : [];
             } catch {
                 this.allOptions = [];
             }
@@ -1007,8 +1017,11 @@ export default {
                     options: (it.options || []).map((o) => {
                         const name = this.optionName(o.id);
                         return {
-                            id: o.id || 0,
-                            param: o.param || 0,
+                            id:
+                                o.id === null || o.id === undefined
+                                    ? 0
+                                    : Number(o.id),
+                            param: Number(o.param || 0),
                             search: name
                                 ? `${name} (ID: ${o.id})`
                                 : `ID: ${o.id}`,

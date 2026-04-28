@@ -99,6 +99,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/accounts/{id}/player-full', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerFull']);
         Route::get('/api/accounts/{id}/player-sections/{section}', [\App\Http\Controllers\Api\AdminController::class, 'accountsPlayerSection']);
         Route::get('/api/accounts/{id}/activity', [\App\Http\Controllers\Api\AdminController::class, 'accountsActivity']);
+        Route::put('/api/accounts/{id}/badges', [\App\Http\Controllers\Api\AdminController::class, 'accountsBadgesUpdate']);
         Route::post('/api/accounts', [\App\Http\Controllers\Api\AdminController::class, 'accountsCreate']);
         Route::put('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsUpdate']);
         Route::delete('/api/accounts/{id}', [\App\Http\Controllers\Api\AdminController::class, 'accountsDelete']);
@@ -117,6 +118,7 @@ Route::prefix('admin')->group(function () {
 
         // Game runtime commands
         Route::post('/api/runtime/shop/reload', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'reloadShop']);
+        Route::get('/api/runtime/health', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'health']);
         Route::get('/api/runtime/bosses', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'bosses']);
         Route::post('/api/runtime/bosses', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'createBoss']);
         Route::post('/api/runtime/bosses/action', [\App\Http\Controllers\Api\AdminRuntimeController::class, 'bossAction']);
@@ -139,6 +141,17 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/items/batch', [\App\Http\Controllers\Api\AdminController::class, 'itemsBatch']);
         Route::get('/api/items/search', [\App\Http\Controllers\Admin\GiftcodeController::class, 'searchItems']);
         Route::get('/api/options', [\App\Http\Controllers\Admin\GiftcodeController::class, 'allOptions']);
+        Route::get('/api/badges', [\App\Http\Controllers\Api\AdminController::class, 'badgesList']);
+        Route::get('/api/badges/{id}', [\App\Http\Controllers\Api\AdminController::class, 'badgesGet']);
+        Route::post('/api/badges', [\App\Http\Controllers\Api\AdminController::class, 'badgesCreate']);
+        Route::post('/api/badges/{id}', [\App\Http\Controllers\Api\AdminController::class, 'badgesUpdate']);
+        Route::delete('/api/badges/{id}', [\App\Http\Controllers\Api\AdminController::class, 'badgesDelete']);
+        Route::get('/api/title-items', [\App\Http\Controllers\Api\AdminController::class, 'titleItemsList']);
+        Route::get('/api/title-items/icon/{iconId}', [\App\Http\Controllers\Api\AdminController::class, 'titleItemIcon']);
+        Route::post('/api/title-items', [\App\Http\Controllers\Api\AdminController::class, 'titleItemsCreate']);
+        Route::post('/api/title-items/{id}', [\App\Http\Controllers\Api\AdminController::class, 'titleItemsUpdate']);
+        Route::get('/api/costumes', [\App\Http\Controllers\Api\AdminController::class, 'costumesList']);
+        Route::post('/api/costumes', [\App\Http\Controllers\Api\AdminController::class, 'costumesCreate']);
 
         // Shops
         Route::get('/api/shops', [\App\Http\Controllers\Api\AdminController::class, 'shopsList']);
