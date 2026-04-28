@@ -11,7 +11,7 @@
                     <span class="current">Danh hiệu</span>
                 </nav>
             </div>
-            <button class="btn btn-primary" @click="openEditor">
+            <button class="btn btn-primary" @click="openEditor()">
                 <span class="mi" style="font-size: 16px">add</span>
                 Thêm danh hiệu
             </button>
@@ -366,6 +366,22 @@
 
                 <div class="modal-actions">
                     <button
+                        v-if="!editor.form.id"
+                        class="btn btn-outline"
+                        :disabled="editor.saving"
+                        @click="applyDraft"
+                    >
+                        Nạp bộ đã lưu
+                    </button>
+                    <button
+                        v-if="!editor.form.id"
+                        class="btn btn-outline"
+                        :disabled="editor.saving"
+                        @click="saveDraft"
+                    >
+                        Lưu bộ đang nhập
+                    </button>
+                    <button
                         class="btn btn-outline"
                         :disabled="editor.saving"
                         @click="closeEditor"
@@ -464,6 +480,44 @@ export default {
                 effect_data_text: "",
             };
         },
+        draftKey() {
+            return "admin_title_item_create_draft_v1";
+        },
+        loadDraftForm() {
+            try {
+                const raw = localStorage.getItem(this.draftKey());
+                if (!raw) return this.blankForm();
+                return { ...this.blankForm(), ...(JSON.parse(raw) || {}) };
+            } catch {
+                return this.blankForm();
+            }
+        },
+        saveDraft() {
+            if (!this.editor.open || this.editor.form?.id) return;
+            try {
+                localStorage.setItem(
+                    this.draftKey(),
+                    JSON.stringify(this.editor.form),
+                );
+                this.editor.error = "";
+                this.success = "Đã lưu bộ danh hiệu đang nhập.";
+            } catch {
+                this.editor.error = "Không lưu được bộ đang nhập trên trình duyệt.";
+            }
+        },
+        clearDraft() {
+            try {
+                localStorage.removeItem(this.draftKey());
+            } catch {
+                // ignore storage errors
+            }
+        },
+        applyDraft() {
+            if (this.editor.form?.id) return;
+            this.editor.form = { ...this.loadDraftForm(), id: null };
+            this.editor.error = "";
+            this.success = "Đã nạp bộ danh hiệu đã lưu. File ảnh/data cần chọn lại.";
+        },
         token() {
             return document
                 .querySelector('meta[name="csrf-token"]')
@@ -501,6 +555,7 @@ export default {
             }
         },
         openEditor(item = null) {
+            const isEdit = item && Number.isFinite(Number(item.id));
             this.revokePreview();
             this.editor = {
                 open: true,
@@ -508,7 +563,7 @@ export default {
                 error: "",
                 files: {},
                 effectDataFiles: [],
-                form: item
+                form: isEdit
                     ? {
                           id: item.id,
                           name: item.name || "",
@@ -519,7 +574,7 @@ export default {
                       }
                     : this.blankForm(),
             };
-            this.previewIcon = item?.icon_url || "";
+            this.previewIcon = isEdit ? item?.icon_url || "" : "";
         },
         closeEditor() {
             if (this.editor.saving) return;
@@ -617,6 +672,9 @@ export default {
                     throw new Error(data.message || "Không lưu được danh hiệu");
                 }
                 this.success = data.message || "Đã lưu danh hiệu";
+                if (!isEdit) {
+                    this.clearDraft();
+                }
                 this.closeEditor();
                 await this.load(isEdit ? this.page : 1);
             } catch (error) {
