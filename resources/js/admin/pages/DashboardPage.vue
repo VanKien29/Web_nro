@@ -34,6 +34,103 @@
             <span class="mi">error</span>
             {{ error }}
         </div>
+
+        <section class="command-center">
+            <div class="command-main">
+                <div class="panel-kicker">TRUNG TÂM ĐIỀU HÀNH</div>
+                <h3>Toàn cảnh server trong một màn quản trị</h3>
+                <p>
+                    Theo dõi doanh thu, tài khoản, dữ liệu game và runtime theo
+                    luồng xử lý hằng ngày thay vì các bảng rời rạc.
+                </p>
+                <div class="command-metrics">
+                    <div>
+                        <span>Doanh thu hôm nay</span>
+                        <strong>{{ fmtCurrency(stats.today_revenue) }}</strong>
+                        <small>{{ fmt(stats.today_topups) }} giao dịch</small>
+                    </div>
+                    <div>
+                        <span>Tháng này</span>
+                        <strong>{{ fmtCurrency(stats.month_revenue) }}</strong>
+                        <small>{{ fmt(stats.month_topups) }} giao dịch</small>
+                    </div>
+                    <div>
+                        <span>Tài khoản / Nhân vật</span>
+                        <strong
+                            >{{ fmt(stats.accounts) }} /
+                            {{ fmt(stats.players) }}</strong
+                        >
+                        <small>đang ghi nhận</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="command-health">
+                <div class="health-ring">
+                    <svg viewBox="0 0 120 120">
+                        <circle
+                            class="health-ring-base"
+                            cx="60"
+                            cy="60"
+                            r="46"
+                        />
+                        <circle
+                            class="health-ring-value"
+                            cx="60"
+                            cy="60"
+                            r="46"
+                            :stroke-dasharray="healthRingDasharray"
+                        />
+                    </svg>
+                    <div class="health-center">
+                        <strong>{{ healthScore }}</strong>
+                        <span>/100</span>
+                    </div>
+                </div>
+                <div class="health-copy">
+                    <div class="health-title">Chỉ số vận hành</div>
+                    <p>
+                        Tổng hợp từ doanh thu, giao dịch, giftcode và dữ liệu
+                        shop hiện có.
+                    </p>
+                </div>
+            </div>
+
+            <div class="command-actions">
+                <button
+                    type="button"
+                    class="command-action"
+                    :disabled="runtimeLoading"
+                    @click="loadRuntimeHealth"
+                >
+                    <span class="mi">monitor_heart</span>
+                    Health
+                </button>
+                <button
+                    type="button"
+                    class="command-action"
+                    :disabled="runtimeLoading"
+                    @click="runRuntimeAction('reload_shop')"
+                >
+                    <span class="mi">storefront</span>
+                    Reload shop
+                </button>
+                <router-link
+                    :to="{ name: 'admin.items' }"
+                    class="command-action"
+                >
+                    <span class="mi">inventory_2</span>
+                    Items
+                </router-link>
+                <router-link
+                    :to="{ name: 'admin.badges' }"
+                    class="command-action"
+                >
+                    <span class="mi">workspace_premium</span>
+                    Danh hiệu
+                </router-link>
+            </div>
+        </section>
         <!-- 
         <section class="ops-hero">
             <div class="hero-main">
@@ -137,6 +234,17 @@
                 <small class="kpi-note">{{ card.note }}</small>
             </article>
         </section>
+
+        <div class="dashboard-section-head">
+            <div>
+                <span>PHÂN TÍCH & VẬN HÀNH</span>
+                <h3>Dữ liệu quan trọng theo thứ tự ưu tiên</h3>
+            </div>
+            <small>
+                Revenue trước, runtime và dữ liệu game sau, log hoạt động ở
+                cuối màn.
+            </small>
+        </div>
 
         <section class="dashboard-grid">
             <article class="panel panel-xl revenue-panel">
@@ -331,6 +439,64 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </article>
+
+            <article class="panel panel-md runtime-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <div class="panel-kicker">RUNTIME</div>
+                        <h3>Điều khiển nhanh</h3>
+                    </div>
+                    <span
+                        class="runtime-state"
+                        :class="runtimeHealth.ok ? 'success' : 'danger'"
+                    >
+                        {{ runtimeHealth.ok ? "Online" : "Chưa kiểm tra" }}
+                    </span>
+                </div>
+
+                <div v-if="runtimeMessage" class="runtime-message">
+                    {{ runtimeMessage }}
+                </div>
+
+                <div class="runtime-actions">
+                    <button
+                        type="button"
+                        class="runtime-action"
+                        :disabled="runtimeLoading"
+                        @click="loadRuntimeHealth"
+                    >
+                        <span class="mi">monitor_heart</span>
+                        <strong>Health check</strong>
+                        <small>Kiểm tra runtime API</small>
+                    </button>
+                    <button
+                        type="button"
+                        class="runtime-action"
+                        :disabled="runtimeLoading"
+                        @click="runRuntimeAction('reload_shop')"
+                    >
+                        <span class="mi">storefront</span>
+                        <strong>Reload shop</strong>
+                        <small>Nạp lại shop server</small>
+                    </button>
+                    <router-link
+                        :to="{ name: 'admin.bosses' }"
+                        class="runtime-action"
+                    >
+                        <span class="mi">emoji_events</span>
+                        <strong>Boss control</strong>
+                        <small>Spawn/chỉnh boss</small>
+                    </router-link>
+                    <router-link
+                        :to="{ name: 'admin.map_mobs' }"
+                        class="runtime-action"
+                    >
+                        <span class="mi">terrain</span>
+                        <strong>Map - Mob</strong>
+                        <small>Reload mob theo map</small>
+                    </router-link>
                 </div>
             </article>
 
@@ -579,6 +745,13 @@ export default {
                 recent_accounts: [],
                 system_summary: [],
                 milestone_breakdown: [],
+            },
+            runtimeLoading: false,
+            runtimeMessage: "",
+            runtimeHealth: {
+                ok: false,
+                checked_at: null,
+                data: null,
             },
         };
     },
@@ -875,6 +1048,7 @@ export default {
     },
     created() {
         this.load();
+        this.loadRuntimeHealth();
     },
     methods: {
         fmt(value) {
@@ -882,6 +1056,74 @@ export default {
         },
         fmtCurrency(value) {
             return `${this.fmt(value)}đ`;
+        },
+        token() {
+            return document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content");
+        },
+        async loadRuntimeHealth() {
+            this.runtimeLoading = true;
+            this.runtimeMessage = "";
+            try {
+                const res = await fetch("/admin/api/runtime/health", {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                });
+                const data = await res.json();
+                this.runtimeHealth = {
+                    ok: !!data.ok,
+                    checked_at: new Date().toLocaleString("vi-VN"),
+                    data,
+                };
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Runtime chưa sẵn sàng");
+                }
+                this.runtimeMessage = "Runtime đang phản hồi bình thường.";
+            } catch (error) {
+                this.runtimeHealth = {
+                    ok: false,
+                    checked_at: new Date().toLocaleString("vi-VN"),
+                    data: null,
+                };
+                this.runtimeMessage =
+                    error?.message || "Không kiểm tra được runtime.";
+            } finally {
+                this.runtimeLoading = false;
+            }
+        },
+        async runRuntimeAction(action) {
+            this.runtimeLoading = true;
+            this.runtimeMessage = "";
+            const endpointMap = {
+                reload_shop: "/admin/api/runtime/shop/reload",
+            };
+            try {
+                const endpoint = endpointMap[action];
+                if (!endpoint) {
+                    throw new Error("Lệnh runtime chưa được hỗ trợ.");
+                }
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": this.token(),
+                    },
+                    body: "{}",
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Runtime command thất bại");
+                }
+                this.runtimeMessage =
+                    data.message || "Đã chạy lệnh runtime thành công.";
+                await this.loadRuntimeHealth();
+            } catch (error) {
+                this.runtimeMessage =
+                    error?.message || "Runtime command thất bại.";
+            } finally {
+                this.runtimeLoading = false;
+            }
         },
         async load() {
             this.loading = true;
@@ -1028,6 +1270,143 @@ export default {
     background: rgba(var(--ds-danger-rgb), 0.12);
     color: var(--ds-danger);
     border: 1px solid rgba(var(--ds-danger-rgb), 0.22);
+}
+
+.command-center {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.6fr) minmax(
+            240px,
+            0.45fr
+        );
+    gap: 16px;
+    border: 1px solid var(--dash-border);
+    border-radius: 18px;
+    background:
+        linear-gradient(135deg, rgba(var(--ds-primary-rgb), 0.14), transparent),
+        var(--dash-bg);
+    box-shadow: var(--dash-shadow);
+    padding: 18px;
+}
+
+.command-main {
+    min-width: 0;
+    padding: 8px 8px 8px 4px;
+}
+
+.command-main h3 {
+    margin: 0 0 8px;
+    color: var(--ds-text-emphasis);
+    font-size: 28px;
+    line-height: 1.15;
+}
+
+.command-main p {
+    max-width: 720px;
+    margin: 0;
+    color: var(--ds-text-muted);
+    line-height: 1.6;
+}
+
+.command-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.command-metrics div,
+.command-health,
+.command-action {
+    border: 1px solid var(--dash-border);
+    background: rgba(255, 255, 255, 0.035);
+    border-radius: 12px;
+}
+
+.command-metrics div {
+    padding: 12px 14px;
+}
+
+.command-metrics span,
+.command-metrics small {
+    display: block;
+    color: var(--ds-text-muted);
+    font-size: 12px;
+}
+
+.command-metrics strong {
+    display: block;
+    margin: 6px 0 3px;
+    color: var(--ds-text-emphasis);
+    font-size: 20px;
+}
+
+.command-health {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+}
+
+.command-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.command-action {
+    min-height: 48px;
+    padding: 0 14px;
+    color: var(--ds-text-emphasis);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+        border-color 0.16s ease,
+        background-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.command-action:hover {
+    border-color: var(--dash-border-strong);
+    background: rgba(var(--ds-primary-rgb), 0.1);
+    transform: translateY(-1px);
+}
+
+.command-action .mi {
+    color: var(--ds-primary);
+}
+
+.dashboard-section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 2px;
+}
+
+.dashboard-section-head span {
+    display: block;
+    color: var(--ds-primary);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+
+.dashboard-section-head h3 {
+    margin: 4px 0 0;
+    color: var(--ds-text-emphasis);
+    font-size: 18px;
+}
+
+.dashboard-section-head small {
+    color: var(--ds-text-muted);
+    max-width: 420px;
+    line-height: 1.5;
+    text-align: right;
 }
 
 .ops-hero,
@@ -1214,13 +1593,13 @@ export default {
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 14px;
+    gap: 10px;
 }
 
 .kpi-card {
-    background: var(--dash-bg);
-    border-radius: 18px;
-    padding: 18px;
+    background: var(--dash-bg-soft);
+    border-radius: 14px;
+    padding: 14px;
 }
 
 .kpi-head {
@@ -1248,7 +1627,7 @@ export default {
 .kpi-value {
     display: block;
     color: var(--ds-text-emphasis);
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1.15;
 }
 
@@ -1282,21 +1661,21 @@ export default {
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
 }
 
 .panel {
     background: var(--dash-bg);
-    border-radius: 22px;
-    padding: 22px;
+    border-radius: 16px;
+    padding: 18px;
 }
 
 .panel-xl {
-    grid-column: span 8;
+    grid-column: span 7;
 }
 
 .panel-lg {
-    grid-column: span 4;
+    grid-column: span 5;
 }
 
 .panel-md {
@@ -1304,7 +1683,7 @@ export default {
 }
 
 .transaction-panel {
-    grid-column: span 8;
+    grid-column: span 7;
 }
 
 .panel-head {
@@ -1333,6 +1712,69 @@ export default {
     justify-content: center;
     font-size: 12px;
     font-weight: 700;
+}
+.runtime-state {
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 800;
+    background: rgba(var(--ds-danger-rgb), 0.13);
+    color: var(--ds-danger);
+}
+.runtime-state.success {
+    background: rgba(var(--ds-success-rgb), 0.13);
+    color: var(--ds-success);
+}
+.runtime-message {
+    border: 1px solid var(--dash-border);
+    border-radius: 12px;
+    background: var(--dash-muted-bg);
+    color: var(--ds-text);
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+.runtime-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.runtime-action {
+    border: 1px solid var(--dash-border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--ds-text);
+    min-height: 94px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+}
+.runtime-action:hover {
+    border-color: var(--dash-border-strong);
+    background: rgba(var(--ds-primary-rgb), 0.08);
+}
+.runtime-action:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+.runtime-action .mi {
+    color: var(--ds-primary);
+}
+.runtime-action strong {
+    color: var(--ds-text-emphasis);
+}
+.runtime-action small {
+    color: var(--ds-text-muted);
+    font-size: 12px;
 }
 
 .range-switch {
@@ -1701,6 +2143,14 @@ export default {
 }
 
 @media (max-width: 1180px) {
+    .command-center {
+        grid-template-columns: 1fr;
+    }
+
+    .command-actions {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
     .ops-hero {
         grid-template-columns: 1fr;
     }
@@ -1716,6 +2166,20 @@ export default {
 }
 
 @media (max-width: 900px) {
+    .command-metrics,
+    .command-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-section-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .dashboard-section-head small {
+        text-align: left;
+    }
+
     .panel-lg,
     .panel-md {
         grid-column: span 12;
@@ -1735,9 +2199,17 @@ export default {
 
 @media (max-width: 720px) {
     .kpi-grid,
+    .command-metrics,
+    .command-actions,
     .hero-strip,
     .mini-kpi-row {
         grid-template-columns: 1fr;
+    }
+
+    .command-health {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
     }
 
     .hero-health {

@@ -17,9 +17,21 @@ export default defineConfig({
             },
         }),
     ],
-    resolve: {
-        alias: {
-            vue: "vue/dist/vue.esm-bundler.js",
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes("node_modules")) {
+                        if (id.includes("vue")) {
+                            return "vue";
+                        }
+                        if (id.includes("@fortawesome")) {
+                            return "icons";
+                        }
+                        return "vendor";
+                    }
+                },
+            },
         },
     },
 });

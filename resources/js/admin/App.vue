@@ -38,7 +38,7 @@
                         </router-link>
                     </div>
 
-                    <div class="nav-heading">Quản lý</div>
+                    <div class="nav-heading">Quản Lý</div>
                     <hr class="nav-line" />
                     <div class="nav-item">
                         <router-link
@@ -68,17 +68,6 @@
                         >
                             <span class="nav-icon mi">card_giftcard</span>
                             <span class="text">Giftcode</span>
-                        </router-link>
-                    </div>
-                    <div class="nav-item">
-                        <router-link
-                            to="/admin/items"
-                            class="nav-link"
-                            :class="{ active: $route.name === 'admin.items' }"
-                            @click="closeMobile"
-                        >
-                            <span class="nav-icon mi">inventory_2</span>
-                            <span class="text">Items</span>
                         </router-link>
                     </div>
                     <div class="nav-item">
@@ -133,6 +122,47 @@
                             <span class="text">Map - Mob</span>
                         </router-link>
                     </div>
+
+                    <div class="nav-heading">Thêm Vật Phẩm</div>
+                    <hr class="nav-line" />
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/items"
+                            class="nav-link"
+                            :class="{ active: $route.name === 'admin.items' }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">inventory_2</span>
+                            <span class="text">Items</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/badges"
+                            class="nav-link"
+                            :class="{ active: $route.name === 'admin.badges' }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">workspace_premium</span>
+                            <span class="text">Danh hiệu</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/costumes"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name === 'admin.costumes',
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">face_retouching_natural</span>
+                            <span class="text">Cải trang</span>
+                        </router-link>
+                    </div>
+
+                    <div class="nav-heading">Settings</div>
+                    <hr class="nav-line" />
                     <div class="nav-item">
                         <router-link
                             to="/admin/admin-logs"
@@ -247,6 +277,8 @@
 </template>
 
 <script>
+import { prefetchAdminPages } from "./router";
+
 export default {
     data() {
         return {
@@ -329,6 +361,25 @@ export default {
                 this.bootLoading = false;
             }, 280);
         });
+
+        const preload = () =>
+            prefetchAdminPages([
+                "accounts",
+                "giftcodes",
+                "items",
+                "badges",
+                "costumes",
+                "shops",
+                "milestones",
+                "bosses",
+                "mapMobs",
+                "logs",
+            ]);
+        if ("requestIdleCallback" in window) {
+            window.requestIdleCallback(preload, { timeout: 2500 });
+        } else {
+            window.setTimeout(preload, 1200);
+        }
     },
     unmounted() {
         document.removeEventListener("click", this.closeMenus);
@@ -1009,7 +1060,13 @@ body.admin-scroll-lock {
     font-weight: 600;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.2s;
+    transition:
+        transform 0.16s ease,
+        box-shadow 0.16s ease,
+        border-color 0.16s ease,
+        background-color 0.16s ease,
+        color 0.16s ease,
+        opacity 0.16s ease;
     text-decoration: none;
     font-family: inherit;
     line-height: 1.2;
@@ -1021,7 +1078,20 @@ body.admin-scroll-lock {
     pointer-events: none;
 }
 .btn:hover {
-    opacity: 0.88;
+    opacity: 0.94;
+    transform: translateY(-1px);
+    box-shadow: var(--ds-shadow-sm);
+}
+.btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+.btn:focus-visible,
+.topbar-btn:focus-visible,
+.dropdown-item:focus-visible,
+.pagination button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.2);
 }
 .btn-primary {
     background: var(--ds-primary);
@@ -1055,6 +1125,8 @@ body.admin-scroll-lock {
 .btn:disabled {
     opacity: 0.56;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 .btn-sm {
     padding: 6px 12px;
@@ -1088,13 +1160,70 @@ body.admin-scroll-lock {
         border-color 0.2s,
         box-shadow 0.2s;
 }
+.admin-app select.form-input {
+    appearance: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--ds-text-muted) 50%),
+        linear-gradient(135deg, var(--ds-text-muted) 50%, transparent 50%);
+    background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%;
+    background-size:
+        6px 6px,
+        6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 36px;
+}
 .form-input:focus {
     outline: none;
     border-color: var(--ds-primary);
     box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.16);
 }
+.form-input:disabled,
+.admin-app select:disabled,
+.admin-app textarea:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
 .form-input::placeholder {
     color: var(--ds-text-muted);
+}
+.admin-app input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 5px;
+    border: 1px solid var(--ds-border);
+    background: var(--ds-body-bg);
+    display: inline-grid;
+    place-content: center;
+    cursor: pointer;
+    transition:
+        background-color 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        transform 0.16s ease;
+    vertical-align: -3px;
+}
+.admin-app input[type="checkbox"]:checked {
+    background: var(--ds-primary);
+    border-color: var(--ds-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M6.2 11.3 2.7 7.8l1.4-1.4 2.1 2.1 5.7-5.7 1.4 1.4z'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+}
+.admin-app input[type="checkbox"]:hover {
+    border-color: var(--ds-primary);
+}
+.admin-app input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--ds-primary-rgb), 0.18);
+}
+.admin-app input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* ═══ BADGES ═══ */

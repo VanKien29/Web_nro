@@ -35,12 +35,12 @@
     <div id="app"></div>
 
     <!-- jQuery & plugins -->
-    <script src="/assets/frontend/home/v1/js/jquery.min.js"></script>
-    <script src="/assets/frontend/home/v1/js/ScrollMagic.min.js"></script>
-    <script src="/assets/frontend/home/v1/js/aos.js"></script>
-    <script src="/assets/frontend/home/v1/js/slick.min.js"></script>
-    <script src="/assets/frontend/home/v1/js/jquery.fancybox.min.js"></script>
-    <script src="/assets/js/main.js"></script>
+    <script defer src="/assets/frontend/home/v1/js/jquery.min.js"></script>
+    <script defer src="/assets/frontend/home/v1/js/ScrollMagic.min.js"></script>
+    <script defer src="/assets/frontend/home/v1/js/aos.js"></script>
+    <script defer src="/assets/frontend/home/v1/js/slick.min.js"></script>
+    <script defer src="/assets/frontend/home/v1/js/jquery.fancybox.min.js"></script>
+    <script defer src="/assets/js/main.js"></script>
 </body>
 
 </html>

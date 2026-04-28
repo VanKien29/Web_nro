@@ -734,32 +734,202 @@
                                                     v-if="
                                                         sectionParsedItems(
                                                             field.name,
-                                                        ).length
+                                                        ).length ||
+                                                        isPlayerBadgeList(
+                                                            field.name,
+                                                        )
                                                     "
                                                     class="player-section-parsed"
                                                 >
                                                     <div
-                                                        class="parsed-row"
-                                                        v-for="item in sectionParsedItems(
-                                                            field.name,
-                                                        )"
-                                                        :key="`${field.name}-${item.index}`"
+                                                        v-if="
+                                                            isPlayerBadgeList(
+                                                                field.name,
+                                                            )
+                                                        "
+                                                        class="player-badge-wrap"
                                                     >
-                                                        <span
-                                                            class="parsed-label"
-                                                            >[{{ item.index }}]
+                                                        <div class="badge-toolbar">
+                                                            <input
+                                                                v-model="badgeDraft.search"
+                                                                class="form-input badge-search-input"
+                                                                placeholder="Tìm badge ID hoặc tên..."
+                                                                @input="debouncedLoadBadgeTemplates"
+                                                            />
+                                                            <input
+                                                                v-model.number="badgeDraft.days"
+                                                                class="form-input badge-days-input"
+                                                                type="number"
+                                                                min="1"
+                                                                placeholder="Ngày"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline btn-sm"
+                                                                @click="savePlayerBadges"
+                                                                :disabled="badgeDraft.saving"
+                                                            >
+                                                                Lưu badges
+                                                            </button>
+                                                        </div>
+                                                        <div
+                                                            v-if="
+                                                                badgeDraft.error
+                                                            "
+                                                            class="player-row-note player-row-error"
+                                                        >
                                                             {{
-                                                                item.label
-                                                            }}</span
+                                                                badgeDraft.error
+                                                            }}
+                                                        </div>
+                                                        <div
+                                                            v-if="
+                                                                badgeTemplates.length
+                                                            "
+                                                            class="badge-template-list"
                                                         >
-                                                        <span
-                                                            class="parsed-value"
-                                                            >{{
-                                                                formatParsedValue(
-                                                                    item.value,
-                                                                )
-                                                            }}</span
+                                                            <button
+                                                                type="button"
+                                                                v-for="badge in badgeTemplates"
+                                                                :key="`badge-template-${badge.id}`"
+                                                                @click="
+                                                                    addPlayerBadge(
+                                                                        badge,
+                                                                    )
+                                                                "
+                                                            >
+                                                                <span
+                                                                    >#{{
+                                                                        badge.id
+                                                                    }}
+                                                                    {{
+                                                                        badge.name
+                                                                    }}</span
+                                                                >
+                                                                <small
+                                                                    >Effect
+                                                                    {{
+                                                                        badge.id_effect
+                                                                    }}</small
+                                                                >
+                                                            </button>
+                                                        </div>
+                                                        <div class="player-badge-list">
+                                                            <div
+                                                                class="player-badge-row"
+                                                                v-for="item in sectionParsedItems(
+                                                                    field.name,
+                                                                )"
+                                                                :key="`${field.name}-${item.index}`"
+                                                            >
+                                                                <div>
+                                                                    <strong
+                                                                        >#{{
+                                                                            item
+                                                                                .value
+                                                                                ?.id
+                                                                        }}
+                                                                        {{
+                                                                            item.label
+                                                                        }}</strong
+                                                                    >
+                                                                    <small>{{
+                                                                        formatPlayerBadgeMeta(
+                                                                            item.value,
+                                                                        )
+                                                                    }}</small>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    class="icon-mini danger"
+                                                                    @click="
+                                                                        removePlayerBadge(
+                                                                            item.index,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <span
+                                                                        class="mi"
+                                                                        >delete</span
+                                                                    >
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div
+                                                        v-else-if="
+                                                            isPlayerItemList(
+                                                                field.name,
+                                                            )
+                                                        "
+                                                        class="player-item-list"
+                                                    >
+                                                        <div
+                                                            class="player-item-row"
+                                                            v-for="item in sectionParsedItems(
+                                                                field.name,
+                                                            )"
+                                                            :key="`${field.name}-${item.index}`"
                                                         >
+                                                            <div>
+                                                                <strong
+                                                                    >[{{
+                                                                        item.index
+                                                                    }}]
+                                                                    {{
+                                                                        item.label
+                                                                    }}</strong
+                                                                >
+                                                                <small>{{
+                                                                    formatPlayerItemMeta(
+                                                                        item.value,
+                                                                    )
+                                                                }}</small>
+                                                            </div>
+                                                            <span
+                                                                v-if="
+                                                                    item.value
+                                                                        ?.icon_id !==
+                                                                        null &&
+                                                                    item.value
+                                                                        ?.icon_id !==
+                                                                        undefined
+                                                                "
+                                                                class="player-item-icon-id"
+                                                                >Icon
+                                                                {{
+                                                                    item.value
+                                                                        ?.icon_id
+                                                                }}</span
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                    <div v-else>
+                                                        <div
+                                                            class="parsed-row"
+                                                            v-for="item in sectionParsedItems(
+                                                                field.name,
+                                                            )"
+                                                            :key="`${field.name}-${item.index}`"
+                                                        >
+                                                            <span
+                                                                class="parsed-label"
+                                                                >[{{
+                                                                    item.index
+                                                                }}]
+                                                                {{
+                                                                    item.label
+                                                                }}</span
+                                                            >
+                                                            <span
+                                                                class="parsed-value"
+                                                                >{{
+                                                                    formatParsedValue(
+                                                                        item.value,
+                                                                    )
+                                                                }}</span
+                                                            >
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <pre>{{
@@ -901,6 +1071,14 @@ export default {
             activeDetailTab: "overview",
             expandedLogs: {},
             loadingAccount: false,
+            badgeTemplates: [],
+            badgeSearchTimer: null,
+            badgeDraft: {
+                search: "",
+                days: 30,
+                saving: false,
+                error: "",
+            },
         };
     },
     computed: {
@@ -918,6 +1096,7 @@ export default {
                 "items_box",
                 "item_mails_box",
                 "items_daban",
+                "dataBadges",
                 "data_item_time",
                 "pet",
                 "giftcode",
@@ -938,12 +1117,14 @@ export default {
                 data_location: "Vị trí",
                 data_point: "Chỉ số",
                 data_task: "Nhiệm vụ",
+                dataBadges: "Danh hiệu",
             };
             return [
                 "data_inventory",
                 "data_location",
                 "data_point",
                 "data_task",
+                "dataBadges",
             ]
                 .filter((k) => parsed[k] && Array.isArray(parsed[k].items))
                 .map((k) => ({
@@ -960,6 +1141,9 @@ export default {
     },
     created() {
         this.handleRouteChange();
+    },
+    unmounted() {
+        window.clearTimeout(this.badgeSearchTimer);
     },
     methods: {
         createDefaultForm() {
@@ -1111,6 +1295,178 @@ export default {
             const parsed = this.playerSectionCache?.[name]?.parsed;
             return Array.isArray(parsed?.items) ? parsed.items : [];
         },
+        isPlayerItemList(name) {
+            return this.playerSectionCache?.[name]?.parsed?.type === "item_list";
+        },
+        isPlayerBadgeList(name) {
+            return this.playerSectionCache?.[name]?.parsed?.type === "badge_list";
+        },
+        formatPlayerItemMeta(value) {
+            if (!value || typeof value !== "object") return "Không có metadata";
+            const parts = [];
+            if (value.quantity !== undefined && value.quantity !== null) {
+                parts.push(`SL ${this.fmt(value.quantity)}`);
+            }
+            if (value.type !== undefined && value.type !== null) {
+                parts.push(`Type ${value.type}`);
+            }
+            if (value.options !== undefined && value.options !== null) {
+                parts.push(`${this.fmt(value.options)} option`);
+            }
+            return parts.length ? parts.join(" | ") : "Không có metadata";
+        },
+        formatPlayerBadgeMeta(value) {
+            if (!value || typeof value !== "object") return "Không có metadata";
+            const parts = [];
+            if (value.id_effect !== undefined && value.id_effect !== null) {
+                parts.push(`Effect ${value.id_effect}`);
+            }
+            if (value.id_item !== undefined && value.id_item !== null) {
+                parts.push(`Item ${value.id_item}`);
+            }
+            if (value.days_left !== undefined && value.days_left !== null) {
+                parts.push(value.days_left > 0 ? `${value.days_left} ngày` : "Hết hạn");
+            }
+            if (value.is_use) {
+                parts.push("Đang dùng");
+            }
+            return parts.length ? parts.join(" | ") : "Không có metadata";
+        },
+        debouncedLoadBadgeTemplates() {
+            window.clearTimeout(this.badgeSearchTimer);
+            this.badgeSearchTimer = window.setTimeout(() => {
+                this.loadBadgeTemplates();
+            }, 250);
+        },
+        async loadBadgeTemplates() {
+            this.badgeDraft.error = "";
+            try {
+                const params = new URLSearchParams();
+                if (this.badgeDraft.search) {
+                    params.set("search", this.badgeDraft.search);
+                }
+                const res = await fetch(`/admin/api/badges?${params.toString()}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Không tải được badge");
+                }
+                this.badgeTemplates = data.data || [];
+            } catch (error) {
+                this.badgeDraft.error = error?.message || "Không tải được badge";
+            }
+        },
+        async addPlayerBadge(badge) {
+            if (!this.isPlayerSectionLoaded("dataBadges")) {
+                await this.loadPlayerSection("dataBadges");
+            }
+            const days = Math.max(1, Number(this.badgeDraft.days || 30));
+            const expires = Date.now() + days * 86400000;
+            const current = this.playerSectionCache.dataBadges || {
+                raw: "[]",
+                parsed: { type: "badge_list", items: [] },
+            };
+            const raw = this.parseJsonArray(current.raw);
+            raw.push({
+                idBadGes: Number(badge.id),
+                timeofUseBadges: Math.trunc(expires),
+                isUse: raw.length === 0,
+            });
+            this.playerSectionCache = {
+                ...this.playerSectionCache,
+                dataBadges: {
+                    ...current,
+                    raw: JSON.stringify(raw),
+                    parsed: this.localParsedBadges(raw),
+                },
+            };
+        },
+        removePlayerBadge(index) {
+            const current = this.playerSectionCache.dataBadges;
+            if (!current) return;
+            const raw = this.parseJsonArray(current.raw).filter(
+                (_, rowIndex) => String(rowIndex) !== String(index),
+            );
+            this.playerSectionCache = {
+                ...this.playerSectionCache,
+                dataBadges: {
+                    ...current,
+                    raw: JSON.stringify(raw),
+                    parsed: {
+                        type: "badge_list",
+                        count: this.sectionParsedItems("dataBadges").length,
+                        items: this.sectionParsedItems("dataBadges").filter(
+                            (item) => String(item.index) !== String(index),
+                        ),
+                    },
+                },
+            };
+        },
+        parseJsonArray(value) {
+            try {
+                const decoded =
+                    typeof value === "string" ? JSON.parse(value) : value;
+                return Array.isArray(decoded) ? decoded : [];
+            } catch {
+                return [];
+            }
+        },
+        localParsedBadges(raw) {
+            return {
+                type: "badge_list",
+                count: raw.length,
+                items: raw.map((badge, index) => ({
+                    index,
+                    label: `Badge #${badge.idBadGes}`,
+                    value: {
+                        id: Number(badge.idBadGes || 0),
+                        expires_at: Number(badge.timeofUseBadges || 0),
+                        days_left: Math.floor(
+                            (Number(badge.timeofUseBadges || 0) - Date.now()) /
+                                86400000,
+                        ),
+                        is_use: !!badge.isUse,
+                    },
+                })),
+            };
+        },
+        async savePlayerBadges() {
+            const current = this.playerSectionCache.dataBadges;
+            if (!current) return;
+            this.badgeDraft.saving = true;
+            this.badgeDraft.error = "";
+            try {
+                const token = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+                const res = await fetch(
+                    `/admin/api/accounts/${this.$route.params.id}/badges`,
+                    {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": token,
+                        },
+                        body: JSON.stringify({
+                            badges: this.parseJsonArray(current.raw),
+                        }),
+                    },
+                );
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Không lưu được badges");
+                }
+                await this.loadPlayerSection("dataBadges", true);
+                this.success = data.message || "Đã lưu badges";
+            } catch (error) {
+                this.badgeDraft.error =
+                    error?.message || "Không lưu được badges";
+            } finally {
+                this.badgeDraft.saving = false;
+            }
+        },
         async togglePlayerField(name) {
             const expanded = this.isFieldExpanded(name);
             this.expandedFields = {
@@ -1120,6 +1476,9 @@ export default {
 
             if (!expanded && !this.isPlayerSectionLoaded(name)) {
                 await this.loadPlayerSection(name);
+            }
+            if (!expanded && name === "dataBadges" && !this.badgeTemplates.length) {
+                await this.loadBadgeTemplates();
             }
         },
         async togglePlayerFull() {
@@ -1817,6 +2176,128 @@ export default {
     background: var(--ds-surface);
     margin-bottom: 8px;
 }
+.player-item-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.player-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    background: var(--ds-surface-1);
+    padding: 8px 10px;
+    min-width: 0;
+}
+.player-item-row strong,
+.player-item-row small {
+    display: block;
+}
+.player-item-row strong {
+    color: var(--ds-text-emphasis);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.player-item-row small {
+    color: var(--ds-text-muted);
+    font-size: 11px;
+    margin-top: 2px;
+}
+.player-item-icon-id {
+    flex: 0 0 auto;
+    color: var(--ds-primary);
+    background: rgba(var(--ds-primary-rgb), 0.1);
+    border: 1px solid rgba(var(--ds-primary-rgb), 0.22);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.player-badge-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.badge-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px auto;
+    gap: 8px;
+    align-items: center;
+}
+.badge-search-input,
+.badge-days-input {
+    min-width: 0;
+}
+.badge-template-list,
+.player-badge-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.badge-template-list button,
+.player-badge-row {
+    border: 1px solid var(--ds-border);
+    border-radius: 8px;
+    background: var(--ds-surface-1);
+    color: var(--ds-text);
+    padding: 8px 10px;
+}
+.badge-template-list button {
+    cursor: pointer;
+    text-align: left;
+}
+.badge-template-list button:hover {
+    border-color: rgba(var(--ds-primary-rgb), 0.45);
+    background: rgba(var(--ds-primary-rgb), 0.08);
+}
+.badge-template-list span,
+.badge-template-list small,
+.player-badge-row strong,
+.player-badge-row small {
+    display: block;
+}
+.badge-template-list span,
+.player-badge-row strong {
+    color: var(--ds-text-emphasis);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.badge-template-list small,
+.player-badge-row small {
+    color: var(--ds-text-muted);
+    font-size: 11px;
+    margin-top: 2px;
+}
+.player-badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.icon-mini {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--ds-border);
+    border-radius: 7px;
+    background: var(--ds-surface);
+    color: var(--ds-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.icon-mini.danger {
+    color: var(--ds-danger);
+}
 .btn-xs {
     margin-top: 8px;
     padding: 4px 8px;
@@ -1831,6 +2312,14 @@ export default {
         grid-template-columns: 1fr;
     }
     .parsed-wrap {
+        grid-template-columns: 1fr;
+    }
+    .player-item-list {
+        grid-template-columns: 1fr;
+    }
+    .badge-toolbar,
+    .badge-template-list,
+    .player-badge-list {
         grid-template-columns: 1fr;
     }
     .player-row {

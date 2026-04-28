@@ -1,51 +1,79 @@
 import { createRouter, createWebHistory } from "vue-router";
-import HomePage from "../pages/HomePage.vue";
+
+const pageLoaders = {
+    home: () => import("../pages/HomePage.vue"),
+    bxh: () => import("../pages/BxhPage.vue"),
+    giftcode: () => import("../pages/GiftcodePage.vue"),
+    login: () => import("../pages/LoginPage.vue"),
+    register: () => import("../pages/RegisterPage.vue"),
+    profile: () => import("../pages/ProfilePage.vue"),
+    topupAtm: () => import("../pages/TopupAtmPage.vue"),
+    topupCard: () => import("../pages/TopupCardPage.vue"),
+    postDetail: () => import("../pages/PostDetailPage.vue"),
+};
+
+const loadedPages = new Map();
+
+function loadPage(key) {
+    if (!loadedPages.has(key)) {
+        loadedPages.set(key, pageLoaders[key]());
+    }
+    return loadedPages.get(key);
+}
+
+export function prefetchPages(keys) {
+    keys.forEach((key) => {
+        if (pageLoaders[key]) {
+            loadPage(key).catch(() => loadedPages.delete(key));
+        }
+    });
+}
 
 const routes = [
     {
         path: "/",
         name: "home",
-        component: HomePage,
+        component: () => loadPage("home"),
     },
     {
         path: "/bxh",
         name: "bxh",
-        component: () => import("../pages/BxhPage.vue"),
+        component: () => loadPage("bxh"),
     },
     {
         path: "/giftcode",
         name: "giftcode",
-        component: () => import("../pages/GiftcodePage.vue"),
+        component: () => loadPage("giftcode"),
     },
     {
         path: "/login",
         name: "login",
-        component: () => import("../pages/LoginPage.vue"),
+        component: () => loadPage("login"),
     },
     {
         path: "/register",
         name: "register",
-        component: () => import("../pages/RegisterPage.vue"),
+        component: () => loadPage("register"),
     },
     {
         path: "/profile",
         name: "profile",
-        component: () => import("../pages/ProfilePage.vue"),
+        component: () => loadPage("profile"),
     },
     {
         path: "/nap-atm",
         name: "topup-atm",
-        component: () => import("../pages/TopupAtmPage.vue"),
+        component: () => loadPage("topupAtm"),
     },
     {
         path: "/nap-card",
         name: "topup-card",
-        component: () => import("../pages/TopupCardPage.vue"),
+        component: () => loadPage("topupCard"),
     },
     {
         path: "/post/:slug",
         name: "post-detail",
-        component: () => import("../pages/PostDetailPage.vue"),
+        component: () => loadPage("postDetail"),
     },
 ];
 

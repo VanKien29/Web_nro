@@ -36,6 +36,11 @@ class AdminRuntimeController extends Controller
         return response()->json($result, $status);
     }
 
+    public function health(GameRuntimeService $runtime): JsonResponse
+    {
+        return $this->runtimeResponse('runtime.health', fn() => $runtime->health());
+    }
+
     public function bosses(GameRuntimeService $runtime): JsonResponse
     {
         return $this->runtimeResponse('boss.list', function () use ($runtime) {

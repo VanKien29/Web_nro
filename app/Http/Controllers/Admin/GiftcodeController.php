@@ -81,8 +81,15 @@ class GiftcodeController extends Controller
             ]);
         }
 
-        $options = Cache::remember('admin:item_option_template:all:v1', now()->addMinutes(30), function () use ($query) {
-            return $query->orderBy('id')->get();
+        $options = Cache::remember('admin:item_option_template:all:v2', now()->addMinutes(30), function () use ($query) {
+            return $query->orderBy('id')
+                ->get()
+                ->map(fn($row) => [
+                    'id' => (int) $row->id,
+                    'name' => (string) $row->name,
+                ])
+                ->values()
+                ->all();
         });
         return response()->json($options);
     }
