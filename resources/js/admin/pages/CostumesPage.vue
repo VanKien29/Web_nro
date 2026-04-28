@@ -11,7 +11,7 @@
                     <span class="current">Cải trang</span>
                 </nav>
             </div>
-            <button class="btn btn-primary" @click="openEditor">
+            <button class="btn btn-primary" @click="openEditor()">
                 <span class="mi" style="font-size: 16px">add</span>
                 Thêm cải trang
             </button>
@@ -52,6 +52,7 @@
                             <th>Head</th>
                             <th>Body</th>
                             <th>Leg</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,16 +82,36 @@
                             <td>#{{ item.head }}</td>
                             <td>#{{ item.body }}</td>
                             <td>#{{ item.leg }}</td>
+                            <td class="action-cell">
+                                <button
+                                    class="btn btn-primary btn-sm"
+                                    :disabled="deletingId === item.id"
+                                    @click="openEditor(item)"
+                                >
+                                    Sửa
+                                </button>
+                                <button
+                                    class="btn btn-danger btn-sm"
+                                    :disabled="deletingId === item.id"
+                                    @click="deleteCostume(item)"
+                                >
+                                    {{
+                                        deletingId === item.id
+                                            ? "Đang xóa..."
+                                            : "Xóa"
+                                    }}
+                                </button>
+                            </td>
                         </tr>
                         <tr v-if="loading" class="admin-loading-row">
-                            <td colspan="7">
+                            <td colspan="8">
                                 <span class="admin-loading-row__content">
                                     <span class="admin-loading-spinner"></span>
                                 </span>
                             </td>
                         </tr>
                         <tr v-if="!rows.length && !loading">
-                            <td colspan="7" class="empty-cell">
+                            <td colspan="8" class="empty-cell">
                                 Chưa có cải trang phù hợp.
                             </td>
                         </tr>
@@ -120,7 +141,13 @@
             <div class="modal-panel">
                 <div class="modal-head">
                     <div>
-                        <h3>Thêm cải trang</h3>
+                        <h3>
+                            {{
+                                editor.form.id
+                                    ? "Sửa cải trang"
+                                    : "Thêm cải trang"
+                            }}
+                        </h3>
                     </div>
                     <button class="icon-action danger" @click="closeEditor">
                         <span class="mi">close</span>
@@ -148,10 +175,6 @@
                             <strong>{{
                                 editor.form.name || "Cải trang mới"
                             }}</strong>
-                            <small>
-                                Tách riêng icon item, avatar head và sprite
-                                trong part.DATA
-                            </small>
                         </div>
 
                         <label class="small-toggle">
@@ -166,6 +189,19 @@
                     <div class="editor-main">
                         <section class="editor-card">
                             <div class="form-grid">
+                                <label>
+                                    <span class="form-label">
+                                        Item ID muốn chèn
+                                    </span>
+                                    <input
+                                        v-model.number="editor.form.item_id"
+                                        class="form-input"
+                                        type="number"
+                                        min="1"
+                                        :disabled="!!editor.form.id"
+                                        placeholder="Trống = tự lấy ID mới"
+                                    />
+                                </label>
                                 <label>
                                     <span class="form-label"
                                         >Tên cải trang</span
@@ -362,6 +398,22 @@
 
                 <div class="modal-actions">
                     <button
+                        v-if="!editor.form.id"
+                        class="btn btn-outline"
+                        :disabled="editor.saving"
+                        @click="applyDraft"
+                    >
+                        Nạp bộ đã lưu
+                    </button>
+                    <button
+                        v-if="!editor.form.id"
+                        class="btn btn-outline"
+                        :disabled="editor.saving"
+                        @click="saveDraft"
+                    >
+                        Lưu bộ đang nhập
+                    </button>
+                    <button
                         class="btn btn-outline"
                         :disabled="editor.saving"
                         @click="closeEditor"
@@ -374,7 +426,13 @@
                         @click="saveCostume"
                     >
                         <span class="mi" style="font-size: 16px">save</span>
-                        {{ editor.saving ? "Đang lưu..." : "Tạo cải trang" }}
+                        {{
+                            editor.saving
+                                ? "Đang lưu..."
+                                : editor.form.id
+                                  ? "Lưu thay đổi"
+                                  : "Tạo cải trang"
+                        }}
                     </button>
                 </div>
             </div>
@@ -394,6 +452,7 @@ export default {
             loading: false,
             error: "",
             success: "",
+            deletingId: null,
             searchTimer: null,
             dragField: "",
             previewIcon: "",
@@ -420,6 +479,8 @@ export default {
                     avatar_x4: [],
                 },
                 form: {
+                    id: null,
+                    item_id: "",
                     name: "",
                     description: "",
                     gender: 3,
@@ -429,6 +490,53 @@ export default {
                     extra_head_data: "",
                 },
             };
+        },
+        draftKey() {
+            return "admin_costume_create_draft_v1";
+        },
+        loadDraftEditor() {
+            try {
+                const raw = localStorage.getItem(this.draftKey());
+                if (!raw) return this.blankEditor();
+                const draft = JSON.parse(raw);
+                const editor = this.blankEditor();
+                editor.hasExtraHeads = !!draft.hasExtraHeads;
+                editor.form = { ...editor.form, ...(draft.form || {}) };
+                return editor;
+            } catch {
+                return this.blankEditor();
+            }
+        },
+        saveDraft() {
+            if (!this.editor.open || this.editor.form?.id) return;
+            try {
+                localStorage.setItem(
+                    this.draftKey(),
+                    JSON.stringify({
+                        hasExtraHeads: this.editor.hasExtraHeads,
+                        form: this.editor.form,
+                    }),
+                );
+                this.editor.error = "";
+                this.success = "Đã lưu bộ cải trang đang nhập.";
+            } catch {
+                this.editor.error = "Không lưu được bộ đang nhập trên trình duyệt.";
+            }
+        },
+        clearDraft() {
+            try {
+                localStorage.removeItem(this.draftKey());
+            } catch {
+                // ignore storage errors
+            }
+        },
+        applyDraft() {
+            if (this.editor.form?.id) return;
+            const draft = this.loadDraftEditor();
+            this.editor.hasExtraHeads = draft.hasExtraHeads;
+            this.editor.form = { ...this.editor.form, ...draft.form, id: null };
+            this.editor.error = "";
+            this.success = "Đã nạp bộ cải trang đã lưu. File ảnh cần chọn lại.";
         },
         token() {
             return document
@@ -445,9 +553,12 @@ export default {
                     search: this.search,
                 });
                 const res = await fetch(`/admin/api/costumes?${params}`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
                 });
-                const data = await res.json();
+                const data = await this.readJsonResponse(res);
                 if (!res.ok || !data.ok) {
                     throw new Error(data.message || "Không tải được cải trang");
                 }
@@ -464,11 +575,46 @@ export default {
             window.clearTimeout(this.searchTimer);
             this.searchTimer = window.setTimeout(() => this.load(1), 260);
         },
-        openEditor() {
+        async openEditor(item = null) {
             this.revokePreview();
             this.editor = this.blankEditor();
             this.editor.open = true;
-            this.previewIcon = "";
+            const isEdit = item && Number.isFinite(Number(item.id));
+            this.previewIcon = isEdit ? item?.icon_url || "" : "";
+            if (!isEdit) return;
+
+            this.editor.saving = true;
+            try {
+                const res = await fetch(`/admin/api/costumes/${item.id}`, {
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                });
+                const data = await this.readJsonResponse(res);
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Không tải được cải trang");
+                }
+                const detail = data.data || {};
+                this.editor.form = {
+                    ...this.editor.form,
+                    id: detail.id,
+                    item_id: detail.id,
+                    name: detail.name || "",
+                    description: detail.description || "",
+                    gender: Number(detail.gender ?? 3),
+                    head_data: detail.head_data || "",
+                    body_data: detail.body_data || "",
+                    leg_data: detail.leg_data || "",
+                    extra_head_data: detail.extra_head_data || "",
+                };
+                this.editor.hasExtraHeads = Boolean(detail.extra_head_data);
+                this.previewIcon = detail.icon_url || item.icon_url || "";
+            } catch (error) {
+                this.editor.error = error?.message || "Không tải được cải trang";
+            } finally {
+                this.editor.saving = false;
+            }
         },
         closeEditor() {
             if (this.editor.saving) return;
@@ -517,6 +663,43 @@ export default {
                 }[Number(gender)] || `Gender ${gender}`
             );
         },
+        numericIdFromFilename(name) {
+            const base = String(name || "").replace(/\\/g, "/").split("/").pop() || "";
+            const stem = base.replace(/\.[^.]+$/, "");
+            const match = stem.match(/(\d+)(?!.*\d)/);
+            if (!match) return null;
+            const id = Number(match[1]);
+            return id > 0 && id <= 32767 ? id : null;
+        },
+        referencedPartIconIds() {
+            const raw = [
+                this.editor.form.head_data,
+                this.editor.form.body_data,
+                this.editor.form.leg_data,
+                this.editor.form.extra_head_data,
+            ].join("\n");
+            const ids = new Set();
+            const pattern = /\[\s*(-?\d+)\s*,\s*-?\d+\s*,\s*-?\d+\s*\]/g;
+            let match;
+            while ((match = pattern.exec(raw))) {
+                const id = Number(match[1]);
+                if (id > 0 && id <= 32767) ids.add(id);
+            }
+            return ids;
+        },
+        filteredSpriteFiles(files) {
+            const referenced = this.referencedPartIconIds();
+            const byNumericName = (left, right) =>
+                (this.numericIdFromFilename(left.name) ?? Number.MAX_SAFE_INTEGER) -
+                    (this.numericIdFromFilename(right.name) ?? Number.MAX_SAFE_INTEGER) ||
+                String(left.name).localeCompare(String(right.name));
+            if (!referenced.size) return [...files].sort(byNumericName);
+            const filtered = files.filter((file) => {
+                const id = this.numericIdFromFilename(file.name);
+                return id !== null && referenced.has(id);
+            });
+            return (filtered.length ? filtered : files).slice().sort(byNumericName);
+        },
         async saveCostume() {
             if (!this.editor.form.name) {
                 this.editor.error = "Tên cải trang không được để trống.";
@@ -535,35 +718,132 @@ export default {
             this.editor.error = "";
             const formData = new FormData();
             Object.entries(this.editor.form).forEach(([key, value]) => {
-                formData.set(key, value ?? "");
-            });
-            Object.entries(this.editor.files).forEach(([field, files]) => {
-                (files || []).forEach((file) =>
-                    formData.append(`${field}[]`, file),
+                formData.set(
+                    key,
+                    typeof value === "boolean" ? (value ? "1" : "0") : (value ?? ""),
                 );
             });
 
             try {
-                const res = await fetch("/admin/api/costumes", {
+                const spriteFiles = this.editor.files.icon_x4 || [];
+                const filteredSprites = this.filteredSpriteFiles(spriteFiles);
+                if (filteredSprites.length) {
+                    formData.set(
+                        "icon_x4_payload",
+                        JSON.stringify(await this.filesToPayload(filteredSprites)),
+                    );
+                }
+
+                ["item_icon_x4", "avatar_x4"].forEach((field) => {
+                    (this.editor.files[field] || []).forEach((file) =>
+                        formData.append(`${field}[]`, file),
+                    );
+                });
+
+                const isEdit = Boolean(this.editor.form.id);
+                const res = await fetch(
+                    isEdit
+                        ? `/admin/api/costumes/${this.editor.form.id}`
+                        : "/admin/api/costumes",
+                    {
                     method: "POST",
                     headers: {
+                        Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": this.token(),
                     },
                     body: formData,
-                });
-                const data = await res.json();
+                    },
+                );
+                const data = await this.readJsonResponse(res);
                 if (!res.ok || !data.ok) {
-                    throw new Error(data.message || "Không tạo được cải trang");
+                    throw new Error(data.message || "Không lưu được cải trang");
                 }
-                this.success = data.message || "Đã tạo cải trang";
+                this.success = data.message || "Đã lưu cải trang";
+                if (!isEdit) {
+                    this.clearDraft();
+                }
                 this.closeEditor();
-                await this.load(1);
+                await this.load(isEdit ? this.page : 1);
             } catch (error) {
                 this.editor.error =
-                    error?.message || "Không tạo được cải trang";
+                    error?.message || "Không lưu được cải trang";
             } finally {
                 this.editor.saving = false;
+            }
+        },
+        async deleteCostume(item) {
+            const ok = window.confirm(
+                `Xóa cải trang "${item.name}"?\n\nHệ thống sẽ xóa item_template, part head/body/leg, head_avatar và dồn lại ID part.`,
+            );
+            if (!ok) return;
+
+            this.deletingId = item.id;
+            this.error = "";
+            this.success = "";
+            try {
+                const res = await fetch(`/admin/api/costumes/${item.id}`, {
+                    method: "DELETE",
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": this.token(),
+                    },
+                });
+                const data = await this.readJsonResponse(res);
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || "Không xóa được cải trang");
+                }
+                this.success = data.message || "Đã xóa cải trang";
+                await this.load(this.page);
+            } catch (error) {
+                this.error = error?.message || "Không xóa được cải trang";
+            } finally {
+                this.deletingId = null;
+            }
+        },
+        filesToPayload(files) {
+            return Promise.all(
+                files.map(
+                    (file) =>
+                        new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                const dataUrl = String(reader.result || "");
+                                const comma = dataUrl.indexOf(",");
+                                resolve({
+                                    name: file.name,
+                                    data:
+                                        comma >= 0
+                                            ? dataUrl.slice(comma + 1)
+                                            : dataUrl,
+                                });
+                            };
+                            reader.onerror = () =>
+                                reject(
+                                    new Error(
+                                        `Không đọc được file ${file.name}`,
+                                    ),
+                                );
+                            reader.readAsDataURL(file);
+                        }),
+                ),
+            );
+        },
+        async readJsonResponse(res) {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                const plain = text
+                    .replace(/<br\s*\/?>/gi, "\n")
+                    .replace(/<[^>]*>/g, " ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                throw new Error(
+                    plain ||
+                        `API trả về dữ liệu không phải JSON (${res.status})`,
+                );
             }
         },
     },
@@ -652,6 +932,10 @@ export default {
     text-align: center;
     color: var(--ds-text-muted);
     padding: 32px;
+}
+.action-cell {
+    text-align: right;
+    white-space: nowrap;
 }
 .modal-overlay {
     position: fixed;

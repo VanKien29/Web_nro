@@ -152,6 +152,9 @@ Route::prefix('admin')->group(function () {
         Route::post('/api/title-items/{id}', [\App\Http\Controllers\Api\AdminController::class, 'titleItemsUpdate']);
         Route::get('/api/costumes', [\App\Http\Controllers\Api\AdminController::class, 'costumesList']);
         Route::post('/api/costumes', [\App\Http\Controllers\Api\AdminController::class, 'costumesCreate']);
+        Route::get('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesGet'])->whereNumber('id');
+        Route::post('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesUpdate'])->whereNumber('id');
+        Route::delete('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesDelete'])->whereNumber('id');
 
         // Shops
         Route::get('/api/shops', [\App\Http\Controllers\Api\AdminController::class, 'shopsList']);
