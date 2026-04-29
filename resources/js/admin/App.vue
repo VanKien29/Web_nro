@@ -160,6 +160,30 @@
                             <span class="text">Cải trang</span>
                         </router-link>
                     </div>
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/pets"
+                            class="nav-link"
+                            :class="{ active: $route.name === 'admin.pets' }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">pets</span>
+                            <span class="text">Pet</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/back-accessories"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name === 'admin.back_accessories',
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">backpack</span>
+                            <span class="text">Đeo lưng</span>
+                        </router-link>
+                    </div>
 
                     <div class="nav-heading">Settings</div>
                     <hr class="nav-line" />
@@ -369,6 +393,8 @@ export default {
                 "items",
                 "badges",
                 "costumes",
+                "pets",
+                "backAccessories",
                 "shops",
                 "milestones",
                 "bosses",

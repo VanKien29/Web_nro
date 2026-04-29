@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
+    private ?string $gameSrcRootCache = null;
+    private ?array $usedGameIconIdsCache = null;
+    private ?int $usedGameIconMaxCache = null;
+    private array $assetFileMaxCache = [];
+
     // GET /api/admin/admin-logs
     public function adminLogsList(Request $request): JsonResponse
     {
@@ -1786,12 +1791,6 @@ class AdminController extends Controller
                 'effect' => $this->gameSrcPath('data/effect'),
                 'effdata' => $this->gameSrcPath('data/effdata'),
             ],
-            'next' => [
-                'item_id' => $this->nextGameId('item_template'),
-                'icon_id' => $this->nextGameAssetId('icon', 'item_template', 'icon_id'),
-                'effect_id' => $this->nextGameEffectId(),
-                'part_id' => Schema::connection('game')->hasTable('part') ? $this->nextGameId('part') : null,
-            ],
         ]);
     }
 
@@ -2146,7 +2145,6 @@ class AdminController extends Controller
             'next' => [
                 'item_id' => $this->nextGameId('item_template'),
                 'part_id' => Schema::connection('game')->hasTable('part') ? $this->nextGameId('part') : null,
-                'icon_id' => $this->nextCostumeIconId(),
             ],
         ]);
     }
@@ -2251,12 +2249,12 @@ class AdminController extends Controller
             $bodyRawLayers = $this->parsePartLayers((string) $request->input('body_data'));
             $legRawLayers = $this->parsePartLayers((string) $request->input('leg_data'));
             $extraRawHeads = $this->parseExtraPartLayerBlocks((string) $request->input('extra_head_data', ''));
-            $idMap = $this->completeSequentialSpriteIdMap($idMap, $spriteUploadedIds, array_merge($headRawLayers, $bodyRawLayers, $legRawLayers, ...$extraRawHeads));
+            $idMap = $this->completePetSpriteIdMap($idMap, $spriteUploadedIds, array_merge($headRawLayers, $bodyRawLayers, $legRawLayers, ...$extraRawHeads));
 
-            $headLayers = $this->rewritePartLayers($headRawLayers, $idMap);
-            $bodyLayers = $this->rewritePartLayers($bodyRawLayers, $idMap);
-            $legLayers = $this->rewritePartLayers($legRawLayers, $idMap);
-            $extraHeads = array_map(fn($layers) => $this->rewritePartLayers($layers, $idMap), $extraRawHeads);
+            $headLayers = $this->rewritePetPartLayers($headRawLayers, $idMap);
+            $bodyLayers = $this->rewritePetPartLayers($bodyRawLayers, $idMap);
+            $legLayers = $this->rewritePetPartLayers($legRawLayers, $idMap);
+            $extraHeads = array_map(fn($layers) => $this->rewritePetPartLayers($layers, $idMap), $extraRawHeads);
         } catch (\Throwable $e) {
             foreach ($saved as $path) {
                 if (is_file($path)) {
@@ -2268,6 +2266,8 @@ class AdminController extends Controller
 
         DB::beginTransaction();
         $game->beginTransaction();
+        $createdFlagId = null;
+        $createdItemId = null;
         try {
             if ($requestedItemId > 0) {
                 $this->ensureItemTemplateContinuity($game, $requestedItemId - 1);
@@ -2799,8 +2799,1176 @@ class AdminController extends Controller
         ]);
     }
 
+    public function petsList(Request $request): JsonResponse
+    {
+        foreach (['item_template', 'part'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = max(1, min((int) $request->query('per_page', 30), 100));
+
+        $query = DB::connection('game')->table('item_template as i')
+            ->select([
+                'i.id',
+                DB::raw('i.TYPE as type'),
+                'i.gender',
+                DB::raw('i.NAME as name'),
+                'i.description',
+                'i.icon_id',
+                'i.part',
+                'i.head',
+                'i.body',
+                'i.leg',
+            ])
+            ->where('i.TYPE', 21);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('i.id', (int) $search)
+                        ->orWhere('i.icon_id', (int) $search)
+                        ->orWhere('i.head', (int) $search)
+                        ->orWhere('i.body', (int) $search)
+                        ->orWhere('i.leg', (int) $search);
+                }
+                $q->orWhere('i.NAME', 'LIKE', "%{$search}%")
+                    ->orWhere('i.description', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderByDesc('i.id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(fn($row) => [
+                'id' => (int) $row->id,
+                'type' => (int) $row->type,
+                'gender' => (int) $row->gender,
+                'name' => (string) $row->name,
+                'description' => (string) $row->description,
+                'icon_id' => (int) $row->icon_id,
+                'part' => (int) $row->part,
+                'head' => (int) $row->head,
+                'body' => (int) $row->body,
+                'leg' => (int) $row->leg,
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . (int) $row->icon_id . '.png'))
+                    ? '/admin/api/title-items/icon/' . (int) $row->icon_id
+                    : null,
+            ])
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'total_pages' => (int) max(1, ceil($total / $limit)),
+            'next' => [
+                'item_id' => $this->nextGameId('item_template'),
+                'part_id' => $this->nextGameId('part'),
+            ],
+        ]);
+    }
+
+    public function petsCreate(Request $request): JsonResponse
+    {
+        foreach (['item_template', 'part'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'item_id' => 'nullable|integer|min:1',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'head_data' => 'required|string|max:400000',
+            'body_data' => 'required|string|max:400000',
+            'leg_data' => 'required|string|max:400000',
+            'extra_head_data' => 'nullable|string|max:400000',
+            'icon_x4' => 'nullable',
+            'icon_x4_payload' => 'nullable|string',
+            'item_icon_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $requestedItemId = (int) $request->input('item_id', 0);
+        $requestedExistingItem = null;
+        if ($requestedItemId > 0) {
+            $requestedExistingItem = $game->table('item_template')->where('id', $requestedItemId)->first();
+            if ($requestedExistingItem && !$this->isReservedItemTemplate($requestedExistingItem)) {
+                return response()->json(['ok' => false, 'message' => "item_template ID {$requestedItemId} đã tồn tại"], 422);
+            }
+        }
+
+        $saved = [];
+        $idMap = [];
+        $iconIds = [];
+        $spriteUploadedIds = [];
+        $temporarySourceIconIds = $this->temporaryCostumeSourceIconIds($request);
+        $itemIconId = null;
+
+        try {
+            foreach ($this->decodeUploadedImagePayload((string) $request->input('icon_x4_payload', '')) as $payloadFile) {
+                $candidate = $this->numericIdFromFilename($payloadFile['name']);
+                $id = $this->resolveCostumeIconId(isset($temporarySourceIconIds[$candidate ?? 0]) ? null : $candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramidFromBytes($payloadFile['bytes'], $payloadFile['name'], 'data/icon', "{$id}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $id;
+                }
+                $iconIds[$id] = true;
+                $spriteUploadedIds[] = $id;
+            }
+
+            foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+                $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+                $id = $this->resolveCostumeIconId(isset($temporarySourceIconIds[$candidate ?? 0]) ? null : $candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$id}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $id;
+                }
+                $iconIds[$id] = true;
+                $spriteUploadedIds[] = $id;
+            }
+
+            $itemIconFile = $this->requestFiles($request, 'item_icon_x4')[0] ?? null;
+            if ($itemIconFile) {
+                $candidate = $this->numericIdFromFilename($itemIconFile->getClientOriginalName());
+                if ($candidate !== null && isset($idMap[$candidate])) {
+                    $itemIconId = (int) $idMap[$candidate];
+                } else {
+                    $itemIconId = $this->resolveCostumeIconId($candidate, $iconIds);
+                    $saved = array_merge($saved, $this->saveGamePngPyramid($itemIconFile, 'data/icon', "{$itemIconId}.png", 96));
+                    if ($candidate !== null) {
+                        $idMap[$candidate] = $itemIconId;
+                    }
+                    $iconIds[$itemIconId] = true;
+                }
+            } elseif (!empty($iconIds)) {
+                $itemIconId = (int) array_key_first($iconIds);
+            } else {
+                return response()->json(['ok' => false, 'message' => 'Cần upload ít nhất một icon/sprite x4'], 422);
+            }
+
+            $headRawLayers = $this->parsePartLayers((string) $request->input('head_data'));
+            $bodyRawLayers = $this->parsePartLayers((string) $request->input('body_data'));
+            $legRawLayers = $this->parsePartLayers((string) $request->input('leg_data'));
+            $extraRawHeads = $this->parseExtraPartLayerBlocks((string) $request->input('extra_head_data', ''));
+            $idMap = $this->completeSequentialSpriteIdMap($idMap, $spriteUploadedIds, array_merge($headRawLayers, $bodyRawLayers, $legRawLayers, ...$extraRawHeads));
+
+            $headLayers = $this->rewritePartLayers($headRawLayers, $idMap);
+            $bodyLayers = $this->rewritePartLayers($bodyRawLayers, $idMap);
+            $legLayers = $this->rewritePartLayers($legRawLayers, $idMap);
+            $extraHeads = array_map(fn($layers) => $this->rewritePartLayers($layers, $idMap), $extraRawHeads);
+        } catch (\Throwable $e) {
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu pet không hợp lệ: ' . $e->getMessage()], 422);
+        }
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        try {
+            if ($requestedItemId > 0) {
+                $this->ensureItemTemplateContinuity($game, $requestedItemId - 1);
+            }
+
+            $nextPartId = $this->nextGameId('part');
+            $headId = $nextPartId;
+            $extraHeadIds = array_map(fn($offset) => $nextPartId + 1 + $offset, array_keys($extraHeads));
+            $bodyId = $nextPartId + 1 + count($extraHeads);
+            $legId = $bodyId + 1;
+            $createdParts = [];
+
+            $partRows = [
+                ['id' => $headId, 'TYPE' => 0, 'DATA' => json_encode($headLayers, JSON_UNESCAPED_UNICODE)],
+            ];
+            foreach ($extraHeads as $offset => $layers) {
+                $partRows[] = ['id' => $extraHeadIds[$offset], 'TYPE' => 0, 'DATA' => json_encode($layers, JSON_UNESCAPED_UNICODE)];
+            }
+            $partRows[] = ['id' => $bodyId, 'TYPE' => 1, 'DATA' => json_encode($bodyLayers, JSON_UNESCAPED_UNICODE)];
+            $partRows[] = ['id' => $legId, 'TYPE' => 2, 'DATA' => json_encode($legLayers, JSON_UNESCAPED_UNICODE)];
+
+            foreach ($partRows as $row) {
+                $game->table('part')->insert($row);
+                $createdParts[] = $row['id'];
+            }
+            $this->syncCostumeHeadFrames($game, array_merge([$headId], $extraHeadIds));
+
+            $itemId = $requestedItemId > 0 ? $requestedItemId : $this->nextGameId('item_template');
+            $name = trim((string) $request->input('name'));
+            $itemRow = [
+                'id' => $itemId,
+                'TYPE' => 21,
+                'gender' => (int) $request->input('gender', 3),
+                'NAME' => $name,
+                'description' => (string) $request->input('description', 'Pet ' . $name),
+                'level' => 0,
+                'icon_id' => $itemIconId,
+                'part' => 0,
+                'is_up_to_up' => 0,
+                'power_require' => 0,
+                'gold' => 0,
+                'gem' => 0,
+                'head' => $headId,
+                'body' => $bodyId,
+                'leg' => $legId,
+                'is_up_to_up_over_99' => 0,
+                'can_trade' => 1,
+                'comment' => "Admin pet item. head={$headId};body={$bodyId};leg={$legId};extra_heads=" . implode(',', $extraHeadIds) . ";icon={$itemIconId}",
+            ];
+            if ($requestedExistingItem && $this->isReservedItemTemplate($requestedExistingItem)) {
+                $game->table('item_template')->where('id', $itemId)->update(collect($itemRow)->except('id')->all());
+            } else {
+                $game->table('item_template')->insert($itemRow);
+            }
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            foreach ($createdParts ?? [] as $partId) {
+                $game->table('part')->where('id', $partId)->delete();
+            }
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không tạo được pet: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction('pet.create', 'item_template', $itemId, 'Tạo pet ' . $name, null, [
+            'item' => $itemRow,
+            'part_ids' => $createdParts,
+            'item_icon_id' => $itemIconId,
+            'icon_id_map' => $idMap,
+            'saved_files' => $saved,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => "Đã tạo pet {$name} (#{$itemId})",
+            'data' => [
+                'item_id' => $itemId,
+                'item_icon_id' => $itemIconId,
+                'head' => $headId,
+                'body' => $bodyId,
+                'leg' => $legId,
+                'extra_heads' => $extraHeadIds,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+            ],
+        ]);
+    }
+
+    public function petsGet($id): JsonResponse
+    {
+        if (!is_numeric($id)) {
+            return response()->json(['ok' => false, 'message' => 'ID pet không hợp lệ'], 422);
+        }
+        $id = (int) $id;
+        foreach (['item_template', 'part'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $game = DB::connection('game');
+        $item = $game->table('item_template')->where('id', $id)->first();
+        if (!$item || (int) ($item->TYPE ?? -1) !== 21) {
+            return response()->json(['ok' => false, 'message' => 'Pet không tồn tại'], 404);
+        }
+
+        $partData = [];
+        foreach (['head', 'body', 'leg'] as $field) {
+            $partId = (int) ($item->{$field} ?? -1);
+            $part = $partId >= 0 ? $game->table('part')->where('id', $partId)->first(['DATA']) : null;
+            $partData[$field . '_data'] = $part ? (string) $part->DATA : '';
+        }
+
+        $extraBlocks = [];
+        foreach ($this->costumeExtraHeadIdsFromComment((string) ($item->comment ?? '')) as $extraHeadId) {
+            $part = $game->table('part')->where('id', $extraHeadId)->first(['DATA']);
+            if ($part) {
+                $extraBlocks[] = (string) $part->DATA;
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'id' => (int) $item->id,
+                'name' => (string) ($item->NAME ?? ''),
+                'description' => (string) ($item->description ?? ''),
+                'gender' => (int) ($item->gender ?? 3),
+                'icon_id' => (int) ($item->icon_id ?? 0),
+                'head' => (int) ($item->head ?? -1),
+                'body' => (int) ($item->body ?? -1),
+                'leg' => (int) ($item->leg ?? -1),
+                'extra_heads' => $this->costumeExtraHeadIdsFromComment((string) ($item->comment ?? '')),
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . (int) ($item->icon_id ?? 0) . '.png'))
+                    ? '/admin/api/title-items/icon/' . (int) ($item->icon_id ?? 0)
+                    : null,
+                ...$partData,
+                'extra_head_data' => implode("\n\n", $extraBlocks),
+            ],
+        ]);
+    }
+
+    public function petsUpdate(Request $request, $id): JsonResponse
+    {
+        if (!is_numeric($id)) {
+            return response()->json(['ok' => false, 'message' => 'ID pet không hợp lệ'], 422);
+        }
+        $id = (int) $id;
+        foreach (['item_template', 'part'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'head_data' => 'required|string|max:400000',
+            'body_data' => 'required|string|max:400000',
+            'leg_data' => 'required|string|max:400000',
+            'extra_head_data' => 'nullable|string|max:400000',
+            'icon_x4' => 'nullable',
+            'icon_x4_payload' => 'nullable|string',
+            'item_icon_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $item = $game->table('item_template')->where('id', $id)->first();
+        if (!$item || (int) ($item->TYPE ?? -1) !== 21) {
+            return response()->json(['ok' => false, 'message' => 'Pet không tồn tại'], 404);
+        }
+
+        $saved = [];
+        $idMap = [];
+        $iconIds = [];
+        $spriteUploadedIds = [];
+        $temporarySourceIconIds = $this->temporaryCostumeSourceIconIds($request);
+        $itemIconId = (int) ($item->icon_id ?? 0);
+        $oldIconIds = [$itemIconId];
+        $oldPartIds = array_values(array_filter([
+            (int) ($item->head ?? -1),
+            (int) ($item->body ?? -1),
+            (int) ($item->leg ?? -1),
+            ...$this->costumeExtraHeadIdsFromComment((string) ($item->comment ?? '')),
+        ], fn($partId) => $partId >= 0));
+        if ($oldPartIds) {
+            foreach ($game->table('part')->whereIn('id', $oldPartIds)->get(['DATA']) as $partRow) {
+                foreach ($this->decodePartData($partRow->DATA ?? '') as $layer) {
+                    $oldIconIds[] = (int) ($layer['icon_id'] ?? 0);
+                }
+            }
+        }
+
+        try {
+            foreach ($this->decodeUploadedImagePayload((string) $request->input('icon_x4_payload', '')) as $payloadFile) {
+                $candidate = $this->numericIdFromFilename($payloadFile['name']);
+                $newId = $this->resolveCostumeIconId(isset($temporarySourceIconIds[$candidate ?? 0]) ? null : $candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramidFromBytes($payloadFile['bytes'], $payloadFile['name'], 'data/icon', "{$newId}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $newId;
+                }
+                $iconIds[$newId] = true;
+                $spriteUploadedIds[] = $newId;
+            }
+            foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+                $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+                $newId = $this->resolveCostumeIconId(isset($temporarySourceIconIds[$candidate ?? 0]) ? null : $candidate, $iconIds);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$newId}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $newId;
+                }
+                $iconIds[$newId] = true;
+                $spriteUploadedIds[] = $newId;
+            }
+            $itemIconFile = $this->requestFiles($request, 'item_icon_x4')[0] ?? null;
+            if ($itemIconFile) {
+                $candidate = $this->numericIdFromFilename($itemIconFile->getClientOriginalName());
+                if ($candidate !== null && isset($idMap[$candidate])) {
+                    $itemIconId = (int) $idMap[$candidate];
+                } else {
+                    $itemIconId = $this->resolveCostumeIconId($candidate, $iconIds);
+                    $saved = array_merge($saved, $this->saveGamePngPyramid($itemIconFile, 'data/icon', "{$itemIconId}.png", 96));
+                    if ($candidate !== null) {
+                        $idMap[$candidate] = $itemIconId;
+                    }
+                    $iconIds[$itemIconId] = true;
+                }
+            }
+
+            $headRawLayers = $this->parsePartLayers((string) $request->input('head_data'));
+            $bodyRawLayers = $this->parsePartLayers((string) $request->input('body_data'));
+            $legRawLayers = $this->parsePartLayers((string) $request->input('leg_data'));
+            $extraRawHeads = $this->parseExtraPartLayerBlocks((string) $request->input('extra_head_data', ''));
+            $idMap = $this->completePetSpriteIdMap($idMap, $spriteUploadedIds, array_merge($headRawLayers, $bodyRawLayers, $legRawLayers, ...$extraRawHeads));
+            $headLayers = $this->rewritePetPartLayers($headRawLayers, $idMap);
+            $bodyLayers = $this->rewritePetPartLayers($bodyRawLayers, $idMap);
+            $legLayers = $this->rewritePetPartLayers($legRawLayers, $idMap);
+            $extraHeads = array_map(fn($layers) => $this->rewritePetPartLayers($layers, $idMap), $extraRawHeads);
+        } catch (\Throwable $e) {
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu pet không hợp lệ: ' . $e->getMessage()], 422);
+        }
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        $deletedIconFiles = [];
+        try {
+            $headId = (int) $item->head;
+            $bodyId = (int) $item->body;
+            $legId = (int) $item->leg;
+            foreach ([[$headId, 0, $headLayers], [$bodyId, 1, $bodyLayers], [$legId, 2, $legLayers]] as [$partId, $type, $layers]) {
+                $game->table('part')->updateOrInsert(['id' => $partId], ['TYPE' => $type, 'DATA' => json_encode($layers, JSON_UNESCAPED_UNICODE)]);
+            }
+            $existingExtraIds = $this->costumeExtraHeadIdsFromComment((string) ($item->comment ?? ''));
+            $extraIds = [];
+            foreach ($extraHeads as $offset => $layers) {
+                $extraId = $existingExtraIds[$offset] ?? $this->nextGameId('part');
+                while (in_array($extraId, [$headId, $bodyId, $legId], true) || (!in_array($extraId, $existingExtraIds, true) && $game->table('part')->where('id', $extraId)->exists())) {
+                    $extraId++;
+                }
+                $game->table('part')->updateOrInsert(['id' => $extraId], ['TYPE' => 0, 'DATA' => json_encode($layers, JSON_UNESCAPED_UNICODE)]);
+                $extraIds[] = $extraId;
+            }
+            $removedExtraIds = array_values(array_diff($existingExtraIds, $extraIds));
+            if ($removedExtraIds) {
+                $game->table('part')->whereIn('id', $removedExtraIds)->delete();
+                if (Schema::connection('game')->hasTable('array_head_2_frames')) {
+                    $game->table('array_head_2_frames')->whereIn('id', $removedExtraIds)->delete();
+                }
+            }
+            $this->syncCostumeHeadFrames($game, array_merge([$headId], $extraIds));
+
+            $name = trim((string) $request->input('name'));
+            $itemRow = [
+                'TYPE' => 21,
+                'gender' => (int) $request->input('gender', 3),
+                'NAME' => $name,
+                'description' => (string) $request->input('description', 'Pet ' . $name),
+                'icon_id' => $itemIconId,
+                'part' => 0,
+                'head' => $headId,
+                'body' => $bodyId,
+                'leg' => $legId,
+                'comment' => "Admin pet item. head={$headId};body={$bodyId};leg={$legId};extra_heads=" . implode(',', $extraIds) . ";icon={$itemIconId}",
+            ];
+            $game->table('item_template')->where('id', $id)->update($itemRow);
+            $safeIconIds = $this->filterUnreferencedCostumeIconIds($game, $oldIconIds);
+            $deletedIconFiles = $this->deleteGameIconFiles($safeIconIds);
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không sửa được pet: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction('pet.update', 'item_template', $id, 'Sửa pet ' . $name, $this->sanitizeLogState((array) $item), [
+            'item' => $itemRow,
+            'extra_heads' => $extraIds,
+            'item_icon_id' => $itemIconId,
+            'icon_id_map' => $idMap,
+            'saved_files' => $saved,
+            'deleted_icon_files' => $deletedIconFiles,
+        ]);
+
+        return response()->json(['ok' => true, 'message' => "Đã sửa pet {$name} (#{$id})"]);
+    }
+
+    public function petsDelete($id): JsonResponse
+    {
+        if (!is_numeric($id)) {
+            return response()->json(['ok' => false, 'message' => 'ID pet không hợp lệ'], 422);
+        }
+        $id = (int) $id;
+        foreach (['item_template', 'part'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+        $game = DB::connection('game');
+        $item = $game->table('item_template')->where('id', $id)->first();
+        if (!$item || (int) ($item->TYPE ?? -1) !== 21) {
+            return response()->json(['ok' => false, 'message' => 'Pet không tồn tại'], 404);
+        }
+        $partIds = array_values(array_filter([
+            (int) ($item->head ?? -1),
+            (int) ($item->body ?? -1),
+            (int) ($item->leg ?? -1),
+            ...$this->costumeExtraHeadIdsFromComment((string) ($item->comment ?? '')),
+        ], fn($partId) => $partId >= 0));
+        $iconIdsToDelete = [(int) ($item->icon_id ?? 0)];
+        if ($partIds) {
+            foreach ($game->table('part')->whereIn('id', $partIds)->get(['DATA']) as $partRow) {
+                foreach ($this->decodePartData($partRow->DATA ?? '') as $layer) {
+                    $iconIdsToDelete[] = (int) ($layer['icon_id'] ?? 0);
+                }
+            }
+        }
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        $deletedIconFiles = [];
+        try {
+            $maxItemIdBeforeDelete = (int) ($game->table('item_template')->max('id') ?? 0);
+            if ($partIds) {
+                if (Schema::connection('game')->hasTable('array_head_2_frames')) {
+                    $game->table('array_head_2_frames')->whereIn('id', $partIds)->delete();
+                }
+                $game->table('part')->whereIn('id', $partIds)->delete();
+            }
+            $game->table('item_template')->where('id', $id)->delete();
+            $filledItemIds = $this->ensureItemTemplateContinuity($game, max($maxItemIdBeforeDelete, $id));
+            $moves = $this->compactPartIds($game, $partIds);
+            $safeIconIds = $this->filterUnreferencedCostumeIconIds($game, $iconIdsToDelete);
+            $deletedIconFiles = $this->deleteGameIconFiles($safeIconIds);
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            return response()->json(['ok' => false, 'message' => 'Không xóa được pet: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction('pet.delete', 'item_template', $id, 'Xóa pet ' . ($item->NAME ?? ('#' . $id)), $this->sanitizeLogState((array) $item), [
+            'deleted_part_ids' => $partIds,
+            'filled_item_template_ids' => $filledItemIds,
+            'compacted_part_moves' => $moves,
+            'deleted_icon_files' => $deletedIconFiles,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã xóa pet và dữ liệu part liên quan',
+            'data' => [
+                'deleted_item_id' => $id,
+                'deleted_part_ids' => $partIds,
+                'filled_item_template_ids' => $filledItemIds,
+                'compacted_part_moves' => $moves,
+                'deleted_icon_files' => $deletedIconFiles,
+            ],
+        ]);
+    }
+
+    public function backAccessoriesList(Request $request): JsonResponse
+    {
+        foreach (['item_template', 'flag_bag'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $page = max((int) $request->query('page', 1), 1);
+        $limit = max(1, min((int) $request->query('per_page', 30), 100));
+
+        $query = DB::connection('game')->table('flag_bag as f')
+            ->leftJoin('item_template as i', function ($join) {
+                $join->on('i.part', '=', 'f.id')
+                    ->where('i.TYPE', 11);
+            })
+            ->select([
+                DB::raw('f.id as flag_id'),
+                DB::raw('f.NAME as flag_name'),
+                'f.icon_data',
+                DB::raw('f.icon_id as flag_icon_id'),
+                'f.gold',
+                'f.gem',
+                DB::raw('MIN(i.id) as item_id'),
+                DB::raw('MIN(i.gender) as item_gender'),
+                DB::raw('MIN(i.description) as item_description'),
+                DB::raw('MIN(i.icon_id) as item_icon_id'),
+            ])
+            ->groupBy('f.id', 'f.NAME', 'f.icon_data', 'f.icon_id', 'f.gold', 'f.gem');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('f.id', (int) $search)
+                        ->orWhere('f.icon_id', (int) $search);
+                    $q->orWhere('i.id', (int) $search)
+                        ->orWhere('i.icon_id', (int) $search);
+                }
+                $q->orWhere('f.NAME', 'LIKE', "%{$search}%")
+                    ->orWhere('i.NAME', 'LIKE', "%{$search}%")
+                    ->orWhere('f.icon_data', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $total = DB::connection('game')->query()
+            ->fromSub(clone $query, 'back_accessory_rows')
+            ->count();
+        $rows = $query->orderByDesc('f.id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit)
+            ->get()
+            ->map(fn($row) => [
+                'id' => (int) $row->flag_id,
+                'item_id' => $row->item_id === null ? null : (int) $row->item_id,
+                'type' => 11,
+                'gender' => $row->item_gender === null ? 3 : (int) $row->item_gender,
+                'name' => (string) ($row->flag_name ?? ''),
+                'description' => (string) ($row->item_description ?? ''),
+                'icon_id' => $row->item_icon_id === null ? (int) $row->flag_icon_id : (int) $row->item_icon_id,
+                'part' => (int) $row->flag_id,
+                'flag_id' => (int) $row->flag_id,
+                'flag_name' => (string) ($row->flag_name ?? ''),
+                'icon_data' => (string) ($row->icon_data ?? ''),
+                'flag_icon_id' => (int) $row->flag_icon_id,
+                'gold' => $row->gold === null ? null : (int) $row->gold,
+                'gem' => $row->gem === null ? null : (int) $row->gem,
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . (int) ($row->item_icon_id ?? $row->flag_icon_id) . '.png'))
+                    ? '/admin/api/title-items/icon/' . (int) ($row->item_icon_id ?? $row->flag_icon_id)
+                    : null,
+            ])
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'data' => $rows,
+            'page' => $page,
+            'per_page' => $limit,
+            'total' => $total,
+            'total_pages' => (int) max(1, ceil($total / $limit)),
+            'next' => [
+                'item_id' => $this->nextGameId('item_template'),
+                'flag_id' => $this->nextFlagBagId(),
+            ],
+        ]);
+    }
+
+    public function backAccessoriesCreate(Request $request): JsonResponse
+    {
+        foreach (['item_template', 'flag_bag'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'item_id' => 'nullable|integer|min:1',
+            'flag_id' => 'nullable|integer|min:0|max:255',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'gold' => 'nullable|integer',
+            'gem' => 'nullable|integer',
+            'icon_x4' => 'nullable',
+            'icon_x4_payload' => 'nullable|string',
+            'item_icon_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $requestedItemId = (int) $request->input('item_id', 0);
+        $requestedExistingItem = null;
+        if ($requestedItemId > 0) {
+            $requestedExistingItem = $game->table('item_template')->where('id', $requestedItemId)->first();
+            if ($requestedExistingItem && !$this->isReservedItemTemplate($requestedExistingItem)) {
+                return response()->json(['ok' => false, 'message' => "item_template ID {$requestedItemId} đã tồn tại"], 422);
+            }
+        }
+
+        $requestedFlagId = $request->filled('flag_id') ? (int) $request->input('flag_id') : null;
+        if ($requestedFlagId !== null && $game->table('flag_bag')->where('id', $requestedFlagId)->exists()) {
+            return response()->json(['ok' => false, 'message' => "flag_bag ID {$requestedFlagId} đã tồn tại"], 422);
+        }
+
+        $saved = [];
+        $idMap = [];
+        $used = [];
+        $spriteIds = [];
+        $itemIconId = null;
+
+        try {
+            foreach ($this->decodeUploadedImagePayload((string) $request->input('icon_x4_payload', '')) as $payloadFile) {
+                $candidate = $this->numericIdFromFilename($payloadFile['name']);
+                $id = $this->resolveCostumeIconId($candidate, $used);
+                $saved = array_merge($saved, $this->saveGamePngPyramidFromBytes($payloadFile['bytes'], $payloadFile['name'], 'data/icon', "{$id}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $id;
+                }
+                $used[$id] = true;
+                $spriteIds[] = $id;
+            }
+
+            foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+                $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+                $id = $this->resolveCostumeIconId($candidate, $used);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$id}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $id;
+                }
+                $used[$id] = true;
+                $spriteIds[] = $id;
+            }
+
+            if (!$spriteIds) {
+                throw new \InvalidArgumentException('Cần upload ít nhất một ảnh sprite đeo lưng x4.');
+            }
+
+            $itemIconFile = $this->requestFiles($request, 'item_icon_x4')[0] ?? null;
+            if ($itemIconFile) {
+                $candidate = $this->numericIdFromFilename($itemIconFile->getClientOriginalName());
+                if ($candidate !== null && isset($idMap[$candidate])) {
+                    $itemIconId = (int) $idMap[$candidate];
+                } else {
+                    $itemIconId = $this->resolveCostumeIconId($candidate, $used);
+                    $saved = array_merge($saved, $this->saveGamePngPyramid($itemIconFile, 'data/icon', "{$itemIconId}.png", 96));
+                    if ($candidate !== null) {
+                        $idMap[$candidate] = $itemIconId;
+                    }
+                    $used[$itemIconId] = true;
+                }
+            } else {
+                $itemIconId = (int) min($spriteIds);
+            }
+        } catch (\Throwable $e) {
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu đeo lưng không hợp lệ: ' . $e->getMessage()], 422);
+        }
+
+        sort($spriteIds, SORT_NUMERIC);
+        $flagId = $requestedFlagId ?? $this->nextFlagBagId();
+        $itemId = $requestedItemId > 0 ? $requestedItemId : $this->nextGameId('item_template');
+        $name = trim((string) $request->input('name'));
+        $iconData = implode(', ', $spriteIds);
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        try {
+            if ($requestedItemId > 0) {
+                $this->ensureItemTemplateContinuity($game, $requestedItemId - 1);
+            }
+
+            $flagRow = [
+                'id' => $flagId,
+                'icon_data' => $iconData,
+                'NAME' => $name,
+                'gold' => (int) $request->input('gold', 0),
+                'gem' => (int) $request->input('gem', -1),
+                'icon_id' => $itemIconId,
+            ];
+            $game->table('flag_bag')->insert($flagRow);
+            $createdFlagId = $flagId;
+
+            $itemRow = [
+                'id' => $itemId,
+                'TYPE' => 11,
+                'gender' => (int) $request->input('gender', 3),
+                'NAME' => $name,
+                'description' => (string) $request->input('description', 'Đeo lưng ' . $name),
+                'level' => 0,
+                'icon_id' => $itemIconId,
+                'part' => $flagId,
+                'is_up_to_up' => 0,
+                'power_require' => 0,
+                'gold' => 0,
+                'gem' => 0,
+                'head' => -1,
+                'body' => -1,
+                'leg' => -1,
+                'is_up_to_up_over_99' => 0,
+                'can_trade' => 1,
+                'comment' => "Admin back accessory. flag_bag={$flagId};icon={$itemIconId};icons=" . implode(',', $spriteIds),
+            ];
+            if ($requestedExistingItem && $this->isReservedItemTemplate($requestedExistingItem)) {
+                $game->table('item_template')->where('id', $itemId)->update(collect($itemRow)->except('id')->all());
+            } else {
+                $game->table('item_template')->insert($itemRow);
+                $createdItemId = $itemId;
+            }
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            if ($createdFlagId !== null) {
+                $game->table('flag_bag')->where('id', $createdFlagId)->delete();
+            }
+            if ($createdItemId !== null) {
+                $game->table('item_template')->where('id', $createdItemId)->delete();
+            }
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không tạo được đeo lưng: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'back_accessory.create',
+            'item_template',
+            $itemId,
+            'Tạo đeo lưng ' . $name,
+            null,
+            [
+                'item' => $itemRow,
+                'flag_bag' => $flagRow,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => "Đã tạo đeo lưng {$name} (#{$itemId})",
+            'data' => [
+                'item_id' => $itemId,
+                'flag_id' => $flagId,
+                'icon_id' => $itemIconId,
+                'icon_data' => $iconData,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+            ],
+        ]);
+    }
+
+    public function backAccessoriesGet($id): JsonResponse
+    {
+        $flagId = (int) $id;
+        foreach (['item_template', 'flag_bag'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $game = DB::connection('game');
+        $flag = $game->table('flag_bag')->where('id', $flagId)->first();
+        if (!$flag) {
+            return response()->json(['ok' => false, 'message' => 'Đeo lưng không tồn tại'], 404);
+        }
+        $item = $game->table('item_template')
+            ->where('TYPE', 11)
+            ->where('part', $flagId)
+            ->orderBy('id')
+            ->first();
+        $iconId = $item ? (int) ($item->icon_id ?? 0) : (int) ($flag->icon_id ?? 0);
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'id' => $flagId,
+                'item_id' => $item ? (int) $item->id : null,
+                'name' => (string) ($flag->NAME ?? ($item->NAME ?? '')),
+                'description' => $item ? (string) ($item->description ?? '') : '',
+                'gender' => $item ? (int) ($item->gender ?? 3) : 3,
+                'icon_id' => $iconId,
+                'part' => $flagId,
+                'flag_id' => $flagId,
+                'flag_name' => (string) ($flag->NAME ?? ''),
+                'icon_data' => (string) ($flag->icon_data ?? ''),
+                'flag_icon_id' => (int) ($flag->icon_id ?? 0),
+                'gold' => (int) ($flag->gold ?? 0),
+                'gem' => (int) ($flag->gem ?? -1),
+                'icon_url' => is_file($this->gameSrcPath('data/icon/x4/' . $iconId . '.png'))
+                    ? '/admin/api/title-items/icon/' . $iconId
+                    : null,
+            ],
+        ]);
+    }
+
+    public function backAccessoriesUpdate(Request $request, $id): JsonResponse
+    {
+        $flagId = (int) $id;
+        foreach (['item_template', 'flag_bag'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'item_id' => 'nullable|integer|min:1',
+            'gender' => 'nullable|integer|min:0|max:3',
+            'gold' => 'nullable|integer',
+            'gem' => 'nullable|integer',
+            'icon_x4' => 'nullable',
+            'icon_x4_payload' => 'nullable|string',
+            'item_icon_x4' => 'nullable',
+        ]);
+
+        $game = DB::connection('game');
+        $flag = $game->table('flag_bag')->where('id', $flagId)->first();
+        if (!$flag) {
+            return response()->json(['ok' => false, 'message' => "Không tìm thấy flag_bag #{$flagId}"], 404);
+        }
+        $item = $game->table('item_template')
+            ->where('TYPE', 11)
+            ->where('part', $flagId)
+            ->orderBy('id')
+            ->first();
+
+        $saved = [];
+        $idMap = [];
+        $used = [];
+        $newSpriteIds = [];
+        $itemIconId = $item ? (int) ($item->icon_id ?? 0) : (int) ($flag->icon_id ?? 0);
+        $oldIconIds = array_merge(
+            [$itemIconId, (int) ($flag->icon_id ?? 0)],
+            $this->parseFlagBagIconData((string) ($flag->icon_data ?? '')),
+        );
+
+        try {
+            foreach ($this->decodeUploadedImagePayload((string) $request->input('icon_x4_payload', '')) as $payloadFile) {
+                $candidate = $this->numericIdFromFilename($payloadFile['name']);
+                $newId = $this->resolveCostumeIconId($candidate, $used);
+                $saved = array_merge($saved, $this->saveGamePngPyramidFromBytes($payloadFile['bytes'], $payloadFile['name'], 'data/icon', "{$newId}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $newId;
+                }
+                $used[$newId] = true;
+                $newSpriteIds[] = $newId;
+            }
+
+            foreach ($this->requestFiles($request, 'icon_x4') as $file) {
+                $candidate = $this->numericIdFromFilename($file->getClientOriginalName());
+                $newId = $this->resolveCostumeIconId($candidate, $used);
+                $saved = array_merge($saved, $this->saveGamePngPyramid($file, 'data/icon', "{$newId}.png"));
+                if ($candidate !== null) {
+                    $idMap[$candidate] = $newId;
+                }
+                $used[$newId] = true;
+                $newSpriteIds[] = $newId;
+            }
+
+            $itemIconFile = $this->requestFiles($request, 'item_icon_x4')[0] ?? null;
+            if ($itemIconFile) {
+                $candidate = $this->numericIdFromFilename($itemIconFile->getClientOriginalName());
+                if ($candidate !== null && isset($idMap[$candidate])) {
+                    $itemIconId = (int) $idMap[$candidate];
+                } else {
+                    $itemIconId = $this->resolveCostumeIconId($candidate, $used);
+                    $saved = array_merge($saved, $this->saveGamePngPyramid($itemIconFile, 'data/icon', "{$itemIconId}.png", 96));
+                    if ($candidate !== null) {
+                        $idMap[$candidate] = $itemIconId;
+                    }
+                    $used[$itemIconId] = true;
+                }
+            }
+        } catch (\Throwable $e) {
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Dữ liệu đeo lưng không hợp lệ: ' . $e->getMessage()], 422);
+        }
+
+        sort($newSpriteIds, SORT_NUMERIC);
+        $iconData = $newSpriteIds ? implode(', ', $newSpriteIds) : (string) ($flag->icon_data ?? '');
+        $name = trim((string) $request->input('name'));
+        $requestedItemId = (int) $request->input('item_id', 0);
+        $requestedExistingItem = null;
+        if (!$item && $requestedItemId > 0) {
+            $requestedExistingItem = $game->table('item_template')->where('id', $requestedItemId)->first();
+            if ($requestedExistingItem && !$this->isReservedItemTemplate($requestedExistingItem)) {
+                return response()->json(['ok' => false, 'message' => "item_template ID {$requestedItemId} đã tồn tại"], 422);
+            }
+        }
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        $deletedIconFiles = [];
+        try {
+            $flagRow = [
+                'icon_data' => $iconData,
+                'NAME' => $name,
+                'gold' => (int) $request->input('gold', 0),
+                'gem' => (int) $request->input('gem', -1),
+                'icon_id' => $itemIconId,
+            ];
+            $game->table('flag_bag')->where('id', $flagId)->update($flagRow);
+
+            $itemRow = null;
+            if ($item || $requestedItemId > 0) {
+                $itemId = $item ? (int) $item->id : $requestedItemId;
+                if (!$item) {
+                    $this->ensureItemTemplateContinuity($game, $itemId - 1);
+                }
+                $itemRow = [
+                'TYPE' => 11,
+                'gender' => (int) $request->input('gender', 3),
+                'NAME' => $name,
+                'description' => (string) $request->input('description', 'Đeo lưng ' . $name),
+                'icon_id' => $itemIconId,
+                'part' => $flagId,
+                'head' => -1,
+                'body' => -1,
+                'leg' => -1,
+                'comment' => "Admin back accessory. flag_bag={$flagId};icon={$itemIconId};icons=" . str_replace(' ', '', $iconData),
+                ];
+                if ($item) {
+                    $game->table('item_template')->where('id', $itemId)->update($itemRow);
+                } elseif ($requestedExistingItem && $this->isReservedItemTemplate($requestedExistingItem)) {
+                    $game->table('item_template')->where('id', $itemId)->update($itemRow);
+                } else {
+                    $game->table('item_template')->insert(['id' => $itemId, ...$itemRow]);
+                }
+            }
+
+            $safeIconIds = $this->filterUnreferencedCostumeIconIds($game, $oldIconIds);
+            $deletedIconFiles = $this->deleteGameIconFiles($safeIconIds);
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            foreach ($saved as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            return response()->json(['ok' => false, 'message' => 'Không sửa được đeo lưng: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'back_accessory.update',
+            'item_template',
+            $item ? (int) $item->id : $flagId,
+            'Sửa đeo lưng ' . $name,
+            ['item' => $item ? $this->sanitizeLogState((array) $item) : null, 'flag_bag' => $this->sanitizeLogState((array) $flag)],
+            [
+                'item' => $itemRow,
+                'flag_bag' => $flagRow,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+                'deleted_icon_files' => $deletedIconFiles,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => "Đã sửa đeo lưng {$name} (#{$flagId})",
+            'data' => [
+                'item_id' => $item ? (int) $item->id : ($requestedItemId > 0 ? $requestedItemId : null),
+                'flag_id' => $flagId,
+                'icon_id' => $itemIconId,
+                'icon_data' => $iconData,
+                'icon_id_map' => $idMap,
+                'saved_files' => $saved,
+                'deleted_icon_files' => $deletedIconFiles,
+            ],
+        ]);
+    }
+
+    public function backAccessoriesDelete($id): JsonResponse
+    {
+        $flagId = (int) $id;
+        foreach (['item_template', 'flag_bag'] as $table) {
+            if (!Schema::connection('game')->hasTable($table)) {
+                return response()->json(['ok' => false, 'message' => "Chưa có bảng {$table}"], 422);
+            }
+        }
+
+        $game = DB::connection('game');
+        $flag = $game->table('flag_bag')->where('id', $flagId)->first();
+        if (!$flag) {
+            return response()->json(['ok' => false, 'message' => 'Đeo lưng không tồn tại'], 404);
+        }
+        $items = $game->table('item_template')
+            ->where('TYPE', 11)
+            ->where('part', $flagId)
+            ->get();
+
+        $iconIdsToDelete = [(int) ($flag->icon_id ?? 0)];
+        foreach ($items as $item) {
+            $iconIdsToDelete[] = (int) ($item->icon_id ?? 0);
+        }
+        $iconIdsToDelete = array_merge($iconIdsToDelete, $this->parseFlagBagIconData((string) ($flag->icon_data ?? '')));
+
+        DB::beginTransaction();
+        $game->beginTransaction();
+        $deletedIconFiles = [];
+        $skippedIconIds = [];
+        try {
+            $maxItemIdBeforeDelete = (int) ($game->table('item_template')->max('id') ?? 0);
+            $deletedItemIds = $items->pluck('id')->map(fn($value) => (int) $value)->all();
+            if ($deletedItemIds) {
+                $game->table('item_template')->whereIn('id', $deletedItemIds)->delete();
+            }
+            $game->table('flag_bag')->where('id', $flagId)->delete();
+            $filledItemIds = $this->ensureItemTemplateContinuity($game, max(array_merge([$maxItemIdBeforeDelete, 0], $deletedItemIds)));
+            $safeIconIds = $this->filterUnreferencedCostumeIconIds($game, $iconIdsToDelete);
+            $skippedIconIds = array_values(array_diff(array_values(array_unique(array_filter(array_map('intval', $iconIdsToDelete), fn($iconId) => $iconId > 0))), $safeIconIds));
+            $deletedIconFiles = $this->deleteGameIconFiles($safeIconIds);
+
+            $game->commit();
+            DB::commit();
+        } catch (\Throwable $e) {
+            $game->rollBack();
+            DB::rollBack();
+            return response()->json(['ok' => false, 'message' => 'Không xóa được đeo lưng: ' . $e->getMessage()], 500);
+        }
+
+        $this->logAdminAction(
+            'back_accessory.delete',
+            'item_template',
+            $flagId,
+            'Xóa đeo lưng ' . ($flag->NAME ?? ('#' . $flagId)),
+            ['items' => $items->map(fn($item) => $this->sanitizeLogState((array) $item))->all(), 'flag_bag' => $this->sanitizeLogState((array) $flag)],
+            [
+                'flag_id' => $flagId,
+                'filled_item_template_ids' => $filledItemIds,
+                'skipped_icon_ids' => $skippedIconIds,
+                'deleted_icon_files' => $deletedIconFiles,
+            ],
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Đã xóa đeo lưng, flag_bag và ảnh không còn dùng',
+            'data' => [
+                'deleted_item_ids' => $deletedItemIds,
+                'deleted_flag_id' => $flagId,
+                'filled_item_template_ids' => $filledItemIds,
+                'skipped_icon_ids' => $skippedIconIds,
+                'deleted_icon_files' => $deletedIconFiles,
+            ],
+        ]);
+    }
+
     private function gameSrcPath(string $child = ''): string
     {
+        if ($this->gameSrcRootCache !== null) {
+            return $this->gameSrcRootCache . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
+        }
+
         $candidates = array_filter([
             env('GAME_SRC_PATH'),
             rtrim((string) getenv('USERPROFILE'), '\\/') . DIRECTORY_SEPARATOR . 'Downloads' . DIRECTORY_SEPARATOR . 'SRC' . DIRECTORY_SEPARATOR . 'SRC',
@@ -2811,12 +3979,13 @@ class AdminController extends Controller
         foreach ($candidates as $candidate) {
             $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
             if (is_dir($path . DIRECTORY_SEPARATOR . 'data')) {
-                return rtrim($path, DIRECTORY_SEPARATOR) . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
+                $this->gameSrcRootCache = rtrim($path, DIRECTORY_SEPARATOR);
+                return $this->gameSrcRootCache . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
             }
         }
 
-        $fallback = rtrim((string) ($candidates[0] ?? base_path()), DIRECTORY_SEPARATOR);
-        return $fallback . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
+        $this->gameSrcRootCache = rtrim((string) ($candidates[0] ?? base_path()), DIRECTORY_SEPARATOR);
+        return $this->gameSrcRootCache . ($child !== '' ? DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $child) : '');
     }
 
     private function nextGameAssetId(string $assetDir, string $table, string $column): int
@@ -2893,17 +4062,20 @@ class AdminController extends Controller
         foreach ([4 => 1, 3 => 0.75, 2 => 0.5, 1 => 0.25] as $zoom => $scale) {
             $targetWidth = max(1, (int) round($width * $baseScale * $scale));
             $targetHeight = max(1, (int) round($height * $baseScale * $scale));
-            $target = imagecreatetruecolor($targetWidth, $targetHeight);
-            imagealphablending($target, false);
-            imagesavealpha($target, true);
-            $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
-            imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
-            imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-
             $path = $this->gameSrcPath($baseDir . "/x{$zoom}/{$filename}");
             File::ensureDirectoryExists(dirname($path), 0775, true);
-            imagepng($target, $path);
-            imagedestroy($target);
+            if ($targetWidth === $width && $targetHeight === $height) {
+                imagepng($source, $path);
+            } else {
+                $target = imagecreatetruecolor($targetWidth, $targetHeight);
+                imagealphablending($target, false);
+                imagesavealpha($target, true);
+                $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+                imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
+                imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+                imagepng($target, $path);
+                imagedestroy($target);
+            }
             $saved[] = $path;
         }
 
@@ -2981,12 +4153,34 @@ class AdminController extends Controller
 
     private function nextCostumeIconId(): int
     {
-        $fileMax = $this->maxNumericAssetFileId('data/icon/x4', '/^(\d+)$/');
-        $templateMax = (int) (DB::connection('game')->table('item_template')->max('icon_id') ?? 0);
-        $avatarMax = Schema::connection('game')->hasTable('head_avatar')
-            ? (int) (DB::connection('game')->table('head_avatar')->max('avatar_id') ?? 0)
-            : 0;
-        return max(1, min(32767, max($fileMax, $templateMax, $avatarMax) + 1));
+        $max = $this->usedGameIconMax();
+        return max(1, min(32767, $max + 1));
+    }
+
+    private function nextFlagBagId(): int
+    {
+        if (!Schema::connection('game')->hasTable('flag_bag')) {
+            return 0;
+        }
+
+        $existing = DB::connection('game')->table('flag_bag')
+            ->pluck('id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+        $set = array_flip($existing);
+        $max = $existing ? max($existing) : -1;
+        for ($id = max(0, $max + 1); $id <= 255; $id++) {
+            if (!isset($set[$id])) {
+                return $id;
+            }
+        }
+        for ($id = 0; $id <= 255; $id++) {
+            if (!isset($set[$id])) {
+                return $id;
+            }
+        }
+
+        throw new \RuntimeException('Không còn flag_bag ID trống hợp lệ (0-255).');
     }
 
     private function resolveCostumeIconId(?int $candidate, array $used): int
@@ -3013,12 +4207,7 @@ class AdminController extends Controller
             return false;
         }
 
-        foreach ([1, 2, 3, 4] as $zoom) {
-            if (is_file($this->gameSrcPath("data/icon/x{$zoom}/{$id}.png"))) {
-                return false;
-            }
-        }
-        return true;
+        return !isset($this->usedGameIconIds()[$id]);
     }
 
     private function parsePartLayers(string $raw): array
@@ -3089,6 +4278,26 @@ class AdminController extends Controller
         }, $layers);
     }
 
+    private function rewritePetPartLayers(array $layers, array $idMap): array
+    {
+        return array_map(function ($entry) use ($idMap) {
+            $iconId = (int) $entry[0];
+            if ($this->isPetPlaceholderLayer($entry)) {
+                return [
+                    $iconId,
+                    (int) $entry[1],
+                    (int) $entry[2],
+                ];
+            }
+
+            return [
+                $idMap[$iconId] ?? $iconId,
+                (int) $entry[1],
+                (int) $entry[2],
+            ];
+        }, $layers);
+    }
+
     private function completeSequentialSpriteIdMap(array $idMap, array $uploadedIds, array $layers): array
     {
         $uploadedIds = array_values(array_unique(array_filter(array_map('intval', $uploadedIds), fn($id) => $id > 0)));
@@ -3118,6 +4327,46 @@ class AdminController extends Controller
         }
 
         return $idMap;
+    }
+
+    private function completePetSpriteIdMap(array $idMap, array $uploadedIds, array $layers): array
+    {
+        $uploadedIds = array_values(array_unique(array_filter(array_map('intval', $uploadedIds), fn($id) => $id > 0)));
+        if (!$uploadedIds) {
+            return $idMap;
+        }
+
+        $sourceIds = [];
+        foreach ($layers as $entry) {
+            if (!is_array($entry) || !isset($entry[0]) || $this->isPetPlaceholderLayer($entry)) {
+                continue;
+            }
+
+            $sourceId = (int) $entry[0];
+            if ($sourceId > 0 && !isset($idMap[$sourceId])) {
+                $sourceIds[$sourceId] = true;
+            }
+        }
+
+        $sourceIds = array_keys($sourceIds);
+        sort($sourceIds);
+        foreach ($sourceIds as $index => $sourceId) {
+            if (!isset($uploadedIds[$index])) {
+                break;
+            }
+            $idMap[$sourceId] = $uploadedIds[$index];
+        }
+
+        return $idMap;
+    }
+
+    private function isPetPlaceholderLayer(array $entry): bool
+    {
+        $iconId = (int) ($entry[0] ?? 0);
+        $dx = (int) ($entry[1] ?? 0);
+        $dy = (int) ($entry[2] ?? 0);
+
+        return $iconId === 2955 && $dx === 0 && $dy === 0;
     }
 
     private function temporaryCostumeSourceIconIds(Request $request): array
@@ -3324,6 +4573,104 @@ class AdminController extends Controller
             : 0;
     }
 
+    private function parseFlagBagIconData(string $raw): array
+    {
+        if (!preg_match_all('/\d+/', $raw, $matches)) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map(
+            fn($value) => (int) $value,
+            $matches[0],
+        ), fn($id) => $id > 0 && $id <= 32767)));
+        sort($ids, SORT_NUMERIC);
+
+        return $ids;
+    }
+
+    private function usedGameIconIds(): array
+    {
+        if ($this->usedGameIconIdsCache !== null) {
+            return $this->usedGameIconIdsCache;
+        }
+
+        $used = [];
+        $remember = function ($value) use (&$used): void {
+            $id = (int) $value;
+            if ($id > 0 && $id <= 32767) {
+                $used[$id] = true;
+            }
+        };
+
+        $game = DB::connection('game');
+        if (Schema::connection('game')->hasTable('item_template')) {
+            foreach ($game->table('item_template')->where('icon_id', '>', 0)->pluck('icon_id') as $iconId) {
+                $remember($iconId);
+            }
+        }
+
+        if (Schema::connection('game')->hasTable('head_avatar')) {
+            foreach ($game->table('head_avatar')->where('avatar_id', '>', 0)->pluck('avatar_id') as $iconId) {
+                $remember($iconId);
+            }
+        }
+
+        if (Schema::connection('game')->hasTable('flag_bag')) {
+            foreach ($game->table('flag_bag')->get(['icon_id', 'icon_data']) as $flagRow) {
+                $remember($flagRow->icon_id ?? 0);
+                foreach ($this->parseFlagBagIconData((string) ($flagRow->icon_data ?? '')) as $iconId) {
+                    $remember($iconId);
+                }
+            }
+        }
+
+        if (Schema::connection('game')->hasTable('part')) {
+            foreach ($game->table('part')->get(['DATA']) as $part) {
+                foreach ($this->decodePartData($part->DATA ?? '') as $layer) {
+                    $remember($layer['icon_id'] ?? 0);
+                }
+            }
+        }
+
+        foreach ([1, 2, 3, 4] as $zoom) {
+            $dir = $this->gameSrcPath("data/icon/x{$zoom}");
+            if (!is_dir($dir)) {
+                continue;
+            }
+            foreach (glob($dir . DIRECTORY_SEPARATOR . '*.png') ?: [] as $file) {
+                $name = pathinfo($file, PATHINFO_FILENAME);
+                if (is_numeric($name)) {
+                    $remember($name);
+                }
+            }
+        }
+
+        $this->usedGameIconIdsCache = $used;
+        $this->usedGameIconMaxCache = $used ? max(array_keys($used)) : 0;
+
+        return $used;
+    }
+
+    private function usedGameIconMax(): int
+    {
+        if ($this->usedGameIconMaxCache !== null) {
+            return $this->usedGameIconMaxCache;
+        }
+
+        $this->usedGameIconIds();
+        return (int) $this->usedGameIconMaxCache;
+    }
+
+    private function maxPartIconId(): int
+    {
+        return $this->usedGameIconMax();
+    }
+
+    private function partDataUsesIconId(int $targetIconId): bool
+    {
+        return $targetIconId > 0 && isset($this->usedGameIconIds()[$targetIconId]);
+    }
+
     private function looksLikeCostumeExtraHead($game, int $headId, array $knownPartIds): bool
     {
         if (isset($knownPartIds[$headId])) {
@@ -3354,6 +4701,7 @@ class AdminController extends Controller
         if (!$iconIds) {
             return [];
         }
+        $wanted = array_flip($iconIds);
 
         $referenced = [];
         $templateIconIds = $game->table('item_template')
@@ -3378,8 +4726,26 @@ class AdminController extends Controller
         foreach ($parts as $part) {
             foreach ($this->decodePartData($part->DATA ?? '') as $layer) {
                 $iconId = (int) ($layer['icon_id'] ?? 0);
-                if (in_array($iconId, $iconIds, true)) {
+                if (isset($wanted[$iconId])) {
                     $referenced[$iconId] = true;
+                }
+            }
+        }
+
+        if (Schema::connection('game')->hasTable('flag_bag')) {
+            $flagIconIds = $game->table('flag_bag')
+                ->whereIn('icon_id', $iconIds)
+                ->pluck('icon_id')
+                ->all();
+            foreach ($flagIconIds as $iconId) {
+                $referenced[(int) $iconId] = true;
+            }
+
+            foreach ($game->table('flag_bag')->get(['icon_data']) as $flagRow) {
+                foreach ($this->parseFlagBagIconData((string) ($flagRow->icon_data ?? '')) as $iconId) {
+                    if (isset($wanted[$iconId])) {
+                        $referenced[$iconId] = true;
+                    }
                 }
             }
         }
@@ -3411,15 +4777,7 @@ class AdminController extends Controller
         }
 
         if ($kind === 'icon') {
-            if (DB::connection('game')->table('item_template')->where('icon_id', $id)->exists()) {
-                return false;
-            }
-            foreach ([1, 2, 3, 4] as $zoom) {
-                if (is_file($this->gameSrcPath("data/icon/x{$zoom}/{$id}.png"))) {
-                    return false;
-                }
-            }
-            return true;
+            return !isset($this->usedGameIconIds()[$id]);
         }
 
         if (DB::connection('game')->table('item_template')->where('part', $id)->exists()) {
@@ -3442,9 +4800,7 @@ class AdminController extends Controller
     private function nextFreeGameAssetStart(string $kind): int
     {
         if ($kind === 'icon') {
-            $dbMax = (int) (DB::connection('game')->table('item_template')->max('icon_id') ?? 0);
-            $fileMax = $this->maxNumericAssetFileId('data/icon/x4', '/^(\d+)$/');
-            return max(1, min(32767, max($dbMax, $fileMax) + 1));
+            return max(1, min(32767, $this->usedGameIconMax() + 1));
         }
 
         $dbMax = (int) (DB::connection('game')->table('item_template')->where('part', '>=', 0)->max('part') ?? 0);
@@ -3455,10 +4811,15 @@ class AdminController extends Controller
 
     private function maxNumericAssetFileId(string $relativeDir, string $pattern): int
     {
+        $cacheKey = $relativeDir . '|' . $pattern;
+        if (array_key_exists($cacheKey, $this->assetFileMaxCache)) {
+            return $this->assetFileMaxCache[$cacheKey];
+        }
+
         $max = 0;
         $dir = $this->gameSrcPath($relativeDir);
         if (!is_dir($dir)) {
-            return 0;
+            return $this->assetFileMaxCache[$cacheKey] = 0;
         }
         foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
             $name = pathinfo($file, PATHINFO_FILENAME);
@@ -3469,7 +4830,7 @@ class AdminController extends Controller
                 }
             }
         }
-        return $max;
+        return $this->assetFileMaxCache[$cacheKey] = $max;
     }
 
     private function pairTitleAssetIds(array $iconIds, array $effectIds, array $fallbackIds): array
