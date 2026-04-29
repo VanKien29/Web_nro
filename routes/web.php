@@ -155,6 +155,16 @@ Route::prefix('admin')->group(function () {
         Route::get('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesGet'])->whereNumber('id');
         Route::post('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesUpdate'])->whereNumber('id');
         Route::delete('/api/costumes/{id}', [\App\Http\Controllers\Api\AdminController::class, 'costumesDelete'])->whereNumber('id');
+        Route::get('/api/pets', [\App\Http\Controllers\Api\AdminController::class, 'petsList']);
+        Route::post('/api/pets', [\App\Http\Controllers\Api\AdminController::class, 'petsCreate']);
+        Route::get('/api/pets/{id}', [\App\Http\Controllers\Api\AdminController::class, 'petsGet'])->whereNumber('id');
+        Route::post('/api/pets/{id}', [\App\Http\Controllers\Api\AdminController::class, 'petsUpdate'])->whereNumber('id');
+        Route::delete('/api/pets/{id}', [\App\Http\Controllers\Api\AdminController::class, 'petsDelete'])->whereNumber('id');
+        Route::get('/api/back-accessories', [\App\Http\Controllers\Api\AdminController::class, 'backAccessoriesList']);
+        Route::post('/api/back-accessories', [\App\Http\Controllers\Api\AdminController::class, 'backAccessoriesCreate']);
+        Route::get('/api/back-accessories/{id}', [\App\Http\Controllers\Api\AdminController::class, 'backAccessoriesGet'])->whereNumber('id');
+        Route::post('/api/back-accessories/{id}', [\App\Http\Controllers\Api\AdminController::class, 'backAccessoriesUpdate'])->whereNumber('id');
+        Route::delete('/api/back-accessories/{id}', [\App\Http\Controllers\Api\AdminController::class, 'backAccessoriesDelete'])->whereNumber('id');
 
         // Shops
         Route::get('/api/shops', [\App\Http\Controllers\Api\AdminController::class, 'shopsList']);

@@ -10,6 +10,8 @@ const pageLoaders = {
     items: () => import("./pages/ItemsPage.vue"),
     badges: () => import("./pages/BadgesPage.vue"),
     costumes: () => import("./pages/CostumesPage.vue"),
+    pets: () => import("./pages/PetsPage.vue"),
+    backAccessories: () => import("./pages/BackAccessoriesPage.vue"),
     milestones: () => import("./pages/MilestonesPage.vue"),
     milestoneForm: () => import("./pages/MilestoneFormPage.vue"),
     shops: () => import("./pages/ShopsPage.vue"),
@@ -101,6 +103,18 @@ const routes = [
         path: "/admin/costumes",
         name: "admin.costumes",
         component: () => loadAdminPage("costumes"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/pets",
+        name: "admin.pets",
+        component: () => loadAdminPage("pets"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/back-accessories",
+        name: "admin.back_accessories",
+        component: () => loadAdminPage("backAccessories"),
         meta: { auth: true },
     },
     {
