@@ -1,24 +1,30 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 
 const pageLoaders = {
-    login: () => import("./pages/LoginPage.vue"),
-    dashboard: () => import("./pages/DashboardPage.vue"),
-    accounts: () => import("./pages/AccountsPage.vue"),
-    accountForm: () => import("./pages/AccountFormPage.vue"),
-    giftcodes: () => import("./pages/GiftcodesPage.vue"),
-    giftcodeForm: () => import("./pages/GiftcodeFormPage.vue"),
-    items: () => import("./pages/ItemsPage.vue"),
-    badges: () => import("./pages/BadgesPage.vue"),
-    costumes: () => import("./pages/CostumesPage.vue"),
-    pets: () => import("./pages/PetsPage.vue"),
-    backAccessories: () => import("./pages/BackAccessoriesPage.vue"),
-    milestones: () => import("./pages/MilestonesPage.vue"),
-    milestoneForm: () => import("./pages/MilestoneFormPage.vue"),
-    shops: () => import("./pages/ShopsPage.vue"),
-    shopTabForm: () => import("./pages/ShopTabFormPage.vue"),
-    bosses: () => import("./pages/BossesPage.vue"),
-    mapMobs: () => import("./pages/MapMobsPage.vue"),
-    logs: () => import("./pages/AdminLogsPage.vue"),
+    login: () => import("./features/auth/LoginPage.vue"),
+    dashboard: () => import("./features/dashboard/DashboardPage.vue"),
+    accounts: () => import("./features/accounts/AccountsPage.vue"),
+    accountForm: () => import("./features/accounts/AccountFormPage.vue"),
+    giftcodes: () => import("./features/giftcodes/GiftcodesPage.vue"),
+    giftcodeForm: () =>
+        import("./features/giftcodes/GiftcodeFormPage.vue"),
+    items: () => import("./features/items/ItemsPage.vue"),
+    badges: () => import("./features/game-assets/BadgesPage.vue"),
+    costumes: () => import("./features/game-assets/CostumesPage.vue"),
+    pets: () => import("./features/game-assets/PetsPage.vue"),
+    backAccessories: () =>
+        import("./features/game-assets/BackAccessoriesPage.vue"),
+    milestones: () =>
+        import("./features/milestones/MilestonesPage.vue"),
+    milestoneForm: () =>
+        import("./features/milestones/MilestoneFormPage.vue"),
+    shops: () => import("./features/shops/ShopsPage.vue"),
+    shopTabForm: () => import("./features/shops/ShopTabFormPage.vue"),
+    bosses: () => import("./features/runtime/BossesPage.vue"),
+    mapMobs: () => import("./features/runtime/MapMobsPage.vue"),
+    runtimeBuffs: () =>
+        import("./features/runtime/RuntimeBuffsPage.vue"),
+    logs: () => import("./features/logs/AdminLogsPage.vue"),
 };
 
 const loadedPages = new Map();
@@ -157,6 +163,12 @@ const routes = [
         path: "/admin/map-mobs",
         name: "admin.map_mobs",
         component: () => loadAdminPage("mapMobs"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/runtime-buffs",
+        name: "admin.runtime_buffs",
+        component: () => loadAdminPage("runtimeBuffs"),
         meta: { auth: true },
     },
     {
