@@ -45,6 +45,8 @@ return [
         'key' => env('GAME_RUNTIME_KEY', 'web-admin'),
         'secret' => env('GAME_RUNTIME_SECRET', ''),
         'timeout' => env('GAME_RUNTIME_TIMEOUT', 5),
+        'udp_host' => env('GAME_RUNTIME_UDP_HOST', '127.0.0.1'),
+        'udp_port' => env('GAME_RUNTIME_UDP_PORT', 14445),
     ],
 
     'recaptcha' => [

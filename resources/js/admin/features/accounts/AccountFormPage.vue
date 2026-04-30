@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="account-form-page">
         <!-- Page header -->
         <div class="page-top">
             <div>
@@ -518,7 +518,7 @@
                         </div>
                     </div>
 
-                    <div class="card" v-if="isEdit">
+                    <div class="card" v-if="false">
                         <div class="card-header">
                             <h3>Dữ liệu nhân vật (player)</h3>
                         </div>
@@ -1620,8 +1620,6 @@ export default {
                 this.form.is_admin = Number(a.is_admin) ? "1" : "0";
                 this.form.active = Number(a.active) ? "1" : "0";
                 this.form.ban = Number(a.ban) ? "1" : "0";
-                this.playerInfo = a.player || null;
-
                 await this.loadAccountActivity();
             } catch (error) {
                 this.error = error?.message || "Không thể tải dữ liệu";
@@ -1704,28 +1702,35 @@ export default {
 </script>
 
 <style scoped>
+.account-form-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
 .page-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 24px;
     gap: 16px;
     flex-wrap: wrap;
 }
 .page-title {
-    font-size: 20px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--ds-text-emphasis);
-    margin-bottom: 4px;
+    line-height: 1.15;
+    margin: 0 0 6px;
 }
 .breadcrumb {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    font-size: 13px;
+    font-size: 15px;
 }
 .breadcrumb a {
-    color: var(--ds-text-muted);
+    color: var(--ds-primary);
+    text-decoration: none;
 }
 .breadcrumb a:hover {
     color: var(--ds-primary);
@@ -1736,26 +1741,74 @@ export default {
 .breadcrumb .current {
     color: var(--ds-text);
 }
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    line-height: 1;
+    white-space: nowrap;
+}
+.mi {
+    font-family: "Material Icons Round";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+}
 .required {
     color: var(--ds-danger);
 }
 .form-layout {
     display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 20px;
     align-items: start;
 }
 .form-main {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 18px;
 }
 .form-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
     position: sticky;
     top: 92px;
+}
+.card {
+    border-radius: 8px;
+}
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.card-header h3 {
+    margin: 0;
+    color: var(--ds-text-emphasis);
+    font-size: 18px;
+    line-height: 1.25;
+}
+.form-group {
+    margin-bottom: 14px;
+}
+.form-group:last-child {
+    margin-bottom: 0;
 }
 .form-row-3 {
     display: grid;
@@ -1766,7 +1819,7 @@ export default {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
-    margin-top: 16px;
+    margin-top: 2px;
 }
 @media (max-width: 1100px) {
     .form-layout {

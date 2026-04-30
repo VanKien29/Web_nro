@@ -19,13 +19,11 @@ class AccountService extends AdminServiceSupport
 
         $query = Account::query()
             ->select(['id', 'username', 'ban', 'is_admin', 'active', 'cash', 'danap', 'coin', 'diem_da_nhan'])
-            ->selectRaw('`DiemDanh` as diem_danh')
-            ->with(['player:id,account_id,name,gender,data_point']);
+            ->selectRaw('`DiemDanh` as diem_danh');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('username', 'LIKE', "%{$search}%")
-                    ->orWhereHas('player', fn($pq) => $pq->where('name', 'LIKE', "%{$search}%"));
+                $q->where('username', 'LIKE', "%{$search}%");
             });
         }
 
@@ -42,9 +40,6 @@ class AccountService extends AdminServiceSupport
                 'coin' => (int) ($acc->coin ?? 0),
                 'diem_da_nhan' => (int) ($acc->diem_da_nhan ?? 0),
                 'diem_danh' => (int) ($acc->diem_danh ?? 0),
-                'player_name' => $acc->player?->name,
-                'player_gender' => $acc->player ? (int) $acc->player->gender : null,
-                'player_power' => $acc->player ? (int) $acc->player->power : 0,
             ]);
 
         return [
@@ -59,12 +54,10 @@ class AccountService extends AdminServiceSupport
 
     public function get(int $id): array
     {
-        $account = Account::query()->with('player')->find($id);
+        $account = Account::query()->find($id);
         if (!$account) {
             return ['ok' => false, 'status' => 404, 'message' => 'Tài khoản không tồn tại'];
         }
-
-        $player = $account->player;
 
         return [
             'ok' => true,
@@ -91,14 +84,6 @@ class AccountService extends AdminServiceSupport
                 'vang' => (int) ($account->vang ?? 0),
                 'event_point' => (int) ($account->event_point ?? 0),
                 'last_diem_danh' => $account->lastDiemDanh,
-                'player' => $player ? [
-                    'id' => (int) $player->id,
-                    'name' => $player->name,
-                    'gender' => (int) ($player->gender ?? 0),
-                    'head' => (int) ($player->head ?? 0),
-                    'power' => (int) ($player->power ?? 0),
-                    'task' => $this->buildTaskSummary($player->data_task ?? null),
-                ] : null,
             ],
         ];
     }

@@ -72,6 +72,17 @@
                     </div>
                     <div class="nav-item">
                         <router-link
+                            to="/admin/players"
+                            class="nav-link"
+                            :class="{ active: $route.name === 'admin.players' }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">person_search</span>
+                            <span class="text">Người chơi</span>
+                        </router-link>
+                    </div>
+                    <div class="nav-item">
+                        <router-link
                             to="/admin/shops"
                             class="nav-link"
                             :class="{

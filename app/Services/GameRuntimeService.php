@@ -62,6 +62,11 @@ class GameRuntimeService
         return $this->post('/internal/runtime/buffs/account', $payload);
     }
 
+    public function syncPlayerInventory(array $payload): array
+    {
+        return $this->post('/internal/runtime/player/inventory', $payload);
+    }
+
     public function health(): array
     {
         return $this->request('GET', '/internal/runtime/health', []);
