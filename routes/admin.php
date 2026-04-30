@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Admin\GiftcodeController;
 use App\Http\Controllers\Api\Admin\ItemController;
 use App\Http\Controllers\Api\Admin\MilestoneController;
 use App\Http\Controllers\Api\Admin\PetController;
+use App\Http\Controllers\Api\Admin\PlayerController;
 use App\Http\Controllers\Api\Admin\ShopController;
 use App\Http\Controllers\Api\Admin\TitleItemController;
 use App\Http\Controllers\Api\AdminRuntimeController;
@@ -41,6 +42,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/api/accounts', [AccountController::class, 'store']);
         Route::put('/api/accounts/{id}', [AccountController::class, 'update'])->whereNumber('id');
         Route::delete('/api/accounts/{id}', [AccountController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('/api/players', [PlayerController::class, 'index']);
+        Route::get('/api/players/inventory/search', [PlayerController::class, 'inventorySearch']);
+        Route::get('/api/players/{id}', [PlayerController::class, 'show'])->whereNumber('id');
+        Route::put('/api/players/{id}/stats', [PlayerController::class, 'updateStats'])->whereNumber('id');
+        Route::post('/api/players/{id}/inventory/buff', [PlayerController::class, 'buffInventory'])->whereNumber('id');
+        Route::post('/api/players/{id}/inventory/revoke', [PlayerController::class, 'revokeInventory'])->whereNumber('id');
 
         Route::get('/api/giftcodes', [GiftcodeController::class, 'index']);
         Route::get('/api/giftcodes/{id}', [GiftcodeController::class, 'show'])->whereNumber('id');

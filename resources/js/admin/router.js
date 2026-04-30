@@ -5,6 +5,7 @@ const pageLoaders = {
     dashboard: () => import("./features/dashboard/DashboardPage.vue"),
     accounts: () => import("./features/accounts/AccountsPage.vue"),
     accountForm: () => import("./features/accounts/AccountFormPage.vue"),
+    players: () => import("./features/runtime/PlayersPage.vue"),
     giftcodes: () => import("./features/giftcodes/GiftcodesPage.vue"),
     giftcodeForm: () =>
         import("./features/giftcodes/GiftcodeFormPage.vue"),
@@ -73,6 +74,12 @@ const routes = [
         path: "/admin/accounts/:id/edit",
         name: "admin.accounts.edit",
         component: () => loadAdminPage("accountForm"),
+        meta: { auth: true },
+    },
+    {
+        path: "/admin/players",
+        name: "admin.players",
+        component: () => loadAdminPage("players"),
         meta: { auth: true },
     },
     {

@@ -1,5 +1,5 @@
 ﻿<template>
-    <div>
+    <div class="accounts-page">
         <!-- Page header -->
         <div class="page-top">
             <div>
@@ -16,8 +16,8 @@
                 :to="{ name: 'admin.accounts.create' }"
                 class="btn btn-primary"
             >
-                <span class="mi" style="font-size: 16px">person_add</span> Tạo
-                tài khoản
+                <span class="mi">person_add</span>
+                <span>Tạo tài khoản</span>
             </router-link>
         </div>
 
@@ -29,7 +29,7 @@
                     <input
                         v-model="search"
                         class="form-input search-input"
-                        placeholder="Tìm username hoặc tên nhân vật..."
+                        placeholder="Tìm username..."
                     />
                 </div>
                 <button class="btn btn-primary btn-sm" type="submit">
@@ -52,7 +52,6 @@
                         <tr>
                             <th>ID</th>
                             <th>Username</th>
-                            <th>Nhân vật</th>
                             <th>Ban</th>
                             <th>Admin</th>
                             <th>Active</th>
@@ -68,27 +67,6 @@
                         <tr v-for="acc in accounts" :key="acc.id">
                             <td>{{ acc.id }}</td>
                             <td style="font-weight: 500">{{ acc.username }}</td>
-                            <td>
-                                <div v-if="acc.player_name" class="player-cell">
-                                    <div class="player-name">
-                                        {{ acc.player_name }}
-                                    </div>
-                                    <div class="player-meta">
-                                        <span class="badge badge-info"
-                                            >SM
-                                            {{
-                                                fmt(acc.player_power || 0)
-                                            }}</span
-                                        >
-                                        <span class="gender-chip">{{
-                                            genderText(acc.player_gender)
-                                        }}</span>
-                                    </div>
-                                </div>
-                                <span v-else class="player-empty"
-                                    >Chưa tạo nhân vật</span
-                                >
-                            </td>
                             <td>
                                 <span v-if="acc.ban" class="badge badge-danger"
                                     >Có</span
@@ -249,16 +227,16 @@
                                         params: { id: acc.id },
                                     }"
                                     class="btn btn-primary btn-sm"
+                            >
+                                <span class="mi" style="font-size: 14px"
+                                    >edit</span
                                 >
-                                    <span class="mi" style="font-size: 14px"
-                                        >edit</span
-                                    >
-                                    Sửa
-                                </router-link>
+                                <span>Sửa</span>
+                            </router-link>
                             </td>
                         </tr>
                         <!-- <tr v-if="loading" class="admin-loading-row">
-                            <td colspan="12">
+                            <td colspan="11">
                                 <span class="admin-loading-row__content">
                                     <span class="admin-loading-spinner"></span>
                                 </span>
@@ -266,7 +244,7 @@
                         </tr> -->
                         <tr v-if="!accounts.length && !loading">
                             <td
-                                colspan="12"
+                                colspan="11"
                                 style="
                                     text-align: center;
                                     color: var(--ds-text-muted);
@@ -376,13 +354,6 @@ export default {
         fmt(n) {
             return Number(n || 0).toLocaleString("vi-VN");
         },
-        genderText(gender) {
-            const g = Number(gender);
-            if (g === 0) return "Trái Đất";
-            if (g === 1) return "Namec";
-            if (g === 2) return "Xayda";
-            return "Không rõ";
-        },
         async loadPage(p) {
             this.loading = true;
             this.loadError = "";
@@ -467,28 +438,35 @@ export default {
 </script>
 
 <style scoped>
+.accounts-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
 .page-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 24px;
     gap: 16px;
     flex-wrap: wrap;
 }
 .page-title {
-    font-size: 20px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--ds-text-emphasis);
-    margin-bottom: 4px;
+    line-height: 1.15;
+    margin: 0 0 6px;
 }
 .breadcrumb {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    font-size: 13px;
+    font-size: 15px;
 }
 .breadcrumb a {
-    color: var(--ds-text-muted);
+    color: var(--ds-primary);
+    text-decoration: none;
 }
 .breadcrumb a:hover {
     color: var(--ds-primary);
@@ -499,15 +477,44 @@ export default {
 .breadcrumb .current {
     color: var(--ds-text);
 }
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    line-height: 1;
+    white-space: nowrap;
+}
+.mi {
+    font-family: "Material Icons Round";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+}
 .filter-bar {
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 .search-form {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
 }
 .search-input-wrap {
     position: relative;
+    width: min(460px, 100%);
 }
 .search-icon {
     position: absolute;
@@ -520,33 +527,28 @@ export default {
 }
 .search-input {
     padding-left: 38px !important;
-    width: 300px;
+    width: 100%;
 }
-.player-cell {
-    min-width: 150px;
+.card {
+    overflow: hidden;
 }
-.player-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ds-text-emphasis);
+.table-wrap {
+    overflow: auto;
 }
-.player-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+table {
+    min-width: 1040px;
 }
-.gender-chip {
-    font-size: 11px;
-    color: var(--ds-text-muted);
-    background: var(--ds-gray-100);
-    border: 1px solid var(--ds-border);
-    border-radius: 999px;
-    padding: 2px 8px;
+th,
+td {
+    padding: 13px 14px;
 }
-.player-empty {
-    color: var(--ds-text-muted);
-    font-size: 12px;
+td:first-child,
+th:first-child {
+    width: 72px;
+}
+td:last-child,
+th:last-child {
+    width: 92px;
 }
 .editable-cell {
     cursor: default;
