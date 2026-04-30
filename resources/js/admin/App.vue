@@ -122,6 +122,19 @@
                             <span class="text">Map - Mob</span>
                         </router-link>
                     </div>
+                    <div class="nav-item">
+                        <router-link
+                            to="/admin/runtime-buffs"
+                            class="nav-link"
+                            :class="{
+                                active: $route.name === 'admin.runtime_buffs',
+                            }"
+                            @click="closeMobile"
+                        >
+                            <span class="nav-icon mi">bolt</span>
+                            <span class="text">Buff command</span>
+                        </router-link>
+                    </div>
 
                     <div class="nav-heading">Thêm Vật Phẩm</div>
                     <hr class="nav-line" />
@@ -399,6 +412,7 @@ export default {
                 "milestones",
                 "bosses",
                 "mapMobs",
+                "runtimeBuffs",
                 "logs",
             ]);
         if ("requestIdleCallback" in window) {
@@ -453,7 +467,7 @@ export default {
         },
         updateScrollLock() {
             const hasFloatingMenu = !!document.querySelector(
-                ".admin-app .modal-overlay, .admin-app .picker-overlay, .admin-app .option-dropdown",
+                ".admin-app .modal-overlay, .admin-app .picker-overlay",
             );
             if (hasFloatingMenu) {
                 this.lockBodyScroll();
@@ -654,11 +668,44 @@ body.admin-scroll-lock {
     margin: 0 auto;
 }
 .admin-app .option-dropdown,
+.admin-app .item-search-results,
 .admin-app .user-dropdown,
 .admin-app .boss-side,
 .admin-app .group-grid,
 .admin-app .catalog-list {
     overscroll-behavior: contain;
+}
+.admin-app .option-dropdown,
+.admin-app .item-search-results {
+    position: absolute !important;
+    z-index: 7000 !important;
+    max-height: min(320px, 52vh) !important;
+    overflow-y: auto !important;
+    background: var(--ds-surface-2) !important;
+    border: 1px solid var(--ds-border) !important;
+    box-shadow: var(--ds-shadow-xl) !important;
+}
+.admin-app .option-select-wrap,
+.admin-app .item-search-wrap {
+    position: relative !important;
+    z-index: 100 !important;
+}
+.admin-app .option-select-wrap:focus-within,
+.admin-app .item-search-wrap:focus-within {
+    z-index: 7100 !important;
+}
+.admin-app .card,
+.admin-app .item-card,
+.admin-app .items-table-wrap,
+.admin-app .table-wrap,
+.admin-app .buff-items-table-wrap {
+    overflow: visible !important;
+}
+.admin-app table,
+.admin-app tbody,
+.admin-app tr,
+.admin-app td {
+    overflow: visible !important;
 }
 
 /* Material icon shorthand */

@@ -8,7 +8,7 @@
             loading="lazy"
             decoding="async"
             @load="loaded = true"
-            @error="failed = true"
+            @error="handleError"
         />
     </span>
 </template>
@@ -30,6 +30,7 @@ export default {
         return {
             failed: false,
             loaded: false,
+            fallback: false,
         };
     },
     computed: {
@@ -43,13 +44,28 @@ export default {
             }
             const id = Number(this.iconId);
             if (!Number.isInteger(id) || id < 0) return "";
-            return `/assets/frontend/home/v1/images/x4/${id}.png`;
+            return this.fallback
+                ? `/assets/frontend/home/v1/images/x4/${id}.png`
+                : `/assets/game-icons/x4/${id}.png`;
         },
     },
     watch: {
         resolvedSrc() {
             this.failed = false;
             this.loaded = false;
+        },
+        iconId() {
+            this.fallback = false;
+        },
+    },
+    methods: {
+        handleError() {
+            if (!this.fallback) {
+                this.fallback = true;
+                this.failed = false;
+                return;
+            }
+            this.failed = true;
         },
     },
 };

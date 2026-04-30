@@ -37,40 +37,42 @@
                 </div>
 
                 <table class="table-info">
-                    <tr>
-                        <td>Ngân hàng:</td>
-                        <td>
-                            <b>{{ bankName }}</b>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Số TK:</td>
-                        <td>
-                            <b>{{ bankAccount }}</b>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Chủ TK:</td>
-                        <td>{{ bankOwner }}</td>
-                    </tr>
-                    <tr>
-                        <td>Số tiền nạp:</td>
-                        <td>
-                            <input
-                                v-model.number="amount"
-                                type="number"
-                                min="10000"
-                                placeholder="10000"
-                                @input="updateQR"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Nội dung CK:</td>
-                        <td>
-                            <b>{{ transferContent }}</b>
-                        </td>
-                    </tr>
+                    <tbody>
+                        <tr>
+                            <td>Ngân hàng:</td>
+                            <td>
+                                <b>{{ bankName }}</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Số TK:</td>
+                            <td>
+                                <b>{{ bankAccount }}</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Chủ TK:</td>
+                            <td>{{ bankOwner }}</td>
+                        </tr>
+                        <tr>
+                            <td>Số tiền nạp:</td>
+                            <td>
+                                <input
+                                    v-model.number="amount"
+                                    type="number"
+                                    min="10000"
+                                    placeholder="10000"
+                                    @input="updateQR"
+                                />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Nội dung CK:</td>
+                            <td>
+                                <b>{{ transferContent }}</b>
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
                 <p style="color: red; text-align: center; font-size: 14px">
                     Tối thiểu: 10.000đ

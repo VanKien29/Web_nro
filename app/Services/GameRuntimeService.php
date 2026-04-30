@@ -52,6 +52,16 @@ class GameRuntimeService
         return $this->post('/internal/runtime/map-mobs', $payload);
     }
 
+    public function buffMail(array $payload): array
+    {
+        return $this->post('/internal/runtime/buffs/mail', $payload);
+    }
+
+    public function buffAccount(array $payload): array
+    {
+        return $this->post('/internal/runtime/buffs/account', $payload);
+    }
+
     public function health(): array
     {
         return $this->request('GET', '/internal/runtime/health', []);
